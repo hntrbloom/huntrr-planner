@@ -145,11 +145,11 @@ export function NotesView() {
 
   return (
     <div className="flex-1 md:overflow-y-auto flex flex-col md:flex-row pb-safe-nav md:pb-0 px-2 sm:px-4 md:px-margin-desktop gap-gutter pt-2">
+      <SyncStatus status={syncStatus} />
       <section className={`w-full md:w-80 lg:w-[360px] shrink-0 ${activeNote ? "hidden md:flex" : "flex"} flex-col md:h-full bg-surface-container-lowest/50 rounded-2xl md:rounded-r-none border border-surface-container-low overflow-hidden shadow-sm`}>
         <div className="p-4 border-b border-surface-container-low flex justify-between items-center bg-surface shrink-0">
           <h3 className="text-[18px] md:text-[22px] leading-[1.4] font-semibold font-headline-sm text-on-surface">Notebook</h3>
           <div className="flex items-center gap-2">
-            <SyncStatus status={syncStatus} />
             <button aria-label="Add note" onClick={addNote} className="p-2 bg-primary text-on-primary hover:bg-primary/90 rounded-full transition-colors shadow-sm">
               <Plus className="w-5 h-5" />
             </button>
