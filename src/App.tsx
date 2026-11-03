@@ -174,7 +174,7 @@ export default function App() {
       {!isSidebarOpen && (
         <button
           onClick={() => setIsSidebarOpen(true)}
-          className="fixed bottom-[calc(env(safe-area-inset-bottom)+80px)] md:bottom-auto md:top-[20px] left-4 z-[60] p-2.5 bg-white/80 backdrop-blur-md hover:bg-white text-[#666666] hover:text-[#222222] rounded-full shadow-md transition-all border border-black/10 flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95"
+          className="fixed bottom-[calc(env(safe-area-inset-bottom)+80px)] md:bottom-auto md:top-[calc(var(--workspace-banner-height,0px)+20px)] left-4 z-[60] p-2.5 bg-white/80 backdrop-blur-md hover:bg-white text-[#666666] hover:text-[#222222] rounded-full shadow-md transition-all border border-black/10 flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95"
           aria-label="Open sidebar menu"
           title="Open menu"
         >
