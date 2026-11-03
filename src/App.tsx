@@ -1,6 +1,6 @@
 import { DialogAccessibility } from './components/DialogAccessibility';
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { Heart, House, NotebookPen, Settings, ChevronRight } from 'lucide-react';
+import { House, NotebookPen, Settings } from 'lucide-react';
 import { CatPlannerHeader } from './components/CatPlannerHeader';
 import { Sidebar } from './components/Navigation';
 import { ViewState } from './types';
@@ -152,7 +152,6 @@ export default function App() {
       />
       <StorageNotice />
       <DialogAccessibility />
-      <FocusTimer />
       <MedicationPopup />
       
       <Sidebar 
@@ -164,22 +163,25 @@ export default function App() {
       
       <a className="planner-skip-link" href="#planner-content" onClick={event => { event.preventDefault(); document.getElementById('planner-content')?.focus(); }}>Skip to planner page</a>
       <div className="planner-device">
-        <div className="planner-screen">
-          <div id="planner-content" tabIndex={-1} data-page={currentView} className="planner-page">
-        <ErrorBoundary key={currentView}>
-          <Suspense fallback={<div role="status" className="p-10 text-on-surface-variant">Loading your space…</div>}>{renderView()}</Suspense>
-        </ErrorBoundary>
+        <div className="planner-bezel">
+          <div className="planner-screen">
+            <div id="planner-content" tabIndex={-1} data-page={currentView} className="planner-page">
+              <ErrorBoundary key={currentView}>
+                <Suspense fallback={<div role="status" className="p-10 text-on-surface-variant">Loading your space…</div>}>{renderView()}</Suspense>
+              </ErrorBoundary>
+            </div>
           </div>
-          <div className="screen-footer"><span><span className="screen-status-dot" />{isLocalUser(user) ? 'On-device workspace' : 'Your private workspace'}</span><span>One little step at a time <Heart size={12} aria-hidden="true" /></span></div>
         </div>
         <footer className="device-bottom">
-          <div className="device-speaker" aria-hidden="true"><i /><i /><i /><i /><i /></div>
           <div className="device-controls">
             <button onClick={() => handleViewChange('agenda')} aria-label="Go home" title="Home"><House size={16} /></button>
             <button onClick={() => handleViewChange('notes')} aria-label="Open notebook" title="Notebook"><NotebookPen size={16} /></button>
             <button onClick={() => handleViewChange('settings')} aria-label="Open settings" title="Settings"><Settings size={16} /></button>
           </div>
-          <span className="device-model">little plans, big dreams <ChevronRight size={12} aria-hidden="true" /></span>
+          <div className="device-meta">
+            <span className="device-model">little plans.</span>
+            <FocusTimer />
+          </div>
         </footer>
       </div>
     </div>

@@ -36,7 +36,6 @@ html { scroll-padding-top: calc(var(--cat-header-height) + 16px); }
 .cat-planner-header .planner-tabs .all-pages-button { border-radius: 10px; }
 /* Reserve the same frame on every route; no page duplicates navigation. */
 .app-container.planner-world { padding-top: calc(var(--cat-header-height) + 16px); padding-bottom: 16px; }
-.planner-world .planner-device { height: calc(100dvh - var(--cat-header-height) - 32px); min-height: 420px; padding-top: 12px; }
 .planner-skip-link { z-index: 200; }
 @media (min-width: 768px) and (max-width: 1000px) {
   .cat-workspace-label { display: none; }
@@ -60,7 +59,6 @@ html { scroll-padding-top: calc(var(--cat-header-height) + 16px); }
   .cat-mobile-menu > span { display: none; }
   .cat-desktop-navigation { display: none; }
   .app-container.planner-world { padding-top: calc(var(--cat-header-height) + 16px); }
-  .planner-world .planner-device { height: auto; max-height: none; min-height: calc(100dvh - var(--cat-header-height) - 32px); padding-top: 10px; }
 }
 @media (min-width: 390px) and (max-width: 767px) {
   .cat-header-toolbar { grid-template-columns: minmax(0, 1fr) 82px 44px; }
@@ -69,5 +67,5 @@ html { scroll-padding-top: calc(var(--cat-header-height) + 16px); }
 }
 @media print {
   .cat-planner-header { display: none !important; }
-  .app-container.planner-world, .planner-world .planner-device { padding-top: 0; height: auto; min-height: 0; }
+  .app-container.planner-world { padding-top: 0; }
 }

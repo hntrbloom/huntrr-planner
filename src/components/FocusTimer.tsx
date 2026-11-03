@@ -1,5 +1,6 @@
 import { safeGetDoc as getDoc, safeGetDocs as getDocs, safeGetDoc } from '../lib/firebase';
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Play, Pause, Square, X, Clock, Volume2, VolumeX, Bell, BellOff, Check } from 'lucide-react';
 import { doc, setDoc, onSnapshot } from '../lib/workspaceStore';
 import { db } from '../lib/firebase';
@@ -281,11 +282,10 @@ export function FocusTimer() {
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
 
-  if (!isOpen) {
-    return (
-      <div 
+  return <>
+      <button type="button" aria-label="Open focus timer" aria-haspopup="dialog" aria-expanded={isOpen}
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-28 md:bottom-6 right-6 bg-surface-container-highest border border-outline-variant/40 shadow-lg rounded-full px-4 py-2 flex items-center gap-3 cursor-pointer hover:-translate-y-1 transition-transform z-40"
+        className="device-timer"
       >
         {isActive ? (
         <div className="relative flex items-center justify-center">
@@ -299,14 +299,11 @@ export function FocusTimer() {
           <Clock className="w-5 h-5 text-primary" />
         )}
         <span className="font-bold text-on-surface tabular-nums">{isActive ? formatTime(timeRemaining) : 'Timer'}</span>
-      </div>
-    );
-  }
-
-  return (
+      </button>
+    {isOpen && createPortal(
     <div role="dialog" aria-modal="true" aria-label="FocusTimer dialog" tabIndex={-1} className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
       <div className="bg-surface-container-lowest rounded-3xl shadow-xl max-w-md w-full p-8 flex flex-col gap-6 border border-outline-variant/20 relative">
-        <button onClick={() => setIsOpen(false)} className="absolute top-4 right-4 p-2 text-black/40 hover:text-black/80 hover:bg-black/5 rounded-full transition-colors">
+        <button aria-label="Close focus timer" onClick={() => setIsOpen(false)} className="absolute top-4 right-4 p-2 text-black/40 hover:text-black/80 hover:bg-black/5 rounded-full transition-colors">
           <X className="w-5 h-5" />
         </button>
         
@@ -336,17 +333,17 @@ export function FocusTimer() {
         {/* Controls */}
         <div className="flex justify-center gap-4">
           {!isActive ? (
-            <button onClick={startTimer} className="w-16 h-16 flex items-center justify-center bg-primary text-on-primary rounded-full shadow-md hover:scale-105 transition-transform">
+            <button aria-label="Start timer" onClick={startTimer} className="w-16 h-16 flex items-center justify-center bg-primary text-on-primary rounded-full shadow-md hover:scale-105 transition-transform">
               <Play className="w-8 h-8 ml-1" />
             </button>
           ) : (
             <>
               {isPaused ? (
-                <button onClick={resumeTimer} className="w-16 h-16 flex items-center justify-center bg-primary text-on-primary rounded-full shadow-md hover:scale-105 transition-transform">
+                <button aria-label="Resume timer" onClick={resumeTimer} className="w-16 h-16 flex items-center justify-center bg-primary text-on-primary rounded-full shadow-md hover:scale-105 transition-transform">
                   <Play className="w-8 h-8 ml-1" />
                 </button>
               ) : (
-                <button onClick={pauseTimer} className="w-16 h-16 flex items-center justify-center bg-secondary text-on-secondary rounded-full shadow-md hover:scale-105 transition-transform">
+                <button aria-label="Pause timer" onClick={pauseTimer} className="w-16 h-16 flex items-center justify-center bg-secondary text-on-secondary rounded-full shadow-md hover:scale-105 transition-transform">
                   <Pause className="w-8 h-8" />
                 </button>
               )}
@@ -434,5 +431,6 @@ export function FocusTimer() {
         )}
       </div>
     </div>
-  );
+    , document.body)}
+  </>;
 }

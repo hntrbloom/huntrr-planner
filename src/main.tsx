@@ -4,6 +4,7 @@ import App from './App.tsx';
 import './index.css';
 import './planner.css';
 import './cat-planner-header.css';
+import './tablet-frame.css';
 import { AuthProvider } from './lib/AuthContext';
 import { WorkShiftsProvider } from './lib/WorkShiftsContext';
 import { CalendarProvider } from './lib/CalendarContext';
