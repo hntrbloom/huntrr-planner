@@ -132,6 +132,7 @@ export function AppointmentFormModal({ initialData, defaultDate, onSave, onCance
               type="text"
               required
               placeholder="e.g. Planning & Tea, Team Sync, Studio Print Batch"
+              aria-label="Event title"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="w-full bg-surface-container-low border border-outline-variant/40 rounded-xl px-4 py-3 text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-medium text-[15px]"
@@ -180,7 +181,8 @@ export function AppointmentFormModal({ initialData, defaultDate, onSave, onCance
               <input
                 type="text"
                 placeholder="Enter custom category (e.g. Project X, Errands, Art)"
-                value={formData.category || ''}
+                aria-label="Custom category"
+              value={formData.category || ''}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 className="w-full bg-surface-container-low border border-outline-variant/40 rounded-xl px-3 py-2 text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-medium text-[14px]"
               />
@@ -195,7 +197,8 @@ export function AppointmentFormModal({ initialData, defaultDate, onSave, onCance
               <input
                 type="date"
                 required
-                value={formData.date}
+                aria-label="Event date"
+              value={formData.date}
                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                 className="w-full bg-surface-container-low border border-outline-variant/40 rounded-xl px-3 py-2.5 text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-medium text-[14px]"
               />
@@ -207,7 +210,8 @@ export function AppointmentFormModal({ initialData, defaultDate, onSave, onCance
               <input
                 type="time"
                 required
-                value={formData.startTime}
+                aria-label="Start time"
+              value={formData.startTime}
                 onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
                 className="w-full bg-surface-container-low border border-outline-variant/40 rounded-xl px-3 py-2.5 text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-medium text-[14px]"
               />
@@ -218,7 +222,8 @@ export function AppointmentFormModal({ initialData, defaultDate, onSave, onCance
               </label>
               <input
                 type="time"
-                value={formData.endTime || ''}
+                aria-label="End time"
+              value={formData.endTime || ''}
                 onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
                 className="w-full bg-surface-container-low border border-outline-variant/40 rounded-xl px-3 py-2.5 text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-medium text-[14px]"
               />
@@ -234,7 +239,8 @@ export function AppointmentFormModal({ initialData, defaultDate, onSave, onCance
               <input
                 type="text"
                 placeholder="e.g. Studio Desk, Coffee Shop, Zoom link"
-                value={formData.location || ''}
+                aria-label="Location"
+              value={formData.location || ''}
                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                 className="w-full bg-surface-container-low border border-outline-variant/40 rounded-xl pl-10 pr-4 py-2.5 text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all font-medium text-[14px]"
               />
@@ -247,6 +253,7 @@ export function AppointmentFormModal({ initialData, defaultDate, onSave, onCance
             </label>
             <textarea
               rows={2}
+              aria-label="Event notes"
               value={formData.notes || ''}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               placeholder="Prep items, agenda points, or reminders..."

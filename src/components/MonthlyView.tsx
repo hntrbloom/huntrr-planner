@@ -214,11 +214,11 @@ export function MonthlyView() {
           </div>
 
           <div className="flex items-center gap-2">
-            <button onClick={prev} className="p-2 rounded-full border border-outline-variant text-on-surface-variant hover:bg-surface-variant transition-colors">
+            <button aria-label="Previous calendar period" onClick={prev} className="p-2 rounded-full border border-outline-variant text-on-surface-variant hover:bg-surface-variant transition-colors">
               <ChevronLeft className="w-5 h-5" />
             </button>
             <button onClick={goToday} className="px-4 py-2 rounded-full border border-outline-variant text-[14px] leading-[1.2] font-semibold tracking-[0.05em] font-label-md text-on-surface-variant hover:bg-surface-variant transition-colors">Today</button>
-            <button onClick={next} className="p-2 rounded-full border border-outline-variant text-on-surface-variant hover:bg-surface-variant transition-colors">
+            <button aria-label="Next calendar period" onClick={next} className="p-2 rounded-full border border-outline-variant text-on-surface-variant hover:bg-surface-variant transition-colors">
               <ChevronRight className="w-5 h-5" />
             </button>
           </div>
@@ -279,7 +279,7 @@ export function MonthlyView() {
                       <button 
                         onClick={(e) => { e.stopPropagation(); openAddApptForDate(dStr); }}
                         className="opacity-0 group-hover:opacity-100 p-1 hover:bg-surface-variant rounded-full text-on-surface-variant transition-all"
-                        title="Add appointment for this day"
+                        aria-label={`Add appointment for ${dStr}`} title="Add appointment for this day"
                       >
                         <Plus className="w-3.5 h-3.5" />
                       </button>

@@ -112,7 +112,8 @@ function getElapsedTime(lastCompletedStr: string, currentTime: Date) {
 function CategoryNotepad({ category, isSelected, onClick, onEdit, bgColor, textColor }: any) {
   return (
     <div
-      onClick={onClick}
+      onClick={onClick} role="button" tabIndex={0} aria-pressed={isSelected}
+      onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onClick(); } }}
       style={{ backgroundColor: bgColor }}
       className={`group relative shrink-0 min-w-[130px] sm:min-w-[148px] max-w-[200px] h-16 sm:h-16 px-2.5 py-1.5 rounded-sm shadow-sm border-[2px] border-gray-400 flex items-center justify-center cursor-pointer transition-transform hover:-translate-y-1 ${isSelected ? 'ring-2 ring-[#666666] ring-offset-2 scale-105' : ''}`}
     >
@@ -279,10 +280,12 @@ function SortableHabitItem({ habit, todayStr, viewMode, last7Days, toggleHabit, 
 
         <button
           type="button"
+          aria-label={`${isCompletedToday ? 'Update check-in for' : 'Check in'} ${habit.name}`}
+          aria-pressed={isCompletedToday}
           onClick={(e) => { e.stopPropagation(); toggleHabit(habit.id); }}
           className={`shrink-0 w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all cursor-pointer ${
             isCompletedToday
-              ? 'bg-black/80 border-black/80 text-white shadow-sm'
+              ? 'bg-primary border-primary text-white shadow-sm'
               : 'bg-white border-black/30 hover:border-black/60 shadow-sm'
           }`}
         >
@@ -362,12 +365,14 @@ function SortableHabitItem({ habit, todayStr, viewMode, last7Days, toggleHabit, 
         {/* Actions (Edit/Delete) */}
         <div className="absolute bottom-3 right-3 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-20">
           <button
+             aria-label={`Edit ${habit.name}`}
              onClick={(e) => { e.stopPropagation(); editHabit(habit); }}
              className="p-1.5 bg-white text-black/40 hover:text-primary hover:bg-primary/10 rounded-full shadow-sm border border-black/10 transition-colors"
           >
             <Pencil className="w-3.5 h-3.5" />
           </button>
           <button
+             aria-label={`Delete ${habit.name}`}
              onClick={(e) => { e.stopPropagation(); deleteHabit(habit.id); }}
              className="p-1.5 bg-white text-black/40 hover:text-rose-600 hover:bg-rose-50 rounded-full shadow-sm border border-black/10 hover:border-rose-200 transition-colors"
           >
@@ -720,6 +725,7 @@ export function HabitsView() {
                 </h2>
               </div>
               <button 
+                aria-label="Open focus timer"
                 onClick={() => window.dispatchEvent(new CustomEvent('open-focus-timer'))}
                 className="flex items-center gap-2 bg-white/60 hover:bg-white/90 p-3 rounded-xl border border-outline-variant/30 shadow-sm transition-colors text-on-surface z-20"
               >
@@ -854,7 +860,7 @@ export function HabitsView() {
                       ) : (
                         <div className="group flex items-center gap-3 relative pb-2 border-b-[3px] border-black/10 px-0 md:px-8">
                           <h3 className="text-[28px] md:text-[36px] font-bold text-black/70 uppercase tracking-widest text-center">{getCategoryName(selectedCategoryId)}</h3>
-                          <button onClick={() => { setInlineEditCatId(selectedCategoryId); setInlineEditCatName(getCategoryName(selectedCategoryId)); setInlineEditStatus('idle'); }} className="p-2 text-black/30 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors md:absolute md:-right-10 opacity-100 md:opacity-0 group-hover:opacity-100 focus:opacity-100">
+                          <button aria-label="Rename habit category" onClick={() => { setInlineEditCatId(selectedCategoryId); setInlineEditCatName(getCategoryName(selectedCategoryId)); setInlineEditStatus('idle'); }} className="p-2 text-black/30 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors md:absolute md:-right-10 opacity-100 md:opacity-0 group-hover:opacity-100 focus:opacity-100">
                             <Pencil className="w-5 h-5" />
                           </button>
                         </div>
@@ -901,6 +907,7 @@ export function HabitsView() {
                         <input 
                           type="text" 
                           autoFocus
+                          aria-label="Habit name"
                           placeholder="Habit name..." 
                           className="bg-transparent border-b-2 border-black/20 p-2 outline-none focus:border-black/50 font-medium text-[16px]"
                           value={newHabit.name || ''}
@@ -909,7 +916,7 @@ export function HabitsView() {
 
                         <div className="flex gap-4 items-center">
                           <label className="text-sm font-medium text-black/60">Type:</label>
-                          <select className="bg-white border border-black/20 rounded p-1 outline-none text-black/80 flex-1" value={newHabit.type || 'standard'} onChange={e => setNewHabit({...newHabit, type: e.target.value as any})}>
+                          <select aria-label="Habit type" className="bg-white border border-black/20 rounded p-1 outline-none text-black/80 flex-1" value={newHabit.type || 'standard'} onChange={e => setNewHabit({...newHabit, type: e.target.value as any})}>
                             <option value="standard">Standard Habit</option>
                             <option value="medication">Medication</option>
                           </select>
@@ -928,13 +935,13 @@ export function HabitsView() {
                         )}
                         <div className="flex gap-4 items-center">
                           <label className="text-sm font-medium text-black/60">Cat:</label>
-                          <select className="bg-white border border-black/20 rounded p-1 outline-none text-black/80 flex-1" value={newHabit.category || selectedCategoryId} onChange={e => setNewHabit({...newHabit, category: e.target.value})}>
+                          <select aria-label="Habit category" className="bg-white border border-black/20 rounded p-1 outline-none text-black/80 flex-1" value={newHabit.category || selectedCategoryId} onChange={e => setNewHabit({...newHabit, category: e.target.value})}>
                             {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                           </select>
                         </div>
                         <div className="flex flex-col gap-1 items-start">
                           <label className="text-sm font-medium text-black/60">How often:</label>
-                          <select className="w-full bg-white border border-black/20 rounded p-1 outline-none text-black/80" value={newHabit.timeOfDay} onChange={e => setNewHabit({...newHabit, timeOfDay: e.target.value as any})}>
+                          <select aria-label="Habit frequency" className="w-full bg-white border border-black/20 rounded p-1 outline-none text-black/80" value={newHabit.timeOfDay} onChange={e => setNewHabit({...newHabit, timeOfDay: e.target.value as any})}>
                             <option value="daily">Daily</option>
                             <option value="multiple-times-daily">Multiple times daily</option>
                             <option value="weekly">Weekly</option>
@@ -1009,6 +1016,7 @@ export function HabitsView() {
                       <div key={h.id} className="flex gap-2 items-center bg-black/5 p-2 rounded-xl">
                         <input 
                           value={h.name || ''}
+                          aria-label="Habit name"
                           placeholder="Habit name..."
                           autoFocus={h.isNew}
                           onChange={(e) => {

@@ -1,6 +1,7 @@
 import { DialogAccessibility } from './components/DialogAccessibility';
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { Menu, AlertTriangle } from 'lucide-react';
+import { Heart, House, NotebookPen, Settings, ChevronRight } from 'lucide-react';
+import { PlannerBow } from './components/PlannerDecor';
 import { BottomNav, Sidebar } from './components/Navigation';
 import { ViewState } from './types';
 import { db } from './lib/firebase';
@@ -70,26 +71,7 @@ export default function App() {
     }
   };
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
-    if (window.innerWidth < 768) return false;
-    try {
-      const saved = localStorage.getItem('sidebar_open');
-      if (saved !== null) {
-        return saved === 'true';
-      }
-    } catch (e) {
-      console.error('Error reading sidebar state:', e);
-    }
-    return true;
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('sidebar_open', String(isSidebarOpen));
-    } catch (e) {
-      console.error('Error saving sidebar state:', e);
-    }
-  }, [isSidebarOpen]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     const media = window.matchMedia('(max-width: 767px)');
@@ -158,9 +140,9 @@ export default function App() {
   };
 
   return (
-    <div data-local-workspace={user?.isAnonymous || isLocalUser(user) ? 'true' : undefined} className={`app-container text-on-surface font-body-md antialiased min-h-[100dvh] flex flex-col md:flex-row md:overflow-hidden selection:bg-primary-container selection:text-on-primary-container ${user?.isAnonymous || isLocalUser(user) ? 'pt-[56px] md:pt-[44px]' : ''}`}>
+    <div data-local-workspace={user?.isAnonymous || isLocalUser(user) ? 'true' : undefined} className="app-container planner-world text-on-surface font-body-md antialiased selection:bg-primary-container selection:text-on-primary-container">
       {(user?.isAnonymous || isLocalUser(user)) && (
-        <div className="fixed top-0 inset-x-0 z-[100] bg-[#4b3440] text-white px-3 py-2 text-center text-xs font-medium flex flex-wrap items-center justify-center gap-x-3 gap-y-1 min-h-11">
+        <div className="workspace-ribbon">
           <span>{isLocalUser(user) ? 'Local workspace · saved on this device' : 'Guest preview · temporary changes'}</span>
           <button onClick={logOut} className="underline underline-offset-4">Switch workspace</button>
         </div>
@@ -170,18 +152,6 @@ export default function App() {
       <FocusTimer />
       <MedicationPopup />
       
-      {/* Menu button shown when sidebar is collapsed */}
-      {!isSidebarOpen && (
-        <button
-          onClick={() => setIsSidebarOpen(true)}
-          className="fixed bottom-[calc(env(safe-area-inset-bottom)+80px)] md:bottom-auto md:top-[calc(var(--workspace-banner-height,0px)+20px)] left-4 z-[60] p-2.5 bg-white/80 backdrop-blur-md hover:bg-white text-[#666666] hover:text-[#222222] rounded-full shadow-md transition-all border border-black/10 flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95"
-          aria-label="Open sidebar menu"
-          title="Open menu"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
-      )}
-
       <Sidebar 
         currentView={currentView} 
         onChangeView={handleViewChange}
@@ -189,13 +159,32 @@ export default function App() {
         onClose={() => setIsSidebarOpen(false)}
       />
       
-      <div className="flex-1 flex flex-col relative w-full md:h-[calc(100dvh-var(--workspace-banner-height,0px))] md:overflow-hidden min-w-0 transition-all duration-300 ease-in-out">
+      <a className="planner-skip-link" href="#planner-content" onClick={event => { event.preventDefault(); document.getElementById('planner-content')?.focus(); }}>Skip to planner page</a>
+      <div className="planner-device">
+        <header className="device-top">
+          <button className="device-brand" onClick={() => handleViewChange('agenda')} aria-label="huntrr.organizer home"><Heart size={18} aria-hidden="true" /><span>huntrr.organizer</span></button>
+          <span className="device-edition">POCKET PLANNER <span aria-hidden="true">✦</span> EVERYDAY EDITION</span>
+          <PlannerBow className="device-bow" />
+        </header>
+        <div className="planner-screen">
+          <BottomNav currentView={currentView} onChangeView={handleViewChange} isOpen={isSidebarOpen} onOpen={() => setIsSidebarOpen(true)} />
+          <div id="planner-content" tabIndex={-1} data-page={currentView} className="planner-page">
         <ErrorBoundary key={currentView}>
           <Suspense fallback={<div role="status" className="p-10 text-on-surface-variant">Loading your space…</div>}>{renderView()}</Suspense>
         </ErrorBoundary>
+          </div>
+          <div className="screen-footer"><span><span className="screen-status-dot" />{isLocalUser(user) ? 'On-device workspace' : 'Your private workspace'}</span><span>One little step at a time <Heart size={12} aria-hidden="true" /></span></div>
+        </div>
+        <footer className="device-bottom">
+          <div className="device-speaker" aria-hidden="true"><i /><i /><i /><i /><i /></div>
+          <div className="device-controls">
+            <button onClick={() => handleViewChange('agenda')} aria-label="Go home" title="Home"><House size={16} /></button>
+            <button onClick={() => handleViewChange('notes')} aria-label="Open notebook" title="Notebook"><NotebookPen size={16} /></button>
+            <button onClick={() => handleViewChange('settings')} aria-label="Open settings" title="Settings"><Settings size={16} /></button>
+          </div>
+          <span className="device-model">little plans, big dreams <ChevronRight size={12} aria-hidden="true" /></span>
+        </footer>
       </div>
-
-      <BottomNav currentView={currentView} onChangeView={handleViewChange} />
     </div>
   );
 }

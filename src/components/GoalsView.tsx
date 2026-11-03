@@ -420,7 +420,7 @@ export function GoalsView({ embedded = false }: { embedded?: boolean } = {}) {
   return (
     <div className={embedded ? "w-full relative" : "flex-1 md:overflow-y-auto px-margin-mobile md:px-margin-desktop py-6 md:py-8 bg-transparent relative"}>
       {/* Top Header */}
-      <div className="flex justify-between items-end mb-8">
+      <div className="goals-board-heading flex justify-between items-end mb-8">
         <div>
           <h1 className="text-3xl md:text-[40px] leading-[1.1] font-normal font-headline-md text-[#1c1b1d] tracking-tight mb-2">
             Goals
@@ -450,7 +450,7 @@ export function GoalsView({ embedded = false }: { embedded?: boolean } = {}) {
         <form onSubmit={handleSave} className="mb-8 bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-primary/20 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center animate-in fade-in duration-200">
           <input
             type="text"
-            id="input-goal-title"
+            id="input-goal-title" aria-label="Goal title"
             placeholder="Goal title (e.g. Launch Pastel Keychain Collection)"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -458,7 +458,7 @@ export function GoalsView({ embedded = false }: { embedded?: boolean } = {}) {
             autoFocus
           />
           <select
-            id="select-goal-frequency"
+            id="select-goal-frequency" aria-label="Goal frequency"
             value={frequency}
             onChange={(e) => setFrequency(e.target.value as GoalFrequency)}
             className="bg-surface px-3 py-3 rounded-xl border-none outline-none focus:ring-2 focus:ring-primary/50 text-[#1c1b1d] text-sm font-medium cursor-pointer"
@@ -496,7 +496,8 @@ export function GoalsView({ embedded = false }: { embedded?: boolean } = {}) {
         </div>
       ) : goals.length === 0 && !isAdding ? (
         <div 
-          onClick={() => setIsAdding(true)}
+          onClick={() => setIsAdding(true)} role="button" tabIndex={0} aria-label="Create your first goal"
+          onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setIsAdding(true); } }}
           className="bg-white rounded-sm shadow-md border-[2px] border-dashed border-gray-400/50 flex flex-col items-center justify-center text-center p-8 cursor-pointer hover:bg-gray-50 transition-colors min-h-[200px]"
         >
           <div className="w-12 h-12 rounded-full bg-[#FFF0F4] text-primary flex items-center justify-center mb-3">
@@ -530,7 +531,7 @@ export function GoalsView({ embedded = false }: { embedded?: boolean } = {}) {
                 <MinimalPushPin />
 
                 {/* Card Header matching Shopping Lists note cards */}
-                <div className="bg-[#FFF0F4]/40 px-5 py-4 border-b-[2px] border-black/5 flex items-start justify-between">
+                <div className="goal-card-heading bg-[#FFF0F4]/40 px-5 py-4 border-b-[2px] border-black/5 flex items-start justify-between">
                   <div className="flex-1 min-w-0 pr-2">
                     <h3 className="text-xl font-semibold text-[#1c1b1d] tracking-tight group-hover:text-primary transition-colors truncate">
                       {goal.name || goal.title}
@@ -611,6 +612,7 @@ export function GoalsView({ embedded = false }: { embedded?: boolean } = {}) {
                                 type="button"
                                 role="checkbox"
                                 aria-checked={m.completed}
+                                aria-label={`Complete milestone: ${m.text}`}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   toggleMilestone(goal.id, m.id);
@@ -719,7 +721,7 @@ export function GoalsView({ embedded = false }: { embedded?: boolean } = {}) {
                 </div>
 
                 {/* Card Actions (Edit / Delete) */}
-                <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-20 flex items-center gap-1">
+                <div className="goal-card-actions absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-20 flex items-center gap-1">
                   <button
                     type="button"
                     id={`btn-edit-goal-${goal.id}`}

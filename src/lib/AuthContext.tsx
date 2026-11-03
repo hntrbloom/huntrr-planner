@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, GoogleAuthProvider, signInWithPopup, getRedirectResult, signInAnonymously, onAuthStateChanged, signOut } from 'firebase/auth';
 import { LOCAL_USER_ID, LOCAL_SESSION_KEY, isLocalUser } from './workspaceMode';
 import { auth, setLocalGuest } from './firebase';
+import { PlannerBow, PocketFriend } from '../components/PlannerDecor';
 import { LogIn, AlertCircle, UserCircle2, RefreshCw } from 'lucide-react';
 import { requestFreshDriveToken, getLastOAuthDiagnostic, OAuthDiagnosticInfo } from './driveAuth';
 
@@ -222,11 +223,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-surface">
-        <div className="bg-surface-container-lowest p-8 rounded-2xl border border-outline-variant/30 shadow-md text-center max-w-md w-full mx-4">
-          <h2 className="text-[28px] font-headline-md text-on-surface mb-2">
+      <div className="planner-login-world">
+        <div className="planner-login-device">
+          <PlannerBow className="login-bow" /><PocketFriend className="login-friend" /><p className="planner-eyebrow">Your pocket-sized happy place</p>
+          <h1 className="text-[28px] font-headline-md text-on-surface mb-2">
             huntrr.organizer
-          </h2>
+          </h1>
           <p className="text-[16px] font-body-md text-on-surface-variant mb-6">
             Your plans, creative projects, and little everyday things. Sign in for private cloud storage, or keep a workspace on this device.
           </p>

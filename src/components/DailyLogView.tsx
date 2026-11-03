@@ -35,15 +35,136 @@ interface TaskItem {
 
 const PAD_COLORS = ['#fef3c7', '#dcfce7', '#dbeafe', '#fce7f3', '#f3e8ff'];
 
+interface TaskNotepadProps {
+  categoryId: string;
+  categoryName: string;
+  color: string;
+  activeItems: TaskItem[];
+  doneItems: TaskItem[];
+  openHistory: (id: string) => void;
+  activeColorPicker: string | null;
+  setActiveColorPicker: (id: string | null) => void;
+  handleCategoryColorChange: (id: string, color: string | undefined) => void;
+  handleAddSubmit: (text: string, category: string) => void;
+  renderTaskItem: (item: TaskItem) => React.ReactNode;
+}
+
+// Keep this component's identity stable when the parent clock ticks, so the
+// existing inline task entry retains its draft and keyboard focus.
+function FullCategoryNotepad({ categoryId, categoryName, color, activeItems, doneItems,
+  openHistory, activeColorPicker, setActiveColorPicker, handleCategoryColorChange,
+  handleAddSubmit, renderTaskItem }: TaskNotepadProps) {
+  const [localInput, setLocalInput] = useState('');
+  return (
+    <div className="task-notepad relative rounded-sm shadow-md border-[2px] border-gray-400 flex flex-col p-4 sm:p-6 transition-colors duration-300" style={{ backgroundColor: color }}>
+      <div className="absolute top-4 right-4 z-20 flex gap-2">
+        <button
+          onClick={() => openHistory(categoryId)}
+          className="p-1.5 hover:bg-black/10 rounded-full text-black/40 hover:text-black transition-colors"
+          title="History"
+        >
+          <Clock className="w-4 h-4" />
+        </button>
+        <div className="relative">
+          <button
+            aria-label={`Change ${categoryName} colour`}
+          onClick={() => setActiveColorPicker(activeColorPicker === categoryId ? null : categoryId)}
+            className="p-1.5 hover:bg-black/10 rounded-full text-black/40 hover:text-black transition-colors"
+          >
+            <PaintBucket className="w-4 h-4" />
+          </button>
+          {activeColorPicker === categoryId && (
+            <div className="absolute top-full right-0 mt-2 p-2 bg-white rounded-xl shadow-xl border border-gray-200 flex gap-2 z-30">
+              <button
+                onClick={() => { handleCategoryColorChange(categoryId, undefined); setActiveColorPicker(null); }}
+                className="w-6 h-6 rounded-full border border-gray-300 bg-[#F5F5F5]"
+                title="Default"
+              />
+              {PAD_COLORS.map(c => (
+                 <button
+                   key={c}
+                   onClick={() => { handleCategoryColorChange(categoryId, c); setActiveColorPicker(null); }}
+                   className="w-6 h-6 rounded-full border border-gray-300 hover:scale-110 transition-transform"
+                   style={{ backgroundColor: c }}
+                 />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="absolute -top-5 right-8 w-4 h-12 border-[3px] border-gray-400/90 rounded-full bg-transparent rotate-[15deg] shadow-[1px_2px_2px_rgba(0,0,0,0.1)] z-10"></div>
+      <div className="absolute top-4 left-4 w-2 h-2 rounded-full bg-black/15 shadow-inner"></div>
+      <div className="absolute bottom-4 left-4 w-2 h-2 rounded-full bg-black/15 shadow-inner"></div>
+
+      <div className="relative z-10 flex flex-col h-full mt-2">
+        <div className="flex items-center justify-center gap-2 mb-6 pb-2 border-b-[3px] border-black/10 self-center px-4 w-full">
+          <h3 className="text-[20px] md:text-[24px] font-bold text-black/70 uppercase tracking-widest text-center m-0 line-clamp-1">{categoryName}</h3>
+        </div>
+
+        <div className="flex-1 flex flex-col gap-4 w-full">
+          <div className="grid grid-cols-1 gap-3 w-full">
+            {activeItems.map(renderTaskItem)}
+            {activeItems.length === 0 && (
+              <div className="col-span-full flex items-center justify-center py-6">
+                <p className="text-[14px] text-black/40 italic font-medium">Nothing added yet.</p>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-2 flex items-center h-[48px] w-full">
+            <div
+              className="inline-flex items-center h-full gap-2 px-3 rounded-xl transition-colors w-full"
+              style={{ backgroundColor: 'rgba(255, 240, 244, 0.35)', border: '1px solid rgba(255, 184, 205, 0.35)', boxShadow: '0 3px 10px rgba(255, 184, 205, 0.25)' }}
+            >
+              <button
+                type="button"
+                aria-label={`Add to ${categoryName}`}
+                onClick={() => { if(localInput.trim()) { handleAddSubmit(localInput.trim(), categoryId); setLocalInput(''); } }}
+                disabled={!localInput.trim()}
+                className="w-7 h-7 flex items-center justify-center rounded-full bg-black/5 hover:bg-black/10 disabled:opacity-50 text-black/60 transition-colors shrink-0"
+              >
+                <Plus className="w-4 h-4" aria-hidden="true" />
+              </button>
+              <input
+                type="text"
+                value={localInput}
+                onChange={(e) => setLocalInput(e.target.value)}
+                aria-label={`New task in ${categoryName}`}
+                placeholder={`Add to ${categoryName}...`}
+                onKeyDown={(e) => { if (e.key === 'Enter' && localInput.trim()) { handleAddSubmit(localInput.trim(), categoryId); setLocalInput(''); } }}
+                className="bg-transparent border-none outline-none text-[15px] font-medium text-black placeholder:text-black/30 flex-1 w-full min-w-0"
+              />
+            </div>
+          </div>
+        </div>
+
+        {doneItems.length > 0 && (
+          <div className="mt-6 pt-4 border-t-[2px] border-black/10 flex flex-col gap-3">
+            <h4 className="text-[14px] font-bold text-black/50 uppercase tracking-widest text-center">Done</h4>
+            <div className="grid grid-cols-1 gap-3 w-full opacity-70 hover:opacity-100 transition-opacity">
+              {doneItems.map(renderTaskItem)}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+
 function SortableCategoryNotepad({ id, categoryName, isSelected, onClick, bgColor, textColor, onColorChange }: any) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 10 : 1 };
-  
+
   const [showPicker, setShowPicker] = useState(false);
 
   return (
     <div
       ref={setNodeRef} style={{ ...style, backgroundColor: bgColor }} {...attributes} {...listeners} onClick={onClick}
+      onKeyDown={event => {
+        if (event.key === 'Enter' && !isDragging) { event.preventDefault(); onClick(); }
+        else listeners?.onKeyDown?.(event);
+      }}
       className={`group relative shrink-0 min-w-[130px] sm:min-w-[148px] max-w-[200px] h-16 sm:h-16 px-2.5 py-1.5 rounded-sm shadow-sm border-[2px] border-gray-400 flex items-center justify-center cursor-pointer transition-transform hover:-translate-y-1 ${isSelected ? 'ring-2 ring-[#666666] ring-offset-2 scale-105' : ''}`}
     >
       <div className="absolute -top-3 right-4 w-3 h-7 border-[2px] border-gray-400 rounded-full bg-transparent rotate-[15deg] shadow-[1px_1px_1px_rgba(0,0,0,0.1)] z-10 pointer-events-none"></div>
@@ -52,10 +173,10 @@ function SortableCategoryNotepad({ id, categoryName, isSelected, onClick, bgColo
       <div className="absolute bottom-1 left-1.5 w-1.5 h-1.5 rounded-full bg-black/15 shadow-inner pointer-events-none"></div>
       <div className="absolute bottom-1 right-1.5 w-1.5 h-1.5 rounded-full bg-black/15 shadow-inner pointer-events-none"></div>
       <div className="absolute inset-0 pointer-events-none bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-sm"></div>
-      
+
       <div className="flex items-center justify-center w-full px-1.5 pr-5 overflow-hidden">
-        <span 
-          className="font-bold text-[11px] sm:text-[12px] leading-tight text-center relative break-words uppercase tracking-wide line-clamp-2 max-w-full" 
+        <span
+          className="font-bold text-[11px] sm:text-[12px] leading-tight text-center relative break-words uppercase tracking-wide line-clamp-2 max-w-full"
           style={{ color: textColor }}
           title={categoryName}
         >
@@ -502,103 +623,8 @@ export function DailyLogView() {
   });
   const palette = getGrayscalePalette(activeOrder.length);
   const selectedIndex = activeOrder.indexOf(selectedCategoryId);
-  const selectedColor = palette[selectedIndex] || palette[0] || { bg: '#F5F5F5', text: '#222222' };
 
 
-const FullCategoryNotepad = ({ categoryId, categoryName, color, activeItems, doneItems }: any) => {
-  const [localInput, setLocalInput] = useState('');
-  return (
-    <div className="relative rounded-sm shadow-md border-[2px] border-gray-400 flex flex-col p-4 sm:p-6 transition-colors duration-300" style={{ backgroundColor: color }}>
-      <div className="absolute top-4 right-4 z-20 flex gap-2">
-        <button 
-          onClick={() => openHistory(categoryId)}
-          className="p-1.5 hover:bg-black/10 rounded-full text-black/40 hover:text-black transition-colors"
-          title="History"
-        >
-          <Clock className="w-4 h-4" />
-        </button>
-        <div className="relative">
-          <button 
-            onClick={() => setActiveColorPicker(activeColorPicker === categoryId ? null : categoryId)}
-            className="p-1.5 hover:bg-black/10 rounded-full text-black/40 hover:text-black transition-colors"
-          >
-            <PaintBucket className="w-4 h-4" />
-          </button>
-          {activeColorPicker === categoryId && (
-            <div className="absolute top-full right-0 mt-2 p-2 bg-white rounded-xl shadow-xl border border-gray-200 flex gap-2 z-30">
-              <button
-                onClick={() => { handleCategoryColorChange(categoryId, undefined); setActiveColorPicker(null); }}
-                className="w-6 h-6 rounded-full border border-gray-300 bg-[#F5F5F5]"
-                title="Default"
-              />
-              {PAD_COLORS.map(c => (
-                 <button
-                   key={c}
-                   onClick={() => { handleCategoryColorChange(categoryId, c); setActiveColorPicker(null); }}
-                   className="w-6 h-6 rounded-full border border-gray-300 hover:scale-110 transition-transform"
-                   style={{ backgroundColor: c }}
-                 />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-      <div className="absolute -top-5 right-8 w-4 h-12 border-[3px] border-gray-400/90 rounded-full bg-transparent rotate-[15deg] shadow-[1px_2px_2px_rgba(0,0,0,0.1)] z-10"></div>
-      <div className="absolute top-4 left-4 w-2 h-2 rounded-full bg-black/15 shadow-inner"></div>
-      <div className="absolute bottom-4 left-4 w-2 h-2 rounded-full bg-black/15 shadow-inner"></div>
-      
-      <div className="relative z-10 flex flex-col h-full mt-2">
-        <div className="flex items-center justify-center gap-2 mb-6 pb-2 border-b-[3px] border-black/10 self-center px-4 w-full">
-          <h3 className="text-[20px] md:text-[24px] font-bold text-black/70 uppercase tracking-widest text-center m-0 line-clamp-1">{categoryName}</h3>
-        </div>
-        
-        <div className="flex-1 flex flex-col gap-4 w-full">
-          <div className="grid grid-cols-1 gap-3 w-full">
-            {activeItems.map(renderTaskItem)}
-            {activeItems.length === 0 && (
-              <div className="col-span-full flex items-center justify-center py-6">
-                <p className="text-[14px] text-black/40 italic font-medium">Nothing added yet.</p>
-              </div>
-            )}
-          </div>
-
-          <div className="mt-2 flex items-center h-[48px] w-full">
-            <div 
-              className="inline-flex items-center h-full gap-2 px-3 rounded-xl transition-colors w-full"
-              style={{ backgroundColor: 'rgba(255, 240, 244, 0.35)', border: '1px solid rgba(255, 184, 205, 0.35)', boxShadow: '0 3px 10px rgba(255, 184, 205, 0.25)' }}
-            >
-              <button 
-                type="button"
-                onClick={() => { if(localInput.trim()) { handleAddSubmit(localInput.trim(), categoryId); setLocalInput(''); } }}
-                disabled={!localInput.trim()}
-                className="w-7 h-7 flex items-center justify-center rounded-full bg-black/5 hover:bg-black/10 disabled:opacity-50 text-black/60 transition-colors shrink-0"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-              <input 
-                type="text" 
-                value={localInput}
-                onChange={(e) => setLocalInput(e.target.value)}
-                placeholder={`Add to ${categoryName}...`}
-                onKeyDown={(e) => { if (e.key === 'Enter' && localInput.trim()) { handleAddSubmit(localInput.trim(), categoryId); setLocalInput(''); } }}
-                className="bg-transparent border-none outline-none text-[15px] font-medium text-black placeholder:text-black/30 flex-1 w-full min-w-0"
-              />
-            </div>
-          </div>
-        </div>
-
-        {doneItems.length > 0 && (
-          <div className="mt-6 pt-4 border-t-[2px] border-black/10 flex flex-col gap-3">
-            <h4 className="text-[14px] font-bold text-black/50 uppercase tracking-widest text-center">Done</h4>
-            <div className="grid grid-cols-1 gap-3 w-full opacity-70 hover:opacity-100 transition-opacity">
-              {doneItems.map(renderTaskItem)}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
 
   const renderTaskItem = (item: TaskItem) => (
     <div key={item.id} className="flex flex-col min-h-[48px] group bg-white/40 hover:bg-white/60 rounded-xl px-[14px] py-[8px] gap-[4px] border border-black/5 shadow-sm transition-colors relative">
@@ -777,7 +803,7 @@ const FullCategoryNotepad = ({ categoryId, categoryName, color, activeItems, don
 
   return (
     <div className="flex-1 md:overflow-y-auto flex flex-col">
-      <TopBar />
+      <TopBar title="Daily Log" />
       <main className="flex-1 md:overflow-y-auto px-margin-mobile md:px-margin-desktop py-6 md:py-8 bg-transparent relative">
       <div className="w-full bg-surface-container-lowest border border-outline-variant/20 shadow-md rounded-xl min-h-[1200px] relative flex flex-col overflow-hidden mb-8">
         <div className="absolute left-14 md:left-24 top-0 bottom-0 w-[2px] bg-primary/20 z-0"></div>
@@ -811,7 +837,7 @@ const FullCategoryNotepad = ({ categoryId, categoryName, color, activeItems, don
 )}
 {!loading && !loadError && (
             <div className="pl-14 md:pl-24 pr-4 md:pr-12 flex flex-col gap-8">
-              <div className="w-full py-4 -my-4 relative">
+              <div className="category-strip w-full py-4 -my-4 relative">
                 <div className="flex items-center gap-2 mb-2 px-4">
                   <span className="text-black/50 font-bold uppercase tracking-widest text-[12px]">Categories</span>
                   <button onClick={() => setIsCategoryModalOpen(true)} className="p-1 hover:bg-black/5 rounded-full text-black/40 hover:text-black/80 transition-colors" title="Manage Categories">
@@ -824,7 +850,7 @@ const FullCategoryNotepad = ({ categoryId, categoryName, color, activeItems, don
                       {activeOrder.map((catId, index) => (
                         <SortableCategoryNotepad 
                           key={catId} id={catId} categoryName={getCategoryName(catId)}
-                          bgColor={getCategoryColor(catId) || palette[index]?.bg} textColor={getCategoryColor(catId) ? '#222222' : palette[index]?.text}
+                          bgColor={getCategoryColor(catId) || PAD_COLORS[index % PAD_COLORS.length]} textColor={getCategoryColor(catId) ? '#222222' : palette[index]?.text}
                           isSelected={selectedCategoryId === catId}
                           onClick={() => setSelectedCategoryId(catId)}
                           onColorChange={(color: string | undefined) => handleCategoryColorChange(catId, color)}
@@ -838,10 +864,12 @@ const FullCategoryNotepad = ({ categoryId, categoryName, color, activeItems, don
 
               
               <div className="lg:hidden flex flex-col">
-                <FullCategoryNotepad 
+                <FullCategoryNotepad
+                  openHistory={openHistory} activeColorPicker={activeColorPicker} setActiveColorPicker={setActiveColorPicker}
+                  handleCategoryColorChange={handleCategoryColorChange} handleAddSubmit={handleAddSubmit} renderTaskItem={renderTaskItem}
                   categoryId={selectedCategoryId} 
                   categoryName={getCategoryName(selectedCategoryId)} 
-                  color={getCategoryColor(selectedCategoryId) || selectedColor.bg} 
+                  color={getCategoryColor(selectedCategoryId) || PAD_COLORS[Math.max(0, selectedIndex) % PAD_COLORS.length]}
                   activeItems={activeItems} 
                   doneItems={doneItems} 
                 />
@@ -849,12 +877,14 @@ const FullCategoryNotepad = ({ categoryId, categoryName, color, activeItems, don
 
               <div className="hidden lg:grid grid-cols-3 gap-8 w-full mt-4">
                 {activeOrder.map((catId, index) => {
-                  const catColor = getCategoryColor(catId) || palette[index]?.bg || '#F5F5F5';
+                  const catColor = getCategoryColor(catId) || PAD_COLORS[index % PAD_COLORS.length] || '#F5F5F5';
                   const cItems = items.filter(i => i.category === catId);
                   const cActive = cItems.filter(i => !i.completed).sort((a, b) => (a.important && !b.important ? -1 : (!a.important && b.important ? 1 : 0)));
                   const cDone = cItems.filter(i => i.completed).sort((a, b) => (a.important && !b.important ? -1 : (!a.important && b.important ? 1 : 0)));
                   return (
-                    <FullCategoryNotepad 
+                    <FullCategoryNotepad
+                      openHistory={openHistory} activeColorPicker={activeColorPicker} setActiveColorPicker={setActiveColorPicker}
+                      handleCategoryColorChange={handleCategoryColorChange} handleAddSubmit={handleAddSubmit} renderTaskItem={renderTaskItem}
                       key={catId}
                       categoryId={catId}
                       categoryName={getCategoryName(catId)}

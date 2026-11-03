@@ -1,261 +1,83 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { CheckCircle2, Armchair, SquarePen, Box, Award, Calendar, CalendarDays, FileText, BarChart, Printer, Bell, Image, Smile, X, BookOpen, Target, Key, Settings, Receipt, ShoppingCart, ScanEye } from 'lucide-react';
+import React, { useEffect, useRef } from 'react';
+import { House, CalendarDays, ListTodo, Heart, NotebookPen, Target, Grid2X2, X, ShoppingCart, Receipt, FileText, Bell, Box, ScanEye, Image, Printer, KeyRound, BookOpen, Settings, type LucideIcon } from 'lucide-react';
 import { ViewState } from '../types';
 
 interface NavProps {
   isOpen?: boolean;
   onClose?: () => void;
+  onOpen?: () => void;
   currentView: ViewState;
   onChangeView: (view: ViewState) => void;
 }
-
-export function Sidebar({ currentView, onChangeView, isOpen = true, onClose }: NavProps) {
-  const topNavItems: { id: ViewState; label: string; Icon: any }[] = [
-    { id: 'agenda', label: 'Agenda', Icon: CalendarDays },
-    { id: 'log', label: 'Daily Log', Icon: SquarePen },
+type NavItem = { id: ViewState; label: string; Icon: LucideIcon };
+const plannerPages: NavItem[] = [
+  { id: 'agenda', label: 'Home', Icon: House },
+  { id: 'month', label: 'Calendar', Icon: CalendarDays },
+  { id: 'log', label: 'Tasks', Icon: ListTodo },
+  { id: 'habits', label: 'Habits', Icon: Heart },
+  { id: 'notes', label: 'Notes', Icon: NotebookPen },
+  { id: 'goals_streaks', label: 'Goals', Icon: Target },
+];
+const groups: { label: string; items: NavItem[] }[] = [
+  { label: 'Everyday pages', items: [...plannerPages,
     { id: 'shopping', label: 'Shopping Lists', Icon: ShoppingCart },
+    { id: 'reminders', label: 'Reminders', Icon: Bell },
+    { id: 'blog', label: 'Blog', Icon: BookOpen },
+  ] },
+  { label: 'Work & creative studio', items: [
     { id: 'receipts', label: 'Client Receipts', Icon: Receipt },
     { id: 'jobs', label: 'Job Applications', Icon: FileText },
-    { id: 'reminders', label: 'Reminders', Icon: Bell },
-    { id: 'habits', label: 'Habit Tracker', Icon: CheckCircle2 },
     { id: 'minifurniture', label: 'Prints', Icon: Box },
-  ];
-
-  const featureNavItems: { id: ViewState; label: string; Icon: any }[] = [
     { id: 'models', label: '3D Models', Icon: ScanEye },
     { id: 'pinterest', label: 'Inspiration', Icon: Image },
     { id: 'printing', label: 'Build Catalog', Icon: Printer },
-    { id: 'keychains', label: 'Keychains', Icon: Key },
+    { id: 'keychains', label: 'Keychains', Icon: KeyRound },
     { id: 'wiki', label: 'Character Wiki', Icon: FileText },
-  ];
-
-  const bottomNavItems: { id: ViewState; label: string; Icon: any }[] = [
-    { id: 'goals_streaks', label: 'Goals & Streaks', Icon: Target },
-    { id: 'month', label: 'Monthly View', Icon: Calendar },
-    { id: 'notes', label: 'Notes', Icon: FileText },
-    { id: 'blog', label: 'Blog', Icon: BookOpen },
-  ];
-
-  const settingsNavItem: { id: ViewState; label: string; Icon: any }[] = [
     { id: 'settings', label: 'Settings', Icon: Settings },
-  ];
+  ] },
+];
+const activePage = (current: ViewState, id: ViewState) => current === id || (id === 'goals_streaks' && (current === 'goals' || current === 'streaks'));
 
-  const renderRowItem = (item: { id: ViewState; label: string; Icon: any }) => {
-    const isActive = currentView === item.id || (item.id === 'goals_streaks' && (currentView === 'goals' || currentView === 'streaks'));
-    return (
-      <button
-        key={item.id}
-        aria-current={isActive ? "page" : undefined}
-        id={`nav-item-${item.id}`}
-        onClick={() => {
-          onChangeView(item.id);
-          // Only close sidebar on mobile screen sizes
-          if (window.innerWidth < 768 && onClose) {
-            onClose();
-          }
-        }}
-        className={`flex items-center gap-4 px-4 py-3 rounded-full transition-all duration-150 cursor-pointer ${
-          isActive
-            ? 'text-on-primary font-bold bg-primary border-l-4 border-primary scale-95'
-            : 'text-[#666666] hover:bg-primary/10 hover:text-[#222222]'
-        }`}
-      >
-        <item.Icon className={`w-5 h-5 ${isActive ? 'text-[#333333]' : 'text-[#666666]'}`} strokeWidth={isActive ? 2.5 : 2} />
-        <span className="text-[14px] leading-[1.2] font-semibold tracking-[0.05em] font-label-md">{item.label}</span>
-      </button>
-    );
-  };
-
-  const renderFeatureItem = (item: { id: ViewState; label: string; Icon: any }) => {
-    const isActive = currentView === item.id;
-    return (
-      <button
-        key={item.id}
-        onClick={() => {
-          onChangeView(item.id);
-          if (window.innerWidth < 768 && onClose) {
-            onClose();
-          }
-        }}
-        className={`flex flex-col items-center justify-center p-3 rounded-2xl transition-all duration-150 cursor-pointer shadow-sm border ${
-          isActive 
-            ? 'bg-primary border-primary text-on-primary scale-95 shadow-inner' 
-            : 'bg-white border-primary/15 hover:border-primary/40 text-[#666666] hover:bg-[#FFF0F4] hover:text-[#222222] hover:shadow-md'
-        }`}
-      >
-        <item.Icon className={`w-7 h-7 mb-2 ${isActive ? 'text-on-primary' : 'text-primary/80'}`} strokeWidth={isActive ? 2.5 : 2} />
-        <span className="text-[13px] leading-[1.2] font-bold text-center tracking-wide">{item.label}</span>
-      </button>
-    );
-  };
-
+export function Sidebar({ currentView, onChangeView, isOpen, onClose }: NavProps) {
+  const closeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!isOpen) return;
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose?.(); };
+    document.addEventListener('keydown', close);
+    return () => document.removeEventListener('keydown', close);
+  }, [isOpen, onClose]);
+  if (!isOpen) return null;
   return (
-    <>
-      {/* Mobile backdrop overlay only (hidden on desktop) */}
-      <div 
-        className={`fixed inset-0 bg-black/20 z-40 transition-opacity duration-300 md:hidden ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
-        onClick={onClose}
-      />
-      <nav aria-label="Main navigation"
-        className={`
-          flex flex-col h-[calc(100dvh-var(--workspace-banner-height,0px))] bg-white border-r border-surface-container-low py-margin-desktop overflow-y-auto overflow-x-hidden shadow-[0_8px_24px_rgba(125,97,144,0.02)]
-          transition-all duration-300 ease-in-out
-          
-          /* Mobile: fixed temporary overlay */
-          fixed left-0 top-0 z-50 w-64 pt-14 md:pt-4
-          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-          /* Desktop: persistent in-flow collapsible sidebar */
-          md:sticky md:top-0 md:translate-x-0 md:z-10 md:shrink-0
-          ${isOpen ? 'md:w-64 md:ml-0 md:opacity-100 md:border-r' : 'md:w-0 md:ml-0 md:opacity-0 md:border-r-0 md:pointer-events-none md:overflow-hidden'}
-        `}
-      >
-        <div className="w-64 min-w-[256px] flex flex-col h-full shrink-0">
-          <div className="px-gutter mb-12 flex items-center justify-between">
-            <h1 className="text-[20px] leading-[1.3] font-semibold font-headline-md text-[#111111] tracking-tight">huntrr.organizer</h1>
-            <button 
-              onClick={onClose} 
-              aria-label="Close sidebar"
-              className="p-2 -mr-2 text-[#666666] hover:text-[#222222] hover:bg-surface-variant rounded-full transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-          <div className="flex flex-col px-4 pb-12">
-            <div className="flex flex-col space-y-2 mb-3">
-              {topNavItems.map(renderRowItem)}
-            </div>
-            
-            <div className="flex flex-col space-y-2 mb-3">
-              {bottomNavItems.map(renderRowItem)}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 mb-3 px-1">
-              {featureNavItems.map(renderFeatureItem)}
-            </div>
-
-            <div className="flex flex-col space-y-2">
-              {settingsNavItem.map(renderRowItem)}
-            </div>
-          </div>
-        </div>
-      </nav>
-    </>
+    <div className="planner-drawer-backdrop" onClick={event => { if (event.target === event.currentTarget) onClose?.(); }}>
+      <section role="dialog" aria-modal="true" aria-label="All planner pages" className="planner-drawer">
+        <header className="drawer-heading">
+          <div><span className="planner-eyebrow">A place for everything</span><h2>All your pages</h2></div>
+          <button ref={closeRef} type="button" onClick={onClose} aria-label="Close all pages" className="planner-icon-button"><X size={20} /></button>
+        </header>
+        <nav aria-label="All planner pages">
+          {groups.map(group => <div className="drawer-group" key={group.label}>
+            <h3>{group.label}</h3>
+            <div className="drawer-page-grid">{group.items.map(({id, label, Icon}) => <button
+              type="button" key={id} id={`nav-item-${id}`} aria-current={activePage(currentView, id) ? 'page' : undefined}
+              onClick={() => { onChangeView(id); onClose?.(); }}
+            ><Icon size={19} aria-hidden="true" /><span>{label}</span></button>)}</div>
+          </div>)}
+        </nav>
+        <p className="drawer-footnote">Your everyday plans. Your wonderfully big ideas.</p>
+      </section>
+    </div>
   );
 }
 
-export function BottomNav({ currentView, onChangeView }: NavProps) {
-  const navItems: { id: ViewState; label: string; Icon: any }[] = [
-    { id: 'agenda', label: 'Agenda', Icon: CalendarDays },
-    { id: 'log', label: 'Log', Icon: SquarePen },
-    { id: 'shopping', label: 'Shopping', Icon: ShoppingCart },
-    { id: 'receipts', label: 'Receipts', Icon: Receipt },
-    { id: 'jobs', label: 'Job Applications', Icon: FileText },
-    { id: 'reminders', label: 'Reminders', Icon: Bell },
-    { id: 'habits', label: 'Habits', Icon: CheckCircle2 },
-    { id: 'goals_streaks', label: 'Goals & Streaks', Icon: Target },
-    { id: 'minifurniture', label: 'Prints', Icon: Box },
-    { id: 'models', label: '3D Models', Icon: ScanEye },
-    { id: 'pinterest', label: 'Inspiration', Icon: Image },
-    { id: 'printing', label: 'Build Catalog', Icon: Printer },
-    { id: 'keychains', label: 'Keychains', Icon: Key },
-    { id: 'wiki', label: 'Wiki', Icon: FileText },
-    { id: 'settings', label: 'Settings', Icon: Settings },
-    { id: 'month', label: 'Month', Icon: Calendar },
-    { id: 'notes', label: 'Notes', Icon: FileText },
-    { id: 'blog', label: 'Blog', Icon: BookOpen },
-  ];
-
-  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
-  const barRef = useRef<HTMLElement>(null);
-  const itemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
-
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.visualViewport) {
-        // If visual viewport is significantly smaller than window height, keyboard is likely open
-        const isKeyboard = window.visualViewport.height < window.innerHeight - 100;
-        setIsKeyboardOpen(isKeyboard);
-      }
-    };
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', handleResize);
-      // Initial check
-      handleResize();
-      return () => window.visualViewport.removeEventListener('resize', handleResize);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (barRef.current && window.innerWidth < 768) {
-      const observer = new ResizeObserver((entries) => {
-        for (let entry of entries) {
-           const height = entry.contentRect.height;
-           const visualHeight = isKeyboardOpen ? 0 : height;
-           document.documentElement.style.setProperty('--bottom-nav-height', `${visualHeight}px`);
-        }
-      });
-      observer.observe(barRef.current);
-      return () => observer.disconnect();
-    } else {
-      document.documentElement.style.setProperty('--bottom-nav-height', '0px');
-    }
-  }, [isKeyboardOpen]);
-
-  // Scroll active tab into view on view change
-  useEffect(() => {
-    const targetId = (currentView === 'goals' || currentView === 'streaks') ? 'goals_streaks' : currentView;
-    if (targetId && itemRefs.current[targetId]) {
-      itemRefs.current[targetId]?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-        inline: 'center'
-      });
-    }
-  }, [currentView]);
-
-  return (
-    <nav 
-      ref={barRef}
-      style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        overflowX: 'auto',
-        overflowY: 'hidden',
-        touchAction: 'pan-x',
-        overscrollBehavior: 'contain',
-        overscrollBehaviorX: 'contain',
-        WebkitOverflowScrolling: 'touch',
-        paddingBottom: 'calc(6px + env(safe-area-inset-bottom, 0px))',
-      }}
-      className={`mobile-bottom-nav md:hidden fixed bottom-0 left-0 right-0 z-50 flex flex-nowrap items-center w-full overflow-x-auto overflow-y-hidden no-scrollbar px-1 pt-1.5 bg-white/95 backdrop-blur-md shadow-[0_-4px_20px_rgba(0,0,0,0.08)] border-t border-outline-variant/30 ${isKeyboardOpen ? 'hidden' : 'flex'}`}
-    >
-      {navItems.map((item) => {
-        const isActive = currentView === item.id || (item.id === 'goals_streaks' && (currentView === 'goals' || currentView === 'streaks'));
-        return (
-          <button
-            key={item.id}
-            id={`bottom-nav-item-${item.id}`}
-            ref={(el) => { itemRefs.current[item.id] = el; }}
-            onClick={() => onChangeView(item.id)}
-            className={`flex-none w-[64px] min-w-[64px] max-w-[64px] flex flex-col items-center justify-center py-1 px-0.5 transition-colors duration-150 cursor-pointer ${
-              isActive
-                ? 'text-primary'
-                : 'text-[#666666] hover:text-[#222222]'
-            }`}
-          >
-            <item.Icon className={`w-5 h-5 mb-0.5 shrink-0 ${isActive ? 'text-primary' : 'text-[#666666]'}`} strokeWidth={isActive ? 2.5 : 2} />
-            <span className={`w-full text-center block whitespace-nowrap overflow-hidden text-ellipsis leading-tight tracking-tight ${
-              isActive 
-                ? 'nav-label-active text-[10px] font-semibold text-primary' 
-                : 'nav-label-inactive text-[9px] min-[380px]:text-[10px] font-normal text-[#666666]'
-            }`}>
-              {item.label}
-            </span>
-          </button>
-        );
-      })}
-    </nav>
-  );
+export function BottomNav({ currentView, onChangeView, onOpen, isOpen }: NavProps) {
+  return <nav className="planner-tabs" aria-label="Planner pages">
+    {plannerPages.map(({ id, label, Icon }) => <button type="button" key={id} id={`bottom-nav-item-${id}`}
+      onClick={() => onChangeView(id)} aria-current={activePage(currentView, id) ? 'page' : undefined}>
+      <Icon size={19} aria-hidden="true" /><span>{label}</span>
+    </button>)}
+    <button type="button" className="all-pages-button" onClick={onOpen} aria-expanded={isOpen} aria-haspopup="dialog"
+      aria-label="All pages" aria-current={!plannerPages.some(item => activePage(currentView, item.id)) ? 'page' : undefined}>
+      <Grid2X2 size={18} aria-hidden="true" /><span>All pages</span>
+    </button>
+  </nav>;
 }

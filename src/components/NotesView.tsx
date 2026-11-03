@@ -5,6 +5,7 @@ import { FileText, Plus, Trash2, ArrowLeft, PaintBucket } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { doc, setDoc } from '../lib/workspaceStore';
 import { useAuth } from '../lib/AuthContext';
+import { PocketFriend } from './PlannerDecor';
 import { SyncStatus } from './SyncStatus';
 import { GUEST_SAMPLE_NOTES } from '../lib/guestSampleData';
 
@@ -155,8 +156,8 @@ export function NotesView() {
           </div>
         </div>
         <div className="flex-1 md:overflow-y-auto p-3 flex flex-col gap-2">
-          {notes.length === 0 ? (
-            <div className="text-sm text-black/40 italic p-4 text-center">No notes yet. Click + to add one.</div>
+          {loading ? <p role="status" className="p-4 text-sm text-on-surface-variant">Opening your notebook…</p> : notes.length === 0 ? (
+            <div className="notes-empty"><PocketFriend /><h2>A little room for ideas</h2><p>No notes yet. Your next idea belongs here.</p><button type="button" onClick={addNote}>Create note <Plus size={15} aria-hidden="true" /></button></div>
           ) : (
             notes.map(note => (
               <button
@@ -181,7 +182,7 @@ export function NotesView() {
           {/* Top Controls Outside Paper */}
           <div className="h-14 px-4 sm:px-6 border-b border-surface-container-low/80 flex justify-between items-center bg-surface/90 backdrop-blur-md z-20 shrink-0">
             <div className="flex items-center gap-3">
-              <button onClick={() => setActiveNoteId(null)} className="md:hidden p-2 -ml-2 text-on-surface-variant hover:bg-surface-variant rounded-full transition-colors">
+              <button aria-label="Back to notes" onClick={() => setActiveNoteId(null)} className="md:hidden p-2 -ml-2 text-on-surface-variant hover:bg-surface-variant rounded-full transition-colors">
                 <ArrowLeft className="w-5 h-5" />
               </button>
               <FileText className="w-5 h-5 text-primary hidden md:block" />
@@ -247,7 +248,7 @@ export function NotesView() {
                   onChange={(e) => updateNote(activeNote.id, { title: e.target.value })}
                   className="w-full text-[20px] sm:text-[24px] font-bold text-on-surface bg-transparent outline-none placeholder:text-on-surface-variant/40 pl-14 sm:pl-20 pr-4 mb-2 tracking-tight"
                   style={{ lineHeight: '32px' }}
-                  placeholder="Note Title"
+                  aria-label="Note title" placeholder="Note Title"
                 />
 
                 {/* Note Content Textarea */}
@@ -257,14 +258,14 @@ export function NotesView() {
                   onChange={(e) => updateNote(activeNote.id, { content: e.target.value })}
                   className="w-full flex-1 min-h-[460px] text-[15px] sm:text-[16px] text-on-surface/90 bg-transparent outline-none resize-none placeholder:text-on-surface-variant/40 pl-14 sm:pl-20 pr-4 leading-[32px]"
                   style={{ lineHeight: '32px' }}
-                  placeholder="Start writing..."
+                  aria-label="Note content" placeholder="Start writing..."
                 />
               </div>
             </div>
           </div>
         </section>
       ) : (
-        <section className="hidden md:flex flex-1 flex-col md:h-full bg-surface rounded-2xl md:rounded-l-none border border-surface-container-low shadow-[0_8px_24px_rgba(125,97,144,0.04)] relative overflow-hidden items-center justify-center">
+        <section className="notes-unselected hidden md:flex flex-1 flex-col md:h-full bg-surface rounded-2xl md:rounded-l-none border border-surface-container-low shadow-[0_8px_24px_rgba(125,97,144,0.04)] relative overflow-hidden items-center justify-center">
           <div className="w-16 h-16 rounded-full bg-surface-variant flex items-center justify-center mb-4 text-on-surface-variant">
             <FileText className="w-8 h-8 opacity-50" />
           </div>

@@ -106,7 +106,7 @@ export function TopBar({ title = "My Planner", showSearch = false }: TopBarProps
 
   return (
     <>
-      <header className="flex justify-between items-center w-full px-margin-mobile md:px-margin-desktop py-4 h-rule-height min-h-[72px] bg-surface md:bg-transparent z-30 shrink-0 sticky top-0">
+      <header className="planner-topbar flex justify-between items-center w-full px-margin-mobile md:px-margin-desktop py-4 h-rule-height min-h-[72px] bg-surface md:bg-transparent z-30 shrink-0 sticky top-0">
         <div className="md:hidden">
           <h1 className="text-[22px] leading-[1.4] font-semibold font-headline-sm text-primary">{title}</h1>
         </div>
@@ -143,7 +143,7 @@ export function TopBar({ title = "My Planner", showSearch = false }: TopBarProps
       )}
 
       {isBgModalOpen && (
-        <div 
+        <div role="dialog" aria-modal="true" aria-label="Background colour" tabIndex={-1}
           className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsBgModalOpen(false);

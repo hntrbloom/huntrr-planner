@@ -19,6 +19,9 @@ import {
   Edit2,
   Trash2
 } from 'lucide-react';
+import { NotebookPen, ListTodo, Heart } from 'lucide-react';
+import { TodaySummary } from './TodaySummary';
+import { PocketFriend } from './PlannerDecor';
 import { useCalendar, CalendarAppointment, getLocalDateString, formatTime } from '../lib/CalendarContext';
 import { useWorkShifts, WorkShift } from '../lib/WorkShiftsContext';
 import { AppointmentFormModal, AppointmentDetailsModal, getCategoryStyle } from './AppointmentModals';
@@ -173,13 +176,26 @@ export function AgendaView({ onNavigate }: AgendaViewProps) {
 
   return (
     <main className="agenda-scroll-container flex-1 md:overflow-y-auto px-4 sm:px-6 md:px-8 lg:px-10 py-5 sm:py-6 md:py-8 pb-28 md:pb-12 w-full max-w-[1260px] mx-auto min-w-0">
-      {/* Top Header Row: Daily Agenda Label & Action Buttons */}
-      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-        <div className="inline-flex items-center gap-2 px-3 h-9 rounded-full bg-[#f6eff4] border border-[#ebdce6] text-primary text-[12px] font-bold tracking-wider">
-          <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
-          <span>DAILY AGENDA</span>
+      <div className="home-page-label"><span><Sparkles size={14} aria-hidden="true" /> YOUR EVERYDAY HAPPY PLACE</span><span>{todayFormatted}</span></div>
+      <section className="planner-welcome">
+        <div className="welcome-copy"><p className="planner-eyebrow">Hello, lovely <span aria-hidden="true">♡</span></p><h1>Make a little space<br />for your day.</h1><p>Your plans, ideas & little everyday things. All tucked in here.</p></div>
+        <PocketFriend className="welcome-friend" />
+        <div className="welcome-date" aria-label={todayFormatted}><span>{todayDate.toLocaleDateString('default', { month: 'short' })}</span><strong>{todayDate.getDate().toString().padStart(2, '0')}</strong><span>{todayDate.toLocaleDateString('default', { weekday: 'long' })}</span></div>
+      </section>
+      <div className="home-actions">
+        <span>A little planning goes a long way</span>
+        <div className="quick-actions">
+          {onNavigate && <button onClick={() => onNavigate('log')}><ListTodo size={15} aria-hidden="true" /> Add task</button>}
+          <button onClick={() => openAddModal(todayStr)}><Plus size={15} aria-hidden="true" /> Add event</button>
+          {onNavigate && <><button onClick={() => onNavigate('notes')}><NotebookPen size={15} aria-hidden="true" /> Write a note</button><button onClick={() => onNavigate('habits')}><Heart size={15} aria-hidden="true" /> Habit check-in</button></>}
         </div>
-
+      </div>
+      <TodaySummary onNavigate={onNavigate} eventTotal={todayItems.filter(item => item.sourceType === 'appointment').length} eventDone={completedCount} eventsReady={!loading} date={todayDate} />
+      <div className="agenda-section-label"><span>My daily agenda</span><span aria-hidden="true">✦</span></div>
+      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap agenda-toolbar">
+        <div className="inline-flex items-center gap-2 text-primary text-[12px] font-bold tracking-wider">
+          <CalendarIcon className="w-4 h-4" aria-hidden="true" /><span>{todayFormatted}</span>
+        </div>
         <div className="flex items-center gap-2.5">
           {onNavigate && (
             <button
@@ -202,44 +218,6 @@ export function AgendaView({ onNavigate }: AgendaViewProps) {
             <Plus className="w-4 h-4 shrink-0" />
             <span>New Event</span>
           </button>
-        </div>
-      </div>
-
-      {/* Today's Overview Card */}
-      <div className="bg-white border border-[#e5e1e4] rounded-2xl sm:rounded-3xl p-5 sm:p-6 md:p-7 shadow-[0_4px_24px_rgba(111,87,105,0.04)] mb-6 relative">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-start gap-3 sm:gap-3.5">
-            <div className="w-10 h-10 rounded-xl sm:rounded-2xl bg-[#faf2f7] border border-[#f0e2ec] flex items-center justify-center text-primary shrink-0 mt-0.5">
-              <CalendarIcon className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[12px] font-bold text-primary/80 uppercase tracking-widest leading-none mb-1.5">
-                Today's Overview
-              </p>
-              <h1 className="text-[22px] sm:text-[28px] md:text-[32px] font-bold font-headline-lg text-[#1c1b1d] leading-tight tracking-tight">
-                {todayFormatted}
-              </h1>
-              <p className="text-[13px] sm:text-[14px] text-on-surface-variant font-medium mt-1 leading-relaxed">
-                {todayItems.length === 0
-                  ? 'Your day is open and clear. Relax or plan ahead.'
-                  : `${todayItems.length} event${todayItems.length === 1 ? '' : 's'} scheduled for today${
-                      completedCount > 0 ? ` • ${completedCount} completed` : ''
-                    }`}
-              </p>
-            </div>
-          </div>
-
-          {todayItems.length > 0 && (
-            <div className="flex items-center gap-2.5 px-3.5 py-2 bg-[#fbf8fa] rounded-xl border border-[#ece4eb] shrink-0 self-start md:self-center">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <div className="text-[12px]">
-                <span className="text-on-surface-variant font-medium mr-1.5">Progress:</span>
-                <span className="font-bold text-on-surface tabular-nums text-[13px]">
-                  {completedCount} of {todayItems.length} Done
-                </span>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -271,7 +249,7 @@ export function AgendaView({ onNavigate }: AgendaViewProps) {
           </div>
 
           {/* Empty State when nothing scheduled today */}
-          {todayItems.length === 0 ? (
+          {loading ? <p role="status" className="p-4 text-sm text-on-surface-variant">Opening your calendar…</p> : todayItems.length === 0 ? (
             <div className="bg-white border border-dashed border-[#ded5db] rounded-2xl p-6 sm:p-7 text-center shadow-xs flex flex-col items-center justify-center transition-all">
               <div className="w-11 h-11 rounded-xl bg-[#faf2f7] border border-[#f0e2ec] text-primary flex items-center justify-center mb-2.5">
                 <Coffee className="w-5 h-5" />
@@ -317,12 +295,13 @@ export function AgendaView({ onNavigate }: AgendaViewProps) {
                             toggleCompleteAppointment(item.id);
                           }}
                           className="p-1 rounded-full text-on-surface-variant hover:text-emerald-600 transition-colors shrink-0"
+                          aria-label={item.completed ? `Mark ${item.title} incomplete` : `Mark ${item.title} complete`}
                           title={item.completed ? 'Mark incomplete' : 'Mark complete'}
                         >
                           {item.completed ? (
                             <CheckCircle2 className="w-5 h-5 text-emerald-600 fill-emerald-100" />
                           ) : (
-                            <Circle className="w-5 h-5 text-on-surface-variant/40 hover:text-emerald-600 transition-colors" />
+                            <Circle className="w-5 h-5 text-on-surface-variant/70 hover:text-emerald-600 transition-colors" />
                           )}
                         </button>
                       ) : (
@@ -451,6 +430,8 @@ export function AgendaView({ onNavigate }: AgendaViewProps) {
                         <div
                           key={`${item.sourceType}-${item.id}`}
                           onClick={() => handleItemClick(item)}
+                          role="button" tabIndex={0} aria-label={`View ${item.title}`}
+                          onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); handleItemClick(item); } }}
                           className="group bg-white border border-[#e7e1e5] hover:border-primary/40 rounded-xl p-3 sm:p-3.5 transition-all duration-150 shadow-xs hover:shadow-sm cursor-pointer flex flex-col gap-2"
                         >
                           <div className="flex items-center justify-between gap-2">

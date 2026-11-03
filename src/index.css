@@ -1,18 +1,18 @@
-@import url('https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Caveat:wght@400..700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Caveat:wght@400..700&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-body-lg: "Plus Jakarta Sans", sans-serif;
-  --font-headline-md: "Libre Caslon Text", serif;
+  --font-headline-md: "Nunito", "Plus Jakarta Sans", sans-serif;
   --font-label-md: "Plus Jakarta Sans", sans-serif;
   --font-body-md: "Plus Jakarta Sans", sans-serif;
-  --font-headline-lg: "Libre Caslon Text", serif;
+  --font-headline-lg: "Nunito", "Plus Jakarta Sans", sans-serif;
   --font-label-sm: "Plus Jakarta Sans", sans-serif;
-  --font-headline-sm: "Libre Caslon Text", serif;
-  --font-headline-lg-mobile: "Libre Caslon Text", serif;
+  --font-headline-sm: "Nunito", "Plus Jakarta Sans", sans-serif;
+  --font-headline-lg-mobile: "Nunito", "Plus Jakarta Sans", sans-serif;
   --font-handwritten: "Caveat", cursive;
 
-  --color-surface: #fcf8fb;
+  --color-surface: #fffaf8;
   --color-surface-dim: #dcd9dc;
   --color-surface-bright: #fcf8fb;
   --color-surface-container-lowest: #ffffff;
@@ -25,12 +25,12 @@
   --color-inverse-surface: #313032;
   --color-inverse-on-surface: #f3f0f3;
   --color-outline: #7e747a;
-  --color-outline-variant: #cfc3c9;
+  --color-outline-variant: #dfbfd0;
   --color-surface-tint: #6f5769;
-  --color-primary: #6f5769;
+  --color-primary: #954465;
   --color-on-primary: #ffffff;
   --color-primary-container: #f9d9ee;
-  --color-on-primary-container: #755d6e;
+  --color-on-primary-container: #75344f;
   --color-inverse-primary: #dcbed2;
   --color-secondary: #6f5482;
   --color-on-secondary: #ffffff;
@@ -64,7 +64,7 @@
   --spacing-rule-height: 32px;
   --spacing-gutter: 24px;
   --spacing-margin-mobile: 16px;
-  --spacing-margin-desktop: 64px;
+  --spacing-margin-desktop: 28px;
 }
 
 @utility lined-paper {

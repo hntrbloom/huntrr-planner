@@ -2,6 +2,14 @@
 
 A pink stationery workspace for everyday planning and creative work. Built on the existing React 19, TypeScript, Vite, Express and Firebase application. The product name is **huntrr.organizer**; it is not a registered domain or a service address.
 
+## Pocket planner interface
+
+The existing application now lives inside a responsive pink handheld planner. Home, Calendar, Tasks (Daily Log), Habits, Notes and Goals have visible icon-and-label tabs. **All pages** opens the complete navigation, including the creative studio, Character Wiki, work tools and Settings. Hash URLs and browser back/forward keep working.
+
+Home shows read-only summaries of existing daily task records, scheduled habits and calendar completion. Quick actions open the existing editing/check-in workflows. Summaries never save, migrate or reset records. Date keys, habit history, goal milestones, custom colours, Series/Franchise suggestions and existing save behavior are preserved. The task notepad component has a stable identity so clock updates no longer discard an unfinished task draft.
+
+The reusable visual tokens are in `src/planner.css` (`--planner-pink`, `--planner-blush`, `--planner-paper`, `--planner-lavender`, `--planner-ink`, `--planner-border`). The bow and pocket friend are original inline SVG decorations in `PlannerDecor.tsx`, hidden from screen readers. No decorative dependency or character artwork was added. Focus rings, keyboard navigation, touch controls and reduced-motion preferences are supported. At desktop widths the page scrolls inside the device; on phones it uses normal document scrolling with sticky planner tabs.
+
 ## Start locally
 
 Use Node 24 and npm. The Node engine is pinned to 24.x so the deployed function uses the same runtime. `package-lock.json` is the maintained lockfile; the older Bun lockfile is retained as history.
