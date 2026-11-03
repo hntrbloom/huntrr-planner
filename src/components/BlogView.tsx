@@ -1,7 +1,7 @@
 import { safeGetDoc as getDoc, safeGetDocs as getDocs, safeGetDocs } from '../lib/firebase';
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
-import { collection, addDoc, doc, deleteDoc, updateDoc, query, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, doc, deleteDoc, updateDoc, query, orderBy, Timestamp } from '../lib/workspaceStore';
 import { useAuth } from '../lib/AuthContext';
 import { Edit2, Trash2, Save } from 'lucide-react';
 import { GUEST_SAMPLE_BLOG_POSTS } from '../lib/guestSampleData';

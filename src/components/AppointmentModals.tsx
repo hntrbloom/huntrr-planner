@@ -91,7 +91,7 @@ export function AppointmentFormModal({ initialData, defaultDate, onSave, onCance
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div role="dialog" aria-modal="true" aria-label="Appointments dialog" tabIndex={-1} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-surface w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-outline-variant/30">
         <div className="flex items-center justify-between p-6 border-b border-outline-variant/20 bg-surface-container-lowest">
           <div className="flex items-center gap-2.5">
@@ -308,7 +308,7 @@ export function AppointmentDetailsModal({
   const catStyle = getCategoryStyle(appointment.category);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div role="dialog" aria-modal="true" aria-label="Appointments dialog" tabIndex={-1} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-surface w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-outline-variant/30">
         <div className="flex flex-col p-6 pb-4 border-b border-outline-variant/20 bg-surface-container-lowest">
           <div className="flex items-start justify-between mb-2">

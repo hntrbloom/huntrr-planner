@@ -1,7 +1,7 @@
 import { safeGetDoc as getDoc, safeGetDocs as getDocs, safeGetDoc } from '../lib/firebase';
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, Square, X, Clock, Volume2, VolumeX, Bell, BellOff, Check } from 'lucide-react';
-import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot } from '../lib/workspaceStore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../lib/AuthContext';
 import { Habit } from './HabitsView';
@@ -304,7 +304,7 @@ export function FocusTimer() {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+    <div role="dialog" aria-modal="true" aria-label="FocusTimer dialog" tabIndex={-1} className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
       <div className="bg-surface-container-lowest rounded-3xl shadow-xl max-w-md w-full p-8 flex flex-col gap-6 border border-outline-variant/20 relative">
         <button onClick={() => setIsOpen(false)} className="absolute top-4 right-4 p-2 text-black/40 hover:text-black/80 hover:bg-black/5 rounded-full transition-colors">
           <X className="w-5 h-5" />

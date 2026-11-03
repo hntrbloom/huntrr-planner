@@ -1,3 +1,5 @@
+import { isLocalUser } from '../lib/workspaceMode';
+import { saveFileToIDB, deleteFileFromIDB } from '../lib/idb';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
@@ -34,7 +36,7 @@ import { SavedModelsList } from './ModelViewer/SavedModelsList';
 import { SavedModel3D, Model3DDimensions } from '../types';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebase';
-import { collection, doc, onSnapshot, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, setDoc, deleteDoc, updateDoc } from '../lib/workspaceStore';
 import { sanitizeFirestorePayload } from '../lib/firestoreUtils';
 import { uploadSTLToDrive, fetchDriveSTLArrayBuffer, downloadSTLBuffer, deleteSTLFromDrive } from '../lib/stlDriveService';
 import { generateSampleCalibrationCubeSTL } from '../lib/sampleSTL';
@@ -261,7 +263,7 @@ export function ModelViewerView() {
       let driveId = currentDriveFileId;
 
       // 1. If not already on Google Drive, upload original STL to Drive dedicated models folder
-      if (!driveId) {
+      if (!driveId && !isLocalUser(user)) {
         const blob = new Blob([currentSTLBuffer], { type: 'model/stl' });
         const uploadRes = await uploadSTLToDrive(blob, currentFilename, (percent) => {
           setUploadProgress(percent);
@@ -278,7 +280,10 @@ export function ModelViewerView() {
 
       // 3. Create document record
       const modelRecordId = currentActiveModelId || uuidv4();
+      const localFileKey = isLocalUser(user) ? `huntrr_local_stl_${modelRecordId}` : undefined;
+      if (localFileKey) await saveFileToIDB(localFileKey, new Blob([currentSTLBuffer], { type: 'model/stl' }));
       const modelRecord: SavedModel3D = {
+        localFileKey,
         id: modelRecordId,
         name: customName,
         originalFilename: currentFilename,
@@ -346,6 +351,8 @@ export function ModelViewerView() {
   ) => {
     if (user && !user.isAnonymous) {
       await deleteDoc(doc(db, `users/${user.uid}/saved_models`, modelId));
+      const deleted = savedModels.find(m => m.id === modelId);
+      if (deleted?.localFileKey) await deleteFileFromIDB(deleted.localFileKey);
     } else {
       const updated = savedModels.filter((m) => m.id !== modelId);
       setSavedModels(updated);
@@ -804,7 +811,7 @@ export function ModelViewerView() {
 
       {/* Large File Warning Modal */}
       {pendingLargeFile && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
+        <div role="dialog" aria-modal="true" aria-label="Modeler dialog" tabIndex={-1} className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl border border-black/10 animate-in fade-in zoom-in-95 duration-150 text-left">
             <div className="flex items-center gap-3 text-amber-600 mb-3">
               <div className="p-2.5 bg-amber-100 rounded-xl">
@@ -848,7 +855,7 @@ export function ModelViewerView() {
 
       {/* Save Model Modal */}
       {showSaveModal && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+        <div role="dialog" aria-modal="true" aria-label="Modeler dialog" tabIndex={-1} className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl border border-black/10 animate-in fade-in zoom-in-95 duration-150 text-left">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2.5">

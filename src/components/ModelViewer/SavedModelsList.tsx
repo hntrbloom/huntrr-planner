@@ -1,3 +1,4 @@
+import { getFileFromIDB } from '../../lib/idb';
 import React, { useState } from 'react';
 import { Box, Eye, Edit3, Download, Trash2, Search, Calendar, Ruler, Layers, Loader2, HardDrive, AlertTriangle } from 'lucide-react';
 import { SavedModel3D } from '../../types';
@@ -45,7 +46,7 @@ export function SavedModelsList({
   };
 
   const handleViewModel = async (model: SavedModel3D) => {
-    if (!model.driveFileId) {
+    if (!model.driveFileId && !model.localFileKey) {
       setErrorMsg('This model does not have a Google Drive file ID attached.');
       return;
     }
@@ -53,7 +54,9 @@ export function SavedModelsList({
     try {
       setLoadingModelId(model.id);
       setErrorMsg(null);
-      const buffer = await fetchDriveSTLArrayBuffer(model.driveFileId);
+      const file = model.localFileKey ? await getFileFromIDB(model.localFileKey) : undefined;
+      const buffer = file ? await file.arrayBuffer() : model.driveFileId ? await fetchDriveSTLArrayBuffer(model.driveFileId) : null;
+      if (!buffer) throw new Error('This local STL file is missing. Restore a backup or upload it again.');
       onOpenModel(model, buffer);
     } catch (err: any) {
       console.error('Failed to open saved model:', err);
@@ -64,7 +67,7 @@ export function SavedModelsList({
   };
 
   const handleDownloadModel = async (model: SavedModel3D) => {
-    if (!model.driveFileId) {
+    if (!model.driveFileId && !model.localFileKey) {
       setErrorMsg('This model does not have a Google Drive file attached.');
       return;
     }
@@ -72,7 +75,9 @@ export function SavedModelsList({
     try {
       setDownloadingModelId(model.id);
       setErrorMsg(null);
-      const buffer = await fetchDriveSTLArrayBuffer(model.driveFileId);
+      const file = model.localFileKey ? await getFileFromIDB(model.localFileKey) : undefined;
+      const buffer = file ? await file.arrayBuffer() : model.driveFileId ? await fetchDriveSTLArrayBuffer(model.driveFileId) : null;
+      if (!buffer) throw new Error('This local STL file is missing. Restore a backup or upload it again.');
       downloadSTLBuffer(buffer, model.originalFilename || model.name);
     } catch (err: any) {
       console.error('Failed to download saved model:', err);
@@ -348,7 +353,7 @@ export function SavedModelsList({
 
       {/* Rename Modal */}
       {editingModel && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+        <div role="dialog" aria-modal="true" aria-label="SavedModelsList dialog" tabIndex={-1} className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl border border-black/10 animate-in fade-in zoom-in-95 duration-150">
             <h3 className="text-[17px] font-bold text-[#111111] mb-2">Rename 3D Model</h3>
             <p className="text-[13px] text-[#666666] mb-4">
@@ -385,7 +390,7 @@ export function SavedModelsList({
 
       {/* Delete Confirmation Modal */}
       {deletingModel && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+        <div role="dialog" aria-modal="true" aria-label="SavedModelsList dialog" tabIndex={-1} className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl border border-black/10 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center gap-3 text-error mb-3">
               <div className="p-2.5 bg-error-container/40 rounded-xl">

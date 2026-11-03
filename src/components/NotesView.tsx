@@ -3,7 +3,7 @@ import { safeGetDoc as getDoc, safeGetDocs as getDocs, safeGetDoc } from '../lib
 import React, { useState, useEffect, useRef } from 'react';
 import { FileText, Plus, Trash2, ArrowLeft, PaintBucket } from 'lucide-react';
 import { db } from '../lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc } from '../lib/workspaceStore';
 import { useAuth } from '../lib/AuthContext';
 import { SyncStatus } from './SyncStatus';
 import { GUEST_SAMPLE_NOTES } from '../lib/guestSampleData';
@@ -149,7 +149,7 @@ export function NotesView() {
           <h3 className="text-[18px] md:text-[22px] leading-[1.4] font-semibold font-headline-sm text-on-surface">Notebook</h3>
           <div className="flex items-center gap-2">
             <SyncStatus status={syncStatus} />
-            <button onClick={addNote} className="p-2 bg-primary text-on-primary hover:bg-primary/90 rounded-full transition-colors shadow-sm">
+            <button aria-label="Add note" onClick={addNote} className="p-2 bg-primary text-on-primary hover:bg-primary/90 rounded-full transition-colors shadow-sm">
               <Plus className="w-5 h-5" />
             </button>
           </div>
@@ -212,7 +212,7 @@ export function NotesView() {
                   </div>
                 )}
               </div>
-              <button onClick={() => deleteNote(activeNote.id)} className="p-2 text-error hover:bg-error-container rounded-full transition-colors" title="Delete note">
+              <button aria-label="Delete note" onClick={() => deleteNote(activeNote.id)} className="p-2 text-error hover:bg-error-container rounded-full transition-colors" title="Delete note">
                  <Trash2 className="w-5 h-5" />
               </button>
             </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db, auth, storage } from '../lib/firebase';
-import { collection, onSnapshot, addDoc, deleteDoc, updateDoc, doc, writeBatch } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, deleteDoc, updateDoc, doc, writeBatch } from '../lib/workspaceStore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { useAuth } from '../lib/AuthContext';
@@ -1280,7 +1280,7 @@ export function InspirationView() {
     >
       {/* Drag Over Overlay */}
       {isDraggingOver && (
-        <div className="fixed inset-0 z-50 bg-[#FFB8CD]/30 backdrop-blur-sm border-4 border-dashed border-[#FF6B9E] flex flex-col items-center justify-center pointer-events-none animate-in fade-in">
+        <div role="dialog" aria-modal="true" aria-label="Inspiration dialog" tabIndex={-1} className="fixed inset-0 z-50 bg-[#FFB8CD]/30 backdrop-blur-sm border-4 border-dashed border-[#FF6B9E] flex flex-col items-center justify-center pointer-events-none animate-in fade-in">
           <Upload className="w-16 h-16 text-[#FF6B9E] mb-3 animate-bounce" />
           <h3 className="text-2xl font-bold text-on-surface">Drop photos to upload</h3>
           <p className="text-sm font-semibold text-on-surface-variant">Uploading to {selectedBoard ? selectedBoard.title : 'Inspiration Board'}</p>
@@ -1911,7 +1911,7 @@ export function InspirationView() {
 
       {/* Add / Connect Board Modal */}
       {showAddBoardModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+        <div role="dialog" aria-modal="true" aria-label="Inspiration dialog" tabIndex={-1} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl flex flex-col">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-on-surface flex items-center gap-2">
@@ -1970,7 +1970,7 @@ export function InspirationView() {
 
       {/* Edit Board Modal */}
       {showEditBoardModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+        <div role="dialog" aria-modal="true" aria-label="Inspiration dialog" tabIndex={-1} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl flex flex-col">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-on-surface flex items-center gap-2">
@@ -2025,7 +2025,7 @@ export function InspirationView() {
 
       {/* Add Photos by URL Modal */}
       {showAddUrlModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+        <div role="dialog" aria-modal="true" aria-label="Inspiration dialog" tabIndex={-1} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl flex flex-col">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-on-surface flex items-center gap-2">
@@ -2073,7 +2073,7 @@ export function InspirationView() {
 
       {/* Move Photos Modal */}
       {showMoveModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+        <div role="dialog" aria-modal="true" aria-label="Inspiration dialog" tabIndex={-1} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl flex flex-col">
             <h3 className="text-lg font-bold text-on-surface mb-4 flex items-center gap-2">
               <FolderOpen className="w-5 h-5 text-[#FFB8CD]" />

@@ -297,6 +297,10 @@ export function AgendaView({ onNavigate }: AgendaViewProps) {
                   <div
                     key={`${item.sourceType}-${item.id}`}
                     onClick={() => handleItemClick(item)}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`View ${item.title}`}
+                    onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); handleItemClick(item); } }}
                     className={`group relative bg-white border rounded-xl sm:rounded-2xl p-3.5 sm:p-4 transition-all duration-150 cursor-pointer shadow-xs hover:shadow-sm hover:border-primary/40 flex items-center justify-between gap-3 ${
                       item.completed
                         ? 'border-[#e8e2e6] bg-[#fbf9fb] opacity-80'
@@ -540,7 +544,7 @@ export function AgendaView({ onNavigate }: AgendaViewProps) {
 
       {/* Work Shift Details Modal (if user taps a work shift) */}
       {selectedShiftDetails && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div role="dialog" aria-modal="true" aria-label="Agenda dialog" tabIndex={-1} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-surface w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-outline-variant/30">
             <div className="flex flex-col p-6 pb-4 border-b border-outline-variant/20 bg-surface-container-lowest">
               <div className="flex items-start justify-between mb-2">

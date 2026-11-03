@@ -43,7 +43,7 @@ import {
   CalendarDays
 } from 'lucide-react';
 import { db } from '../lib/firebase';
-import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot } from '../lib/workspaceStore';
 import { useAuth } from '../lib/AuthContext';
 import { SyncStatus } from './SyncStatus';
 import { 

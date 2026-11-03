@@ -27,7 +27,7 @@ export const DEFAULT_DRIVE_FOLDERS = {
   mockupsFolderId: '1XaOkCP_lqGt7GnQ7VwxH6xZXjCiYo0Aa',
   extrasFolderId: '181OrBplKIJwnbEFiQExWk4BIJLAxDqHK',
   boardsFolderId: '1ZDWIlVnqE0X2krajrXxvF6KQgjeO7o4d',
-  wikiFolderId: '1_wiki_subfolder',
+  wikiFolderId: '',
   modelsFolderId: '1-im-pWjk8zldY9DdTvfIFIfAMXCNBJQE',
 };
 
@@ -49,7 +49,7 @@ export const DEFAULT_PRINT_TYPES: PrintTypeDefinition[] = [
   { id: 'nailCharms', name: 'Nail Charms', defaultFolderId: '1u6wQY53ko6xp41e2sNDL-DRiy6xJa-hw', description: 'Small standalone charms & nail decals' },
   { id: 'miniFurniture', name: 'Mini Furniture', defaultFolderId: '19HKbZxzPmFWz0onno8YydY3uz4HJcUBv', description: 'Miniature furniture items & room pieces' },
   { id: 'figures', name: 'Figures', defaultFolderId: '1Wu6BHjKxdJ5xzAQxLY5jLNa5HkDx026D', description: 'Detailed characters & figurines' },
-  { id: 'wiki', name: 'Wiki Characters', defaultFolderId: '1_wiki_subfolder', description: 'Character Wiki reference photos' },
+  { id: 'wiki', name: 'Wiki Characters', defaultFolderId: '', description: 'Character Wiki reference photos' },
 ];
 
 /**

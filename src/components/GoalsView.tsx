@@ -2,7 +2,7 @@ import { safeGetDoc as getDoc, safeGetDocs as getDocs, safeGetDoc } from '../lib
 import React, { useState, useEffect, useRef } from 'react';
 import { Target, Plus, Trash2, Edit2, X, Check, CheckCircle2, Circle } from 'lucide-react';
 import { db } from '../lib/firebase';
-import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot } from '../lib/workspaceStore';
 import { useAuth } from '../lib/AuthContext';
 import { SyncStatus } from './SyncStatus';
 import { GUEST_SAMPLE_GOALS } from '../lib/guestSampleData';

@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
 import { db } from '../lib/firebase';
-import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, getDoc } from '../lib/workspaceStore';
 import { 
   JobApplication 
 } from './JobApplicationsView';

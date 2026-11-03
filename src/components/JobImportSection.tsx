@@ -1,3 +1,4 @@
+import { apiHeaders } from '../lib/apiClient';
 import React, { useState } from 'react';
 import { JobApplication } from './JobApplicationsView';
 import { normalizeJobUrl, cleanRawUrl } from '../lib/jobUrlUtils';
@@ -28,7 +29,7 @@ export function JobImportSection({ onImportSuccess }: { onImportSuccess: (job: P
     try {
       const response = await fetch('/api/extract-job-url', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await apiHeaders(),
         body: JSON.stringify({ url: rawClean })
       });
 
@@ -110,7 +111,7 @@ export function JobImportSection({ onImportSuccess }: { onImportSuccess: (job: P
     try {
       const response = await fetch('/api/extract-job-text', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await apiHeaders(),
         body: JSON.stringify({ 
           text: jobText,
           originalUrl: cleanLink || undefined
@@ -118,7 +119,8 @@ export function JobImportSection({ onImportSuccess }: { onImportSuccess: (job: P
       });
 
       if (!response.ok) {
-        setWarning("Couldn't extract details from the text. You can still add the application manually.");
+        const error = await response.json().catch(() => ({}));
+        setWarning(error.error || "Couldn't extract details from the text. You can still add the application manually.");
         return;
       }
 

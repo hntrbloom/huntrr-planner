@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { db, storage } from '../lib/firebase';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, arrayUnion, arrayRemove } from '../lib/workspaceStore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '../lib/AuthContext';
 import { Plus, Search, Image as ImageIcon, Download, Trash2, Edit, X, Upload, Key, Eye, CheckCircle2 } from 'lucide-react';
@@ -625,7 +625,7 @@ export function KeychainsView() {
 
       {/* Add / Edit Modal */}
       {isAdding && (
-        <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) setIsAdding(false); }}>
+        <div role="dialog" aria-modal="true" aria-label="Keychains dialog" tabIndex={-1} className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) setIsAdding(false); }}>
           <div className="bg-surface-container-lowest w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl p-6 md:p-8 shadow-2xl relative">
             <div className="sticky top-0 bg-surface-container-lowest z-10 pb-4 border-b border-outline-variant/20 mb-6 flex justify-between items-center">
               <h3 className="text-[24px] font-bold font-headline-md text-on-surface">{editingIdea ? 'Edit Keychain' : 'New Keychain'}</h3>
@@ -789,7 +789,7 @@ export function KeychainsView() {
 
       {/* 4-View Pop-out Modal */}
       {viewingCharm && (
-        <div className="fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-4 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) setViewingCharm(null); }}>
+        <div role="dialog" aria-modal="true" aria-label="Keychains dialog" tabIndex={-1} className="fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-4 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) setViewingCharm(null); }}>
           <div className="bg-surface-container-lowest w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl p-6 md:p-10 shadow-2xl relative">
             <button onClick={() => setViewingCharm(null)} className="absolute top-4 right-4 md:top-6 md:right-6 p-2 bg-surface-container hover:bg-surface-container-high rounded-full transition-colors z-10">
               <X className="w-6 h-6 text-on-surface" />

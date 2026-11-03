@@ -1,4 +1,4 @@
-export type ViewState = 'agenda' | 'log' | 'mood' | 'streaks' | 'month' | 'notes' | 'charts' | 'printing' | 'reminders' | 'pinterest' | 'habits' | 'wiki' | 'blog' | 'goals' | 'goals_streaks' | 'keychains' | 'minifurniture' | 'receipts' | 'settings' | 'shopping' | 'models';
+export type ViewState = 'jobs' | 'agenda' | 'log' | 'mood' | 'streaks' | 'month' | 'notes' | 'charts' | 'printing' | 'reminders' | 'pinterest' | 'habits' | 'wiki' | 'blog' | 'goals' | 'goals_streaks' | 'keychains' | 'minifurniture' | 'receipts' | 'settings' | 'shopping' | 'models';
 
 export interface Model3DDimensions {
   x: number; // width in mm
@@ -11,6 +11,7 @@ export interface SavedModel3D {
   name: string;
   originalFilename: string;
   driveFileId?: string;
+  localFileKey?: string;
   driveFolderId?: string;
   fileSize: number; // in bytes
   triangleCount?: number;

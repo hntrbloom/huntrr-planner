@@ -15,12 +15,17 @@ export function Sidebar({ currentView, onChangeView, isOpen = true, onClose }: N
     { id: 'log', label: 'Daily Log', Icon: SquarePen },
     { id: 'shopping', label: 'Shopping Lists', Icon: ShoppingCart },
     { id: 'receipts', label: 'Client Receipts', Icon: Receipt },
+    { id: 'jobs', label: 'Job Applications', Icon: FileText },
+    { id: 'reminders', label: 'Reminders', Icon: Bell },
     { id: 'habits', label: 'Habit Tracker', Icon: CheckCircle2 },
     { id: 'minifurniture', label: 'Prints', Icon: Box },
   ];
 
   const featureNavItems: { id: ViewState; label: string; Icon: any }[] = [
     { id: 'models', label: '3D Models', Icon: ScanEye },
+    { id: 'pinterest', label: 'Inspiration', Icon: Image },
+    { id: 'printing', label: 'Build Catalog', Icon: Printer },
+    { id: 'keychains', label: 'Keychains', Icon: Key },
     { id: 'wiki', label: 'Character Wiki', Icon: FileText },
   ];
 
@@ -40,6 +45,7 @@ export function Sidebar({ currentView, onChangeView, isOpen = true, onClose }: N
     return (
       <button
         key={item.id}
+        aria-current={isActive ? "page" : undefined}
         id={`nav-item-${item.id}`}
         onClick={() => {
           onChangeView(item.id);
@@ -90,13 +96,13 @@ export function Sidebar({ currentView, onChangeView, isOpen = true, onClose }: N
         className={`fixed inset-0 bg-black/20 z-40 transition-opacity duration-300 md:hidden ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
         onClick={onClose}
       />
-      <nav 
+      <nav aria-label="Main navigation"
         className={`
-          flex flex-col h-[100dvh] bg-white border-r border-surface-container-low py-margin-desktop overflow-y-auto overflow-x-hidden shadow-[0_8px_24px_rgba(125,97,144,0.02)]
+          flex flex-col h-[calc(100dvh-var(--workspace-banner-height,0px))] bg-white border-r border-surface-container-low py-margin-desktop overflow-y-auto overflow-x-hidden shadow-[0_8px_24px_rgba(125,97,144,0.02)]
           transition-all duration-300 ease-in-out
           
           /* Mobile: fixed temporary overlay */
-          fixed left-0 top-0 z-50 w-64
+          fixed left-0 top-0 z-50 w-64 pt-14 md:pt-4
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
           /* Desktop: persistent in-flow collapsible sidebar */
           md:sticky md:top-0 md:translate-x-0 md:z-10 md:shrink-0
@@ -105,7 +111,7 @@ export function Sidebar({ currentView, onChangeView, isOpen = true, onClose }: N
       >
         <div className="w-64 min-w-[256px] flex flex-col h-full shrink-0">
           <div className="px-gutter mb-12 flex items-center justify-between">
-            <h1 className="text-[28px] leading-[1.3] font-semibold font-headline-md text-[#111111] tracking-tight">Planner</h1>
+            <h1 className="text-[20px] leading-[1.3] font-semibold font-headline-md text-[#111111] tracking-tight">huntrr.organizer</h1>
             <button 
               onClick={onClose} 
               aria-label="Close sidebar"
@@ -143,10 +149,15 @@ export function BottomNav({ currentView, onChangeView }: NavProps) {
     { id: 'log', label: 'Log', Icon: SquarePen },
     { id: 'shopping', label: 'Shopping', Icon: ShoppingCart },
     { id: 'receipts', label: 'Receipts', Icon: Receipt },
+    { id: 'jobs', label: 'Job Applications', Icon: FileText },
+    { id: 'reminders', label: 'Reminders', Icon: Bell },
     { id: 'habits', label: 'Habits', Icon: CheckCircle2 },
     { id: 'goals_streaks', label: 'Goals & Streaks', Icon: Target },
     { id: 'minifurniture', label: 'Prints', Icon: Box },
     { id: 'models', label: '3D Models', Icon: ScanEye },
+    { id: 'pinterest', label: 'Inspiration', Icon: Image },
+    { id: 'printing', label: 'Build Catalog', Icon: Printer },
+    { id: 'keychains', label: 'Keychains', Icon: Key },
     { id: 'wiki', label: 'Wiki', Icon: FileText },
     { id: 'settings', label: 'Settings', Icon: Settings },
     { id: 'month', label: 'Month', Icon: Calendar },

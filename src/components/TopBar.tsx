@@ -2,7 +2,7 @@ import { safeGetDoc as getDoc, safeGetDocs as getDocs, safeGetDoc } from '../lib
 import React, { useState, useEffect } from 'react';
 import { PaintBucket, Search, X, Pill } from 'lucide-react';
 import { db } from '../lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc } from '../lib/workspaceStore';
 import { useAuth } from '../lib/AuthContext';
 import { MedicationFormModal, MedicationLog } from './MedicationPopup';
 import { v4 as uuidv4 } from 'uuid';

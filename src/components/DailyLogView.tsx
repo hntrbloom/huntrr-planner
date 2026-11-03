@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2, Pencil, Check, X, Calendar as CalendarIcon, Clock, Settings2, Star, PaintBucket, Heart } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { getGrayscalePalette } from '../lib/colors';
-import { doc, setDoc, collection, query, orderBy, limit, where, documentId } from 'firebase/firestore';
+import { doc, setDoc, collection, query, orderBy, limit, where, documentId } from '../lib/workspaceStore';
 import { useAuth } from '../lib/AuthContext';
 import { logActivity } from '../lib/activityLogger';
 import { SyncStatus } from './SyncStatus';
@@ -874,7 +874,7 @@ const FullCategoryNotepad = ({ categoryId, categoryName, color, activeItems, don
       
       {/* History Modal */}
       {historyModalCategory && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex justify-end">
+        <div role="dialog" aria-modal="true" aria-label="DailyLog dialog" tabIndex={-1} className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex justify-end">
            <div className="w-full max-w-md bg-surface h-full shadow-2xl flex flex-col animate-in slide-in-from-right relative">
               <div className="flex items-center justify-between p-6 border-b border-outline-variant/20 bg-surface-container-low">
                  <div>
@@ -918,7 +918,7 @@ const FullCategoryNotepad = ({ categoryId, categoryName, color, activeItems, don
 
       {/* Category Management Modal */}
       {isCategoryModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" aria-label="DailyLog dialog" tabIndex={-1} className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-surface rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh]">
             <div className="flex items-center justify-between p-4 border-b border-outline-variant/20">
               <h3 className="text-[18px] md:text-[20px] font-headline-sm text-on-surface">Manage Categories</h3>

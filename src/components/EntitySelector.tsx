@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, Edit2, Trash2, Check, X, Settings } from 'lucide-react';
 import { WikiEntity } from './CharacterWikiView';
@@ -21,6 +21,10 @@ export function EntitySelector({
 }: EntitySelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isManaging, setIsManaging] = useState(false);
+  const inputId = useId();
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const [isCreating, setIsCreating] = useState(false);
+  const creating = useRef(false);
   
   // Input search & create state
   const selectedEntity = valueId ? entities.find(e => e.id === valueId) : undefined;
@@ -142,7 +146,12 @@ export function EntitySelector({
       return;
     }
 
-    const newId = await onCreate(targetName);
+    if (creating.current) return;
+    creating.current = true;
+    setIsCreating(true);
+    let newId: string | null;
+    try { newId = await onCreate(targetName); }
+    finally { creating.current = false; setIsCreating(false); }
     if (newId) {
       setInputValue(targetName);
       onChange(newId, targetName);
@@ -186,7 +195,7 @@ export function EntitySelector({
   return (
     <div ref={wrapperRef} className="relative w-full box-border max-w-full">
       <div className="flex justify-between items-center mb-1.5 gap-2">
-        <label className="block text-[12px] font-bold text-black/60 uppercase tracking-wider whitespace-normal leading-tight">{label}</label>
+        <label htmlFor={inputId} className="block text-[12px] font-bold text-black/60 uppercase tracking-wider whitespace-normal leading-tight">{label}</label>
         {entities.length > 0 && !isManaging && (
           <button
             type="button"
@@ -201,10 +210,17 @@ export function EntitySelector({
 
       <div className="relative">
         <input
+          id={inputId}
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={isOpen}
+          aria-controls={`${inputId}-options`}
+          aria-activedescendant={isOpen && activeIndex >= 0 ? `${inputId}-option-${activeIndex}` : undefined}
           type="text"
           value={inputValue}
           onChange={(e) => {
             setInputValue(e.target.value);
+            setActiveIndex(-1);
             setIsOpen(true);
             setIsManaging(false);
             const matched = entities.find(ent => ent.name.toLowerCase() === e.target.value.trim().toLowerCase());
@@ -214,18 +230,25 @@ export function EntitySelector({
               onChange('', e.target.value);
             }
           }}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') { event.preventDefault(); setIsOpen(false); }
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+              event.preventDefault(); setIsOpen(true);
+              setActiveIndex(index => Math.max(0, Math.min(matchingEntities.length - 1, index + (event.key === 'ArrowDown' ? 1 : -1))));
+            }
+            if (event.key === 'Enter' && isOpen) {
+              event.preventDefault();
+              if (activeIndex >= 0 && matchingEntities[activeIndex]) handleSelect(matchingEntities[activeIndex]);
+              else if (exactMatch) handleSelect(exactMatch);
+              else if (trimmedInput) void handleCreateNew();
+            }
+          }}
           onBlur={() => {
             // Give a slight delay so clicks on dropdown items can register before we close
             setTimeout(() => {
               // We do not save to Firebase here; the form handles saving.
               // We just make sure the dropdown closes nicely when tapping away.
               // We also ensure that if they typed something, we notify parent one last time
-              const matched = entities.find(ent => ent.name.toLowerCase() === inputValue.trim().toLowerCase());
-              if (matched) {
-                onChange(matched.id, matched.name);
-              } else if (inputValue.trim()) {
-                onChange('', inputValue);
-              }
               setIsOpen(false);
             }, 200);
           }}
@@ -247,6 +270,7 @@ export function EntitySelector({
           )}
           <button
             type="button"
+            aria-label={`Show ${label} suggestions`}
             onClick={() => { setIsOpen(!isOpen); setIsManaging(false); }}
             className="p-1 text-black/40 hover:text-black"
           >
@@ -259,10 +283,14 @@ export function EntitySelector({
         <div style={dropdownStyle} className="entity-selector-dropdown bg-white border border-[#FFB8CD]/50 rounded-xl shadow-2xl flex flex-col overflow-hidden max-h-64 sm:max-h-72">
           {!isManaging ? (
             <>
-              <div className="flex-1 overflow-y-auto">
+              <div id={`${inputId}-options`} role="listbox" aria-label={`${label} suggestions`} className="flex-1 overflow-y-auto">
                 {/* Search matching options */}
-                {matchingEntities.map(e => (
+                {matchingEntities.map((e, index) => (
                   <div
+                    id={`${inputId}-option-${index}`}
+                    role="option"
+                    aria-selected={valueId === e.id}
+                    style={activeIndex === index ? { backgroundColor: '#FFF0F4', outline: '2px solid #673b50', outlineOffset: '-2px' } : undefined}
                     key={e.id}
                     onMouseDown={(ev) => {
                       ev.preventDefault();
@@ -273,10 +301,10 @@ export function EntitySelector({
                       handleSelect(e);
                     }}
                     onClick={() => handleSelect(e)}
-                    className={`px-4 py-3 hover:bg-[#FFF0F4] cursor-pointer text-[14px] font-medium transition-colors border-b border-black/5 last:border-0 flex items-center justify-between ${valueId === e.id ? 'bg-[#FFF0F4] text-[#FFB8CD] font-bold' : 'text-black'}`}
+                    className={`px-4 py-3 hover:bg-[#FFF0F4] cursor-pointer text-[14px] font-medium transition-colors border-b border-black/5 last:border-0 flex items-center justify-between ${valueId === e.id ? 'bg-[#FFF0F4] text-[#8a3f5d] font-bold' : 'text-black'}`}
                   >
                     <span>{e.name}</span>
-                    {valueId === e.id && <Check className="w-4 h-4 text-[#FFB8CD]" />}
+                    {valueId === e.id && <Check className="w-4 h-4 text-[#8a3f5d]" />}
                   </div>
                 ))}
 
@@ -303,7 +331,8 @@ export function EntitySelector({
                       handleCreateNew();
                     }}
                     onClick={() => handleCreateNew()}
-                    className="w-full flex items-center justify-center gap-2 py-2 px-3 text-[13px] font-bold text-white bg-[#FFB8CD] hover:bg-[#FFB8CD]/90 rounded-lg shadow-sm transition-colors"
+                    disabled={isCreating}
+                    className="w-full flex items-center justify-center gap-2 py-2 px-3 text-[13px] font-bold text-[#4b3440] bg-[#FFB8CD] hover:bg-[#FFB8CD]/90 rounded-lg shadow-sm transition-colors disabled:opacity-50"
                   >
                     <Plus className="w-4 h-4" /> Save "{trimmedInput}" as new {label}
                   </button>

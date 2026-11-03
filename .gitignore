@@ -5,3 +5,9 @@ coverage/
 *.log
 .env*
 !.env.example
+
+dist/
+.vercel/
+work/
+playwright-report/
+test-results/

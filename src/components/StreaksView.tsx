@@ -2,7 +2,7 @@ import { safeGetDoc as getDoc, safeGetDocs as getDocs, safeGetDoc, safeGetDocs }
 import React, { useEffect, useState, useMemo } from 'react';
 import { Bell, Check, Plus, Activity, Clock, ChevronLeft, ChevronRight, BarChart2 } from 'lucide-react';
 import { db } from '../lib/firebase';
-import { collection, query, orderBy, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, doc, setDoc, deleteDoc, onSnapshot } from '../lib/workspaceStore';
 import { useAuth } from '../lib/AuthContext';
 import { useWorkShifts } from '../lib/WorkShiftsContext';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, ReferenceArea, ReferenceLine, BarChart, Bar } from 'recharts';
@@ -66,61 +66,9 @@ export function StreaksView({ embedded = false }: { embedded?: boolean } = {}) {
         return;
       }
       try {
-        // 1. Migrate old 'medications' collection if it exists
-        const oldMedsQ = query(collection(db, `users/${user.uid}/medications`));
-        const oldMedsSnap = await safeGetDocs(oldMedsQ);
-        
-        let existingHabits: Habit[] = [];
         const habitsRef = doc(db, `users/${user.uid}/preferences`, 'habitsData');
         const habitsSnap = await safeGetDoc(habitsRef);
-        if (habitsSnap.exists()) {
-          existingHabits = habitsSnap.data().habits || [];
-        }
-
-        if (!oldMedsSnap.empty) {
-          // Convert to a medication habit
-          const oldDoses = oldMedsSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
-          let medHabit = existingHabits.find(h => h.type === 'medication' && h.name === 'Migrated Medication');
-          if (!medHabit) {
-            medHabit = {
-              id: 'migrated-meds',
-              name: 'Migrated Medication',
-              category: 'health',
-              timeOfDay: 'daily',
-              scheduledDays: [0,1,2,3,4,5,6],
-              createdAt: new Date().toISOString(),
-              order: existingHabits.length,
-              type: 'medication',
-              completions: {}
-            };
-            existingHabits.push(medHabit);
-          }
-          
-          oldDoses.forEach(dose => {
-             const date = dose.date; // YYYY-MM-DD
-             const timeStr = dose.timeTaken || '12:00:00';
-             let timestamp: string;
-             try {
-                timestamp = dose.dateTimestamp ? dose.dateTimestamp.toDate().toISOString() : new Date(date + 'T' + timeStr).toISOString();
-             } catch (e) {
-                timestamp = new Date(date + 'T12:00:00').toISOString();
-             }
-             if (!medHabit.completions[date]) medHabit.completions[date] = [];
-             if (Array.isArray(medHabit.completions[date])) {
-                if (!medHabit.completions[date].includes(timestamp)) {
-                   medHabit.completions[date].push(timestamp);
-                }
-             }
-          });
-          
-          await setDoc(habitsRef, { habits: existingHabits }, { merge: true });
-          
-          // Delete old docs to avoid duplicate migration
-          for (const d of oldMedsSnap.docs) {
-            await deleteDoc(doc(db, `users/${user.uid}/medications`, d.id));
-          }
-        }
-        
+        const existingHabits = habitsSnap.exists() ? habitsSnap.data().habits || [] : [];
         setHabits(existingHabits);
         
         // 2. Load focus sessions
