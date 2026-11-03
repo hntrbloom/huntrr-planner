@@ -16,6 +16,9 @@ import { DEFAULT_DRIVE_FOLDERS, getOrCreateBoardFolder, renameDriveFolder } from
 import { getPhotoFromIDB } from '../lib/idb';
 import { useGoogleDrivePicker, DriveImage } from '../hooks/useGoogleDrivePicker';
 import { SmartImage } from './SmartImage';
+import { listImagesInDriveFolder } from '../lib/driveImageUtils';
+import { getAccessToken, setAccessToken } from '../lib/AuthContext';
+import { requestFreshDriveToken } from '../lib/driveAuth';
 
 export interface InspirationBoard {
   id: string;
@@ -41,6 +44,38 @@ export interface InspirationPhoto {
   size?: number;
   provider?: string;
 }
+
+export const extractDriveFileId = (str?: string): string | undefined => {
+  if (!str) return undefined;
+  if (/^[a-zA-Z0-9_-]{25,50}$/.test(str)) return str;
+  const match = str.match(/[-\w]{25,}/);
+  return match ? match[0] : undefined;
+};
+
+export const getUniquePhotos = (photoList: InspirationPhoto[]): InspirationPhoto[] => {
+  const seenKeys = new Set<string>();
+  const uniqueList: InspirationPhoto[] = [];
+
+  for (const p of photoList) {
+    if (!p) continue;
+    let key = p.id;
+    const driveId = p.driveFileId || extractDriveFileId(p.url) || extractDriveFileId(p.storagePath);
+    if (p.boardId && driveId) {
+      key = `${p.boardId}_drive_${driveId}`;
+    } else if (p.boardId && p.storagePath) {
+      key = `${p.boardId}_storage_${p.storagePath}`;
+    } else if (p.boardId && p.url && !p.url.startsWith('blob:') && !p.url.startsWith('idb://')) {
+      key = `${p.boardId}_url_${p.url}`;
+    }
+
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key);
+      uniqueList.push(p);
+    }
+  }
+
+  return uniqueList;
+};
 
 const ImageWithFallback = ({ src, alt, className, style }: { src: string, alt: string, className?: string, style?: React.CSSProperties }) => {
   const [hasError, setHasError] = useState(false);
@@ -79,38 +114,291 @@ export function InspirationView() {
   
   const { showPicker } = useGoogleDrivePicker();
 
-  const handleDrivePhotos = async (driveImages: DriveImage[], targetBoardId: string) => {
+  const [hasDriveToken, setHasDriveToken] = useState<boolean>(() => !!getAccessToken());
+  const [isAuthorizingDrive, setIsAuthorizingDrive] = useState(false);
+
+  useEffect(() => {
+    const handleTokenChange = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      setHasDriveToken(!!customEvent.detail?.hasToken || !!getAccessToken());
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('drive-token-updated', handleTokenChange);
+      return () => window.removeEventListener('drive-token-updated', handleTokenChange);
+    }
+  }, []);
+
+  const handleConnectDrive = async () => {
     try {
-      const newPhotos: InspirationPhoto[] = driveImages.map((di, idx) => ({
-        id: `photo-drive-${Date.now()}-${idx}`,
-        boardId: targetBoardId,
-        url: '', // We don't have a public URL, we rely on the SmartImage component and drive metadata
-        storagePath: '',
-        title: di.name,
-        createdAt: new Date().toISOString(),
-        // We'll store drive info in the photo object (requires adding to interface, we'll do this)
-        driveFileId: di.fileId,
-        driveFolderId: di.driveFolderId,
-        mimeType: di.mimeType,
-        size: di.size,
+      setIsAuthorizingDrive(true);
+      const token = await requestFreshDriveToken(true);
+      if (token) {
+        setAccessToken(token);
+        setHasDriveToken(true);
+      }
+    } catch (err) {
+      console.warn('[InspirationView] Failed to authorize Drive:', err);
+    } finally {
+      setIsAuthorizingDrive(false);
+    }
+  };
+
+  const [isDriveImporting, setIsDriveImporting] = useState(false);
+  const isDriveImportingRef = useRef(false);
+  const syncedBoardsRef = useRef<Set<string>>(new Set());
+
+  const isCleaningRef = useRef(false);
+
+  const cleanDatabaseDuplicates = async (allPhotos: InspirationPhoto[], userId?: string) => {
+    if (isCleaningRef.current) return;
+
+    const groups = new Map<string, InspirationPhoto[]>();
+
+    for (const p of allPhotos) {
+      if (!p || !p.boardId) continue;
+      const driveId = p.driveFileId || extractDriveFileId(p.url) || extractDriveFileId(p.storagePath);
+      let groupKey = '';
+      if (driveId) {
+        groupKey = `${p.boardId}_drive_${driveId}`;
+      } else if (p.storagePath) {
+        groupKey = `${p.boardId}_storage_${p.storagePath}`;
+      } else if (p.url && !p.url.startsWith('blob:') && !p.url.startsWith('idb://')) {
+        groupKey = `${p.boardId}_url_${p.url}`;
+      }
+
+      if (!groupKey) continue;
+
+      if (!groups.has(groupKey)) {
+        groups.set(groupKey, []);
+      }
+      groups.get(groupKey)!.push(p);
+    }
+
+    const duplicateGroups: InspirationPhoto[][] = [];
+    for (const list of groups.values()) {
+      if (list.length > 1) {
+        duplicateGroups.push(list);
+      }
+    }
+
+    if (duplicateGroups.length === 0) return;
+
+    isCleaningRef.current = true;
+    console.log(`[Duplicate Cleanup] Found ${duplicateGroups.length} duplicate photo group(s) to clean.`);
+
+    try {
+      const docsToDelete: string[] = [];
+      const docsToUpdate: InspirationPhoto[] = [];
+
+      for (const group of duplicateGroups) {
+        const scoreRecord = (r: InspirationPhoto) => {
+          let score = 0;
+          const driveId = r.driveFileId || extractDriveFileId(r.url) || extractDriveFileId(r.storagePath);
+          if (r.title && !['Drive Image', 'Untitled', 'Photo'].includes(r.title)) score += 10;
+          if (r.description) score += 10;
+          if (r.linkUrl) score += 10;
+          if (r.storagePath) score += 5;
+          if (r.url) score += 5;
+          if (r.mimeType) score += 2;
+          if (r.size) score += 2;
+          if (driveId && r.id === `${r.boardId}_${driveId}`) score += 20;
+          return score;
+        };
+
+        const sorted = [...group].sort((a, b) => {
+          const scoreDiff = scoreRecord(b) - scoreRecord(a);
+          if (scoreDiff !== 0) return scoreDiff;
+          return (a.createdAt || '').localeCompare(b.createdAt || '');
+        });
+
+        const bestRecord = { ...sorted[0] };
+        const duplicates = sorted.slice(1);
+
+        let metadataUpdated = false;
+        const effectiveDriveId = bestRecord.driveFileId || extractDriveFileId(bestRecord.url) || extractDriveFileId(bestRecord.storagePath);
+        if (effectiveDriveId && bestRecord.driveFileId !== effectiveDriveId) {
+          bestRecord.driveFileId = effectiveDriveId;
+          metadataUpdated = true;
+        }
+
+        for (const dup of duplicates) {
+          if (!bestRecord.title && dup.title) { bestRecord.title = dup.title; metadataUpdated = true; }
+          if (!bestRecord.description && dup.description) { bestRecord.description = dup.description; metadataUpdated = true; }
+          if (!bestRecord.linkUrl && dup.linkUrl) { bestRecord.linkUrl = dup.linkUrl; metadataUpdated = true; }
+          if (!bestRecord.storagePath && dup.storagePath) { bestRecord.storagePath = dup.storagePath; metadataUpdated = true; }
+          if (!bestRecord.url && dup.url) { bestRecord.url = dup.url; metadataUpdated = true; }
+          if (!bestRecord.driveFolderId && dup.driveFolderId) { bestRecord.driveFolderId = dup.driveFolderId; metadataUpdated = true; }
+          if (dup.createdAt && dup.createdAt < bestRecord.createdAt) { bestRecord.createdAt = dup.createdAt; metadataUpdated = true; }
+        }
+
+        if (metadataUpdated) {
+          docsToUpdate.push(bestRecord);
+        }
+
+        duplicates.forEach(d => docsToDelete.push(d.id));
+      }
+
+      if (userId) {
+        const batch = writeBatch(db);
+        for (const dupId of docsToDelete) {
+          batch.delete(doc(db, `users/${userId}/photos`, dupId));
+        }
+        for (const updatedPhoto of docsToUpdate) {
+          batch.set(doc(db, `users/${userId}/photos`, updatedPhoto.id), updatedPhoto, { merge: true });
+        }
+        await batch.commit();
+        console.log(`[Duplicate Cleanup] Deleted ${docsToDelete.length} duplicate Firestore photo doc(s) and updated ${docsToUpdate.length} record(s).`);
+      } else {
+        const deleteIdsSet = new Set(docsToDelete);
+        setPhotos(prev => {
+          const updated = prev
+            .filter(p => !deleteIdsSet.has(p.id))
+            .map(p => docsToUpdate.find(u => u.id === p.id) || p);
+          saveGuestData(boards, updated);
+          return updated;
+        });
+        console.log(`[Duplicate Cleanup] Cleaned guest photos duplicate records.`);
+      }
+    } catch (err) {
+      console.error("[Duplicate Cleanup] Error cleaning duplicates:", err);
+    } finally {
+      isCleaningRef.current = false;
+    }
+  };
+
+  
+  const syncBoardFromDrive = async (board: InspirationBoard) => {
+    if (!board.driveFolderId) return;
+    try {
+      setIsDriveImporting(true);
+      const files = await listImagesInDriveFolder(board.driveFolderId);
+      if (!files || files.length === 0) {
+        setIsDriveImporting(false);
+        return;
+      }
+      const driveImages: DriveImage[] = files.map((f: any) => ({
         provider: 'google-drive',
-      } as any));
+        fileId: f.id,
+        name: f.name,
+        mimeType: f.mimeType,
+        size: parseInt(f.size || '0', 10),
+        driveFolderId: board.driveFolderId
+      }));
+      await handleDrivePhotos(driveImages, board.id);
+    } catch (err) {
+      console.error("Failed to sync board from drive:", err);
+      setIsDriveImporting(false);
+    }
+  };
+
+  const handleDrivePhotos = async (driveImages: DriveImage[], rawTargetBoardId: string) => {
+    if (isDriveImportingRef.current) {
+      console.log("[handleDrivePhotos] Import already in progress, skipping.");
+      return;
+    }
+    if (!driveImages || driveImages.length === 0) return;
+
+    isDriveImportingRef.current = true;
+    setIsDriveImporting(true);
+
+    try {
+      let targetBoardId = rawTargetBoardId;
+      let targetBoards = [...boards];
+
+      if (targetBoardId === 'all') {
+        if (targetBoards.length > 0) {
+          targetBoardId = targetBoards[0].id;
+        } else {
+          const defaultBoard: InspirationBoard = {
+            id: `board-${Date.now()}`,
+            title: 'My Inspiration Board',
+            status: 'completed',
+            createdAt: new Date().toISOString()
+          };
+          if (!user || user.isAnonymous) {
+            targetBoards = [defaultBoard];
+            setBoards(targetBoards);
+            saveGuestData(targetBoards, photos);
+            targetBoardId = defaultBoard.id;
+          } else {
+            const docRef = await addDoc(collection(db, `users/${user.uid}/boards`), {
+              title: defaultBoard.title,
+              status: 'completed',
+              createdAt: defaultBoard.createdAt
+            });
+            targetBoardId = docRef.id;
+          }
+          setSelectedBoardId(targetBoardId);
+        }
+      }
+
+      // Deduplicate selected Drive files before saving
+      const uniqueDriveImages: DriveImage[] = [];
+      const seenFileIds = new Set<string>();
+      for (const di of driveImages) {
+        if (di.fileId && !seenFileIds.has(di.fileId)) {
+          seenFileIds.add(di.fileId);
+          uniqueDriveImages.push(di);
+        }
+      }
+
+      // Check if target board already contains any of these driveFileIds
+      const existingDriveIdsOnBoard = new Set(
+        photos
+          .filter(p => p.boardId === targetBoardId)
+          .map(p => p.driveFileId || extractDriveFileId(p.url) || extractDriveFileId(p.storagePath))
+          .filter(Boolean)
+      );
+
+      const newDriveImagesToSave = uniqueDriveImages.filter(
+        di => !existingDriveIdsOnBoard.has(di.fileId)
+      );
+
+      if (newDriveImagesToSave.length === 0) {
+        console.log("[handleDrivePhotos] All selected Drive images already exist in this board.");
+        return;
+      }
+
+      // Build photo objects with deterministic IDs
+      const newPhotos: InspirationPhoto[] = newDriveImagesToSave.map((di) => {
+        const customDocId = `${targetBoardId}_${di.fileId}`;
+        return {
+          id: customDocId,
+          boardId: targetBoardId,
+          url: '',
+          storagePath: '',
+          title: di.name || 'Drive Image',
+          createdAt: new Date().toISOString(),
+          driveFileId: di.fileId,
+          driveFolderId: di.driveFolderId,
+          mimeType: di.mimeType,
+          size: di.size,
+          provider: 'google-drive',
+        };
+      });
 
       if (!user || user.isAnonymous) {
-        const updatedPhotos = [...newPhotos, ...photos];
-        setPhotos(updatedPhotos);
-        saveGuestData(boards, updatedPhotos);
+        setPhotos(prev => {
+          const map = new Map<string, InspirationPhoto>(prev.map(p => [p.id, p]));
+          newPhotos.forEach(p => map.set(p.id, p));
+          const updated = Array.from(map.values());
+          saveGuestData(targetBoards, updated);
+          return updated;
+        });
       } else {
         const batch = writeBatch(db);
         newPhotos.forEach(p => {
-          const docRef = doc(collection(db, `users/${user.uid}/photos`));
-          p.id = docRef.id;
-          batch.set(docRef, p);
+          const docRef = doc(db, `users/${user.uid}/photos`, p.id);
+          batch.set(docRef, p, { merge: true });
         });
         await batch.commit();
+        // Do NOT call setPhotos here in logged-in mode — Firestore snapshot listener is single source of truth
       }
     } catch (err) {
       console.error("Failed to save drive photos", err);
+    } finally {
+      setIsDriveImporting(false);
+      isDriveImportingRef.current = false;
     }
   };
   
@@ -225,11 +513,46 @@ export function InspirationView() {
     }
   };
 
+  useEffect(() => {
+    if (!user || boards.length === 0) return;
+    const willyBoard = boards.find(b => b.title === 'willy<3');
+    if (!willyBoard) {
+      if (!syncedBoardsRef.current.has('creating_willy')) {
+        syncedBoardsRef.current.add('creating_willy');
+        const createWilly = async () => {
+          try {
+            const newBoard = {
+              title: 'willy<3',
+              status: 'completed',
+              createdAt: new Date().toISOString(),
+              driveFolderId: '1Qe59tEsgGY_8mhIVzH2UyzTkHj6X8A8i'
+            };
+            if (!user || user.isAnonymous) {
+              const b = { id: `board-${Date.now()}`, ...newBoard } as InspirationBoard;
+              const updatedBoards = [b, ...boards];
+              setBoards(updatedBoards);
+              saveGuestData(updatedBoards, photos);
+            } else {
+              await addDoc(collection(db, `users/${user.uid}/boards`), newBoard);
+            }
+          } catch(e) { console.error(e); }
+        };
+        createWilly();
+      }
+    } else {
+      if (!syncedBoardsRef.current.has(willyBoard.id)) {
+        syncedBoardsRef.current.add(willyBoard.id);
+        syncBoardFromDrive(willyBoard);
+      }
+    }
+  }, [boards, user]);
   // Resolve IDB image URLs for guest mode display
   useEffect(() => {
     let isMounted = true;
 
-    const resolveIdbUrls = async () => {
+    
+
+  const resolveIdbUrls = async () => {
       const idbPhotos = photos.filter(p => p.url && p.url.startsWith('idb://') && !resolvedUrls[p.url]);
       if (idbPhotos.length === 0) return;
 
@@ -322,6 +645,7 @@ export function InspirationView() {
 
       setBoards(initialBoards);
       setPhotos(initialPhotos);
+      cleanDatabaseDuplicates(initialPhotos as InspirationPhoto[]);
       setLoading(false);
       return;
     }
@@ -337,6 +661,7 @@ export function InspirationView() {
       const pts = snap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as InspirationPhoto));
       pts.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       setPhotos(pts);
+      cleanDatabaseDuplicates(pts, user.uid);
       setLoading(false);
     }, (err) => console.error("Photos fetch error:", err));
 
@@ -604,7 +929,7 @@ export function InspirationView() {
             userId, 
             storagePath, 
             file,
-            (msg) => setDebugLogs(prev => [...prev, msg])
+            (msg) => setDebugLogs(prev => [...prev, String(msg)])
           );
 
           let title = file.name.replace(/\.[^/.]+$/, '');
@@ -938,9 +1263,11 @@ export function InspirationView() {
     }
   };
 
+  const uniquePhotos = getUniquePhotos(photos);
+
   const displayedPhotos = selectedBoardId === 'all' 
-    ? photos 
-    : photos.filter(p => p.boardId === selectedBoardId);
+    ? uniquePhotos 
+    : uniquePhotos.filter(p => p.boardId === selectedBoardId);
 
   const selectedBoard = boards.find(b => b.id === selectedBoardId);
 
@@ -1075,7 +1402,7 @@ export function InspirationView() {
                     }, true, board?.driveFolderId || DEFAULT_DRIVE_FOLDERS.boardsFolderId);
                   }}
                   className="px-4 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-full text-xs font-bold shadow-sm flex items-center gap-2 transition-colors disabled:opacity-50"
-                  disabled={isUploading}
+                  disabled={isUploading || isDriveImporting}
                 >
                   <FolderOpen className="w-3.5 h-3.5" /> Choose from Drive
                 </button>
@@ -1140,11 +1467,11 @@ export function InspirationView() {
                 : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
             }`}
           >
-            All Photos <span className="ml-1 opacity-70 text-[10px] font-normal">({photos.length})</span>
+            All Photos <span className="ml-1 opacity-70 text-[10px] font-normal">({uniquePhotos.length})</span>
           </button>
           
           {boards.map(board => {
-            const count = photos.filter(p => p.boardId === board.id).length;
+            const count = uniquePhotos.filter(p => p.boardId === board.id).length;
             const isSelected = selectedBoardId === board.id;
             return (
               <button
@@ -1361,6 +1688,27 @@ export function InspirationView() {
           </div>
         )}
 
+        {/* Drive Authentication Banner if Board Contains Drive Photos and Session is Unauthenticated */}
+        {displayedPhotos.some(p => p.driveFileId || p.provider === 'google-drive' || (p.url && (p.url.includes('drive.google.com') || p.url.includes('googleusercontent.com')))) && !hasDriveToken && (
+          <div className="mb-4 p-3.5 bg-[#FFF0F4] border border-[#FFB8CD]/60 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm shadow-xs">
+            <div className="flex items-center gap-2.5 text-on-surface">
+              <AlertCircle className="w-5 h-5 text-[#FF6B9E] shrink-0" />
+              <span className="font-medium text-xs sm:text-sm">
+                Google Drive authorization required to display Drive photos in this board.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleConnectDrive}
+              disabled={isAuthorizingDrive}
+              className="px-4 py-2 bg-[#FF6B9E] hover:bg-[#FF6B9E]/90 text-white rounded-full text-xs font-bold transition-all shrink-0 shadow-sm flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isAuthorizingDrive ? 'animate-spin' : ''}`} />
+              {isAuthorizingDrive ? 'Connecting...' : 'Connect Google Drive'}
+            </button>
+          </div>
+        )}
+
         {/* Masonry Photo Grid */}
         {displayedPhotos.length > 0 && (
           <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-5 xl:columns-6 gap-3 sm:gap-4 space-y-3 sm:space-y-4">
@@ -1460,6 +1808,7 @@ export function InspirationView() {
                 storagePath={activePhoto.storagePath}
                 driveFileId={activePhoto.driveFileId}
                 isThumbnail={false}
+                priority={true}
                 alt={activePhoto.title || "Preview"} 
                 className="max-w-full max-h-full object-contain" 
               />

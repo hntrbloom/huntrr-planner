@@ -19,10 +19,15 @@ export default defineConfig({
     }
   },
   server: {
-    allowedHosts: ["huntrr-dailyy.ai.studio"],
+    host: '0.0.0.0',
+    port: 3000,
+    allowedHosts: true,
     hmr: false,
+    ws: false,
   },
   preview: {
-    allowedHosts: ["huntrr-dailyy.ai.studio"],
+    host: '0.0.0.0',
+    port: 3000,
+    allowedHosts: true,
   }
 });

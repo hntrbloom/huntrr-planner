@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Clock, Plus, Edit2, Trash2, X, AlertTriangle, Calendar as CalendarIcon, Briefcase } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, Plus, Edit2, Trash2, X, AlertTriangle, Calendar as CalendarIcon, Briefcase, MapPin, AlignLeft, CheckCircle2 } from 'lucide-react';
 import { db } from '../lib/firebase';
-import { collection, doc, setDoc, deleteDoc, query } from 'firebase/firestore';
 import { useWorkShifts, WorkShift } from '../lib/WorkShiftsContext';
 import { useAuth } from '../lib/AuthContext';
+import { useCalendar, CalendarAppointment, formatTime } from '../lib/CalendarContext';
+import { AppointmentFormModal, AppointmentDetailsModal, getCategoryStyle } from './AppointmentModals';
 import { v4 as uuidv4 } from 'uuid';
 
-
+export type { CalendarAppointment } from '../lib/CalendarContext';
+export { formatTime } from '../lib/CalendarContext';
 
 export const calculateTotalHours = (shifts: WorkShift[]) => {
   const intervals = shifts.filter(s => s && s.date && s.clockIn && s.clockOut).map(s => {
@@ -48,14 +50,6 @@ export const calculateTotalHours = (shifts: WorkShift[]) => {
   return Math.max(0, totalHours);
 };
 
-export const formatTime = (timeStr: string) => {
-  if (!timeStr) return '';
-  const [h, m] = timeStr.split(':').map(Number);
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const h12 = h % 12 || 12;
-  return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
-};
-
 export function MonthlyView() {
   const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -66,7 +60,33 @@ export function MonthlyView() {
   const [editingShift, setEditingShift] = useState<WorkShift | null>(null);
   const [selectedShiftDetails, setSelectedShiftDetails] = useState<WorkShift | null>(null);
 
+  // Calendar Appointments State from shared CalendarContext
+  const { appointments, saveAppointment, deleteAppointment, toggleCompleteAppointment } = useCalendar();
+  const [isApptFormOpen, setIsApptFormOpen] = useState(false);
+  const [selectedApptDate, setSelectedApptDate] = useState<string>('');
+  const [editingAppt, setEditingAppt] = useState<CalendarAppointment | null>(null);
+  const [selectedApptDetails, setSelectedApptDetails] = useState<CalendarAppointment | null>(null);
 
+  const handleSaveAppointment = async (appt: CalendarAppointment) => {
+    try {
+      await saveAppointment(appt);
+      setIsApptFormOpen(false);
+      setEditingAppt(null);
+    } catch (err) {
+      console.error("Error saving appointment:", err);
+      throw err;
+    }
+  };
+
+  const handleDeleteAppointment = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this appointment?')) return;
+    try {
+      await deleteAppointment(id);
+      setSelectedApptDetails(null);
+    } catch (err: any) {
+      alert('Failed to delete appointment: ' + (err?.message || err));
+    }
+  };
 
   const monthName = currentDate.toLocaleString('default', { month: 'long' });
   const year = currentDate.getFullYear();
@@ -129,7 +149,6 @@ export function MonthlyView() {
   const weeklyHours = calculateTotalHours(currentWeekShifts);
   const monthlyHours = calculateTotalHours(currentMonthShifts);
 
-
   const handleSaveShift = async (shift: WorkShift) => {
     try {
       await saveShift(shift);
@@ -139,8 +158,6 @@ export function MonthlyView() {
       alert('Failed to save shift: ' + (e as Error).message);
     }
   };
-
-
 
   const handleDeleteShift = async (id: string) => {
     if (confirm('Are you sure you want to delete this shift?')) {
@@ -153,6 +170,11 @@ export function MonthlyView() {
     }
   };
 
+  const openAddApptForDate = (dateStr: string) => {
+    setEditingAppt(null);
+    setSelectedApptDate(dateStr);
+    setIsApptFormOpen(true);
+  };
 
   return (
     <main className="flex-1 md:overflow-y-auto px-margin-mobile md:px-margin-desktop py-8 md:py-12 pb-safe-nav w-full relative">
@@ -178,7 +200,7 @@ export function MonthlyView() {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex bg-surface-container-low rounded-full p-1 border border-outline-variant/30">
             {(['day', 'week', 'month'] as const).map(v => (
               <button
@@ -191,7 +213,7 @@ export function MonthlyView() {
             ))}
           </div>
 
-          <div className="flex items-center gap-2 ml-2">
+          <div className="flex items-center gap-2">
             <button onClick={prev} className="p-2 rounded-full border border-outline-variant text-on-surface-variant hover:bg-surface-variant transition-colors">
               <ChevronLeft className="w-5 h-5" />
             </button>
@@ -202,8 +224,16 @@ export function MonthlyView() {
           </div>
           
           <button 
+            onClick={() => openAddApptForDate(toDateString(currentDate))}
+            className="flex items-center justify-center gap-2 p-2 px-4 rounded-full bg-secondary text-on-secondary hover:bg-secondary/90 shadow-md font-bold text-[14px] transition-colors"
+            title="Add Appointment"
+          >
+            <Plus className="w-4 h-4" /> Add Appointment
+          </button>
+
+          <button 
             onClick={() => { setEditingShift(null); setIsFormOpen(true); }}
-            className="flex items-center justify-center gap-2 p-2 px-4 ml-2 rounded-full bg-primary text-on-primary hover:bg-primary/90 shadow-md font-bold text-[14px] transition-colors"
+            className="flex items-center justify-center gap-2 p-2 px-4 rounded-full bg-primary text-on-primary hover:bg-primary/90 shadow-md font-bold text-[14px] transition-colors"
             title="Clock In"
           >
             <Clock className="w-4 h-4" /> Clock In
@@ -230,18 +260,64 @@ export function MonthlyView() {
                  const d = new Date(currentDate.getFullYear(), currentDate.getMonth(), i + 1);
                  const dStr = toDateString(d);
                  const dayShifts = currentMonthShifts.filter(s => s.date === dStr);
+                 const dayAppts = appointments.filter(a => a.date === dStr);
                  const isToday = new Date().getDate() === i + 1 && new Date().getMonth() === currentDate.getMonth() && new Date().getFullYear() === currentDate.getFullYear();
                  return (
-                  <div key={`d-${i+1}`} className="bg-surface-container-lowest hover:bg-surface min-h-[120px] p-2 flex flex-col gap-1">
-                    <span className={`text-[16px] leading-[1.6] font-normal font-body-md mb-2 ${isToday ? 'bg-primary text-on-primary rounded-full w-7 h-7 flex items-center justify-center' : 'text-on-background'}`}>
-                      {i + 1}
-                    </span>
+                  <div 
+                    key={`d-${i+1}`} 
+                    onClick={(e) => {
+                      // Only trigger cell click if clicking outside specific action items
+                      if ((e.target as HTMLElement).closest('button')) return;
+                      openAddApptForDate(dStr);
+                    }}
+                    className="bg-surface-container-lowest hover:bg-surface/80 min-h-[120px] p-2 flex flex-col gap-1 cursor-pointer group transition-colors relative"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className={`text-[16px] leading-[1.6] font-normal font-body-md ${isToday ? 'bg-primary text-on-primary rounded-full w-7 h-7 flex items-center justify-center font-bold' : 'text-on-background'}`}>
+                        {i + 1}
+                      </span>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); openAddApptForDate(dStr); }}
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-surface-variant rounded-full text-on-surface-variant transition-all"
+                        title="Add appointment for this day"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Appointments */}
+                    {dayAppts.map(a => {
+                      const catStyle = getCategoryStyle(a.category);
+                      return (
+                        <button
+                          key={a.id}
+                          onClick={(e) => { e.stopPropagation(); setSelectedApptDetails(a); }}
+                          className={`flex items-center gap-1.5 p-1.5 rounded-lg text-left transition-colors border ${
+                            a.completed
+                              ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-200/60 opacity-80'
+                              : `${catStyle.bg} ${catStyle.text} ${catStyle.border} hover:opacity-90`
+                          }`}
+                        >
+                          {a.completed ? (
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                          ) : (
+                            <CalendarIcon className="w-3 h-3 shrink-0 opacity-80" />
+                          )}
+                          <div className="flex-1 overflow-hidden">
+                            <p className={`text-[11px] font-bold truncate ${a.completed ? 'line-through opacity-70' : ''}`}>{a.name}</p>
+                            <p className="text-[10px] opacity-80">{formatTime(a.startTime)}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+
+                    {/* Work Shifts */}
                     {dayShifts.map(s => {
                       const hrs = calculateTotalHours([s]).toFixed(2);
                       return (
                         <button 
                           key={s.id} 
-                          onClick={() => setSelectedShiftDetails(s)}
+                          onClick={(e) => { e.stopPropagation(); setSelectedShiftDetails(s); }}
                           className="flex items-center gap-1.5 p-1.5 bg-tertiary-container/40 hover:bg-tertiary-container text-on-tertiary-container rounded-lg text-left transition-colors"
                         >
                           <Clock className="w-3 h-3 shrink-0" />
@@ -276,14 +352,73 @@ export function MonthlyView() {
               {getWeekDays().map((wd, i) => {
                  const dStr = toDateString(wd);
                  const dayShifts = currentWeekShifts.filter(s => s.date === dStr);
+                 const dayAppts = appointments.filter(a => a.date === dStr);
                  return (
-                  <div key={`w-${i}`} className="bg-surface-container-lowest hover:bg-surface p-2 flex flex-col gap-2">
+                  <div 
+                    key={`w-${i}`} 
+                    onClick={(e) => {
+                      if ((e.target as HTMLElement).closest('button')) return;
+                      openAddApptForDate(dStr);
+                    }}
+                    className="bg-surface-container-lowest hover:bg-surface/80 p-2 flex flex-col gap-2 cursor-pointer group"
+                  >
+                    <div className="flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); openAddApptForDate(dStr); }}
+                        className="p-1 hover:bg-surface-variant rounded-full text-on-surface-variant text-[11px] font-bold flex items-center gap-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add
+                      </button>
+                    </div>
+
+                    {/* Appointments */}
+                    {dayAppts.map(a => {
+                      const catStyle = getCategoryStyle(a.category);
+                      return (
+                        <button
+                          key={a.id}
+                          onClick={(e) => { e.stopPropagation(); setSelectedApptDetails(a); }}
+                          className={`flex flex-col gap-1 p-3 rounded-xl text-left transition-colors border shadow-sm ${
+                            a.completed
+                              ? 'bg-emerald-50/70 hover:bg-emerald-100/70 text-emerald-950 border-emerald-200/60 opacity-80'
+                              : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-950 border-indigo-200/80'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${catStyle.bg} ${catStyle.text} ${catStyle.border}`}>
+                              {a.category || 'Event'}
+                            </span>
+                            {a.completed && (
+                              <span className="text-[10px] font-bold text-emerald-700 flex items-center gap-0.5">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Done
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <CalendarIcon className="w-4 h-4 shrink-0 text-indigo-600" />
+                            <span className={`text-[13px] font-bold truncate ${a.completed ? 'line-through text-on-surface-variant/70' : ''}`}>{a.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[12px] text-indigo-800/90 mt-0.5">
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>{formatTime(a.startTime)}{a.endTime ? ` - ${formatTime(a.endTime)}` : ''}</span>
+                          </div>
+                          {a.location && (
+                            <div className="flex items-center gap-1.5 text-[11px] text-indigo-700/80 truncate">
+                              <MapPin className="w-3 h-3 shrink-0" />
+                              <span className="truncate">{a.location}</span>
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+
+                    {/* Shifts */}
                     {dayShifts.map(s => {
                       const hrs = calculateTotalHours([s]).toFixed(2);
                       return (
                         <button 
                           key={s.id} 
-                          onClick={() => setSelectedShiftDetails(s)}
+                          onClick={(e) => { e.stopPropagation(); setSelectedShiftDetails(s); }}
                           className="flex flex-col gap-1 p-3 bg-tertiary-container/30 hover:bg-tertiary-container text-on-tertiary-container rounded-xl text-left transition-colors border border-tertiary-container/50"
                         >
                           <div className="flex items-center gap-2">
@@ -308,49 +443,146 @@ export function MonthlyView() {
         )}
 
         {view === 'day' && (
-          <div className="min-h-[500px] bg-surface-container-lowest p-6">
-            {currentDayShifts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-on-surface-variant/50 py-20">
-                <CalendarIcon className="w-16 h-16 mb-4 opacity-20" />
-                <p className="text-[18px] font-medium">No work shifts recorded today.</p>
-                <button onClick={() => { setEditingShift(null); setIsFormOpen(true); }} className="mt-4 text-primary font-bold hover:underline">
-                  Clock in now
+          <div className="min-h-[500px] bg-surface-container-lowest p-6 space-y-8">
+            {/* Day view Appointments */}
+            <div>
+              <div className="flex items-center justify-between mb-4 max-w-3xl mx-auto">
+                <h3 className="text-[20px] font-bold text-on-surface flex items-center gap-2">
+                  <CalendarIcon className="w-5 h-5 text-indigo-600" /> Appointments
+                </h3>
+                <button 
+                  onClick={() => openAddApptForDate(toDateString(currentDate))}
+                  className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 rounded-full font-bold text-[13px] flex items-center gap-1.5 border border-indigo-200/60 transition-colors"
+                >
+                  <Plus className="w-4 h-4" /> Add Appointment
                 </button>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-4 max-w-3xl mx-auto">
-                {currentDayShifts.map(s => {
-                  const hrs = calculateTotalHours([s]).toFixed(2);
-                  return (
-                    <div key={s.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-surface border border-outline-variant/30 rounded-2xl shadow-sm">
-                      <div className="flex flex-col gap-2">
+
+              {appointments.filter(a => a.date === toDateString(currentDate)).length === 0 ? (
+                <div className="p-8 bg-surface border border-dashed border-outline-variant/30 rounded-2xl text-center max-w-3xl mx-auto">
+                  <p className="text-[15px] font-medium text-on-surface-variant/60">No appointments scheduled for this day.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 max-w-3xl mx-auto">
+                  {appointments.filter(a => a.date === toDateString(currentDate)).map(a => {
+                    const catStyle = getCategoryStyle(a.category);
+                    return (
+                      <div key={a.id} className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl shadow-sm border ${
+                        a.completed ? 'bg-surface border-outline-variant/30 opacity-80' : 'bg-indigo-50/50 border-indigo-100'
+                      }`}>
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${catStyle.bg} ${catStyle.text} ${catStyle.border}`}>
+                              {a.category || 'General'}
+                            </span>
+                            {a.completed && (
+                              <span className="text-[11px] font-bold text-emerald-700 flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Completed
+                              </span>
+                            )}
+                          </div>
+                          <h4 className={`text-[18px] font-bold text-indigo-950 flex items-center gap-2 ${a.completed ? 'line-through text-on-surface-variant/60' : ''}`}>
+                            <CalendarIcon className="w-5 h-5 text-indigo-600 shrink-0" /> {a.name}
+                          </h4>
+                          <div className="flex flex-wrap items-center gap-4 text-[14px] text-indigo-900/80">
+                            <span className="flex items-center gap-1.5">
+                              <Clock className="w-4 h-4 text-indigo-600" />
+                              {formatTime(a.startTime)}{a.endTime ? ` - ${formatTime(a.endTime)}` : ''}
+                            </span>
+                            {a.location && (
+                              <span className="flex items-center gap-1.5">
+                                <MapPin className="w-4 h-4 text-indigo-600" />
+                                {a.location}
+                              </span>
+                            )}
+                          </div>
+                          {a.notes && (
+                            <p className="text-[14px] text-indigo-900/70 italic mt-1 flex items-start gap-1.5">
+                              <AlignLeft className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
+                              <span>"{a.notes}"</span>
+                            </p>
+                          )}
+                        </div>
                         <div className="flex items-center gap-2">
-                          <Briefcase className="w-5 h-5 text-tertiary" />
-                          <h3 className="text-[18px] font-bold text-on-surface">{s.workplace || 'Work Shift'}</h3>
+                          <button
+                            onClick={async () => {
+                              await toggleCompleteAppointment(a.id);
+                            }}
+                            className={`px-3 py-2 rounded-full font-bold text-[13px] transition-colors border cursor-pointer ${
+                              a.completed ? 'bg-surface-container-high text-on-surface' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-200'
+                            }`}
+                          >
+                            {a.completed ? 'Mark Incomplete' : 'Mark Done'}
+                          </button>
+                          <button 
+                            onClick={() => { setEditingAppt(a); setSelectedApptDate(a.date); setIsApptFormOpen(true); }}
+                            className="px-4 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-900 rounded-full font-bold text-[13px] transition-colors cursor-pointer"
+                          >
+                            Edit
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteAppointment(a.id)}
+                            className="px-4 py-2 bg-error-container hover:bg-error-container/80 text-on-error-container rounded-full font-bold text-[13px] transition-colors cursor-pointer"
+                          >
+                            Delete
+                          </button>
                         </div>
-                        <div className="flex items-center gap-4 text-[14px] text-on-surface-variant">
-                          <span className="flex items-center gap-1.5">
-                            <Clock className="w-4 h-4" />
-                            {formatTime(s.clockIn)} - {formatTime(s.clockOut)}
-                          </span>
-                          <span className="px-2 py-0.5 bg-surface-container-high rounded-full font-semibold text-on-surface">
-                            {hrs} hrs
-                          </span>
-                        </div>
-                        {s.notes && (
-                          <p className="text-[14px] text-on-surface-variant italic mt-2">"{s.notes}"</p>
-                        )}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => setSelectedShiftDetails(s)} className="px-4 py-2 bg-surface-container-high text-on-surface rounded-full font-semibold text-[14px] hover:bg-surface-variant transition-colors">
-                          View Details
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Day view Work Shifts */}
+            <div>
+              <div className="flex items-center justify-between mb-4 max-w-3xl mx-auto border-t border-outline-variant/20 pt-6">
+                <h3 className="text-[20px] font-bold text-on-surface flex items-center gap-2">
+                  <Briefcase className="w-5 h-5 text-tertiary" /> Work Shifts
+                </h3>
               </div>
-            )}
+              {currentDayShifts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center text-on-surface-variant/50 py-10 max-w-3xl mx-auto border border-dashed border-outline-variant/30 rounded-2xl">
+                  <p className="text-[16px] font-medium">No work shifts recorded today.</p>
+                  <button onClick={() => { setEditingShift(null); setIsFormOpen(true); }} className="mt-3 text-primary font-bold hover:underline">
+                    Clock in now
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 max-w-3xl mx-auto">
+                  {currentDayShifts.map(s => {
+                    const hrs = calculateTotalHours([s]).toFixed(2);
+                    return (
+                      <div key={s.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-surface border border-outline-variant/30 rounded-2xl shadow-sm">
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-2">
+                            <Briefcase className="w-5 h-5 text-tertiary" />
+                            <h3 className="text-[18px] font-bold text-on-surface">{s.workplace || 'Work Shift'}</h3>
+                          </div>
+                          <div className="flex items-center gap-4 text-[14px] text-on-surface-variant">
+                            <span className="flex items-center gap-1.5">
+                              <Clock className="w-4 h-4" />
+                              {formatTime(s.clockIn)} - {formatTime(s.clockOut)}
+                            </span>
+                            <span className="px-2 py-0.5 bg-surface-container-high rounded-full font-semibold text-on-surface">
+                              {hrs} hrs
+                            </span>
+                          </div>
+                          {s.notes && (
+                            <p className="text-[14px] text-on-surface-variant italic mt-2">"{s.notes}"</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => setSelectedShiftDetails(s)} className="px-4 py-2 bg-surface-container-high text-on-surface rounded-full font-semibold text-[14px] hover:bg-surface-variant transition-colors">
+                            View Details
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -373,6 +605,35 @@ export function MonthlyView() {
             setIsFormOpen(true);
           }}
           onDelete={() => handleDeleteShift(selectedShiftDetails.id)}
+        />
+      )}
+
+      {/* Appointment Form Modal */}
+      {isApptFormOpen && (
+        <AppointmentFormModal
+          initialData={editingAppt}
+          defaultDate={selectedApptDate || toDateString(currentDate)}
+          onSave={handleSaveAppointment}
+          onCancel={() => { setIsApptFormOpen(false); setEditingAppt(null); }}
+        />
+      )}
+
+      {/* Appointment Details Modal */}
+      {selectedApptDetails && (
+        <AppointmentDetailsModal
+          appointment={selectedApptDetails}
+          onClose={() => setSelectedApptDetails(null)}
+          onEdit={() => {
+            setEditingAppt(selectedApptDetails);
+            setSelectedApptDate(selectedApptDetails.date);
+            setSelectedApptDetails(null);
+            setIsApptFormOpen(true);
+          }}
+          onDelete={() => handleDeleteAppointment(selectedApptDetails.id)}
+          onToggleComplete={async () => {
+            await toggleCompleteAppointment(selectedApptDetails.id);
+            setSelectedApptDetails(prev => prev ? { ...prev, completed: !prev.completed } : null);
+          }}
         />
       )}
     </main>
@@ -556,3 +817,4 @@ function ShiftDetailsModal({ shift, onClose, onEdit, onDelete }: { shift: WorkSh
     </div>
   );
 }
+

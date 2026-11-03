@@ -235,7 +235,7 @@ export function NotesView() {
               <div 
                 className="flex-1 w-full pt-8 pb-12 pr-3 sm:pr-8 flex flex-col relative"
                 style={{
-                  backgroundImage: 'repeating-linear-gradient(transparent, transparent 31px, rgba(203, 213, 225, 0.6) 31px, rgba(203, 213, 225, 0.6) 32px)',
+                  backgroundImage: 'repeating-linear-gradient(transparent, transparent 31px, rgba(185, 165, 215, 0.25) 31px, rgba(185, 165, 215, 0.25) 32px)',
                   backgroundSize: '100% 32px',
                   backgroundPosition: '0 0'
                 }}

@@ -1,5 +1,5 @@
 import { initializeApp, getApp, getApps } from 'firebase/app';
-import { initializeFirestore, getFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache, disableNetwork, DocumentReference, Query, getDoc as fGetDoc, getDocFromCache as fGetDocFromCache, getDocs as fGetDocs, getDocsFromCache as fGetDocsFromCache } from 'firebase/firestore';
+import { initializeFirestore, getFirestore, persistentLocalCache, DocumentReference, Query, getDoc as fGetDoc, getDocFromCache as fGetDocFromCache, getDocs as fGetDocs, getDocsFromCache as fGetDocsFromCache, Firestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import config from '../../firebase-applet-config.json';
@@ -14,57 +14,44 @@ const firebaseConfig = {
   measurementId: (config as any).measurementId,
 };
 
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Real db
-let realDb;
 const dbId = (config as any).firestoreDatabaseId;
+
+let firestoreInstance: Firestore;
 try {
-  realDb = initializeFirestore(app, {
-    localCache: persistentLocalCache({tabManager: persistentMultipleTabManager()})
+  firestoreInstance = initializeFirestore(app, {
+    localCache: persistentLocalCache({}) // Single-tab persistent cache, avoids multiTabManager lock issues in WebKit/mobile Safari
   }, dbId);
 } catch (e) {
-  realDb = getFirestore(app, dbId);
+  firestoreInstance = getFirestore(app, dbId);
 }
 
-// Guest db
-const guestApp = getApps().find(a => a.name === "guest") ? getApp("guest") : initializeApp(firebaseConfig, "guest");
-let guestDb;
-try {
-  guestDb = initializeFirestore(guestApp, {
-    localCache: memoryLocalCache()
-  }, dbId);
-  disableNetwork(guestDb).catch(console.error);
-} catch (e) {
-  guestDb = getFirestore(guestApp, dbId);
-}
-
+export const db = firestoreInstance;
 export const auth = getAuth(app);
+
+// Explicitly set browser-local persistence
+import { setPersistence, browserLocalPersistence, inMemoryPersistence } from 'firebase/auth';
+setPersistence(auth, browserLocalPersistence).catch((error) => {
+  console.warn('[FirebaseAuth] Failed to set persistence (often expected in iframes/safari), falling back to inMemory:', error);
+  setPersistence(auth, inMemoryPersistence).catch(() => {});
+});
+
+export const storage = getStorage(app);
 
 let localGuestMode = false;
 export function setLocalGuest(val: boolean) {
   localGuestMode = val;
 }
 
-// Proxy db to switch based on auth state
-export const db = new Proxy(realDb, {
-  get(target, prop) {
-    const isGuest = auth.currentUser?.isAnonymous || localGuestMode;
-    const activeDb = isGuest ? guestDb : realDb;
-    const value = (activeDb as any)[prop];
-    if (typeof value === 'function') {
-      return value.bind(activeDb);
-    }
-    return value;
-  }
-});
-
-export const storage = getStorage(app);
-
 export async function safeGetDoc(ref: DocumentReference) {
   if (auth.currentUser?.isAnonymous || localGuestMode) {
     try {
-      return await fGetDocFromCache(ref);
+      const snap = await fGetDocFromCache(ref);
+      if (snap.exists()) return snap;
+    } catch (_) {}
+    try {
+      return await fGetDoc(ref);
     } catch (e) {
       return { exists: () => false, data: () => undefined, id: ref.id, ref } as any;
     }
@@ -73,17 +60,26 @@ export async function safeGetDoc(ref: DocumentReference) {
   try {
     return await fGetDoc(ref);
   } catch (e: any) {
-    if (e.code === 'unavailable' || e.message?.includes('offline')) {
-      return await fGetDocFromCache(ref);
+    if (e.code === 'unavailable' || e.message?.includes('offline') || e.message?.toLowerCase().includes('database') || e.message?.toLowerCase().includes('closing')) {
+      try {
+        const snap = await fGetDocFromCache(ref);
+        return snap;
+      } catch (_) {}
+      return { exists: () => false, data: () => undefined, id: ref.id, ref } as any;
     }
-    throw e;
+    console.error('[safeGetDoc Error]', e);
+    return { exists: () => false, data: () => undefined, id: ref.id, ref } as any;
   }
 }
 
 export async function safeGetDocs(query: Query) {
   if (auth.currentUser?.isAnonymous || localGuestMode) {
     try {
-      return await fGetDocsFromCache(query);
+      const snap = await fGetDocsFromCache(query);
+      if (!snap.empty) return snap;
+    } catch (_) {}
+    try {
+      return await fGetDocs(query);
     } catch (e) {
       return { empty: true, docs: [], size: 0, forEach: () => {} } as any;
     }
@@ -92,9 +88,15 @@ export async function safeGetDocs(query: Query) {
   try {
     return await fGetDocs(query);
   } catch (e: any) {
-    if (e.code === 'unavailable' || e.message?.includes('offline')) {
-      return await fGetDocsFromCache(query);
+    if (e.code === 'unavailable' || e.message?.includes('offline') || e.message?.toLowerCase().includes('database') || e.message?.toLowerCase().includes('closing')) {
+      try {
+        const snap = await fGetDocsFromCache(query);
+        return snap;
+      } catch (_) {}
+      return { empty: true, docs: [], size: 0, forEach: () => {} } as any;
     }
-    throw e;
+    console.error('[safeGetDocs Error]', e);
+    return { empty: true, docs: [], size: 0, forEach: () => {} } as any;
   }
 }
+

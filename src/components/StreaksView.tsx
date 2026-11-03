@@ -13,7 +13,7 @@ import { calculateTotalHours } from './MonthlyView';
 
 const MED_COLORS = ['#FF6B9E', '#6B9EFF', '#6BFF9E', '#FFB36B', '#A86BFF', '#FF6B6B'];
 
-export function StreaksView() {
+export function StreaksView({ embedded = false }: { embedded?: boolean } = {}) {
   const { user } = useAuth();
   
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -350,13 +350,16 @@ export function StreaksView() {
   };
 
   return (
-    <div className="flex-1 md:overflow-y-auto px-4 md:px-margin-desktop pb-safe-nav bg-transparent">
-      <div className="mt-8 mb-8">
-        <h2 className="text-[40px] leading-[1.2] font-bold font-headline-lg text-on-surface m-0 tracking-tight">Stats & Activity</h2>
-        <p className="text-[15px] font-body-md text-on-surface-variant mt-2 max-w-xl">
-          A comprehensive view of your focus, habits, and daily actions.
-        </p>
-      </div>
+    <div className={embedded ? "w-full bg-transparent" : "flex-1 md:overflow-y-auto px-4 md:px-margin-desktop pb-safe-nav bg-transparent"}>
+      {!embedded && (
+        <div className="mt-8 mb-8">
+          <h2 className="text-[40px] leading-[1.2] font-bold font-headline-lg text-on-surface m-0 tracking-tight">Stats & Activity</h2>
+          <p className="text-[15px] font-body-md text-on-surface-variant mt-2 max-w-xl">
+            A comprehensive view of your focus, habits, and daily actions.
+          </p>
+        </div>
+      )}
+      {embedded && <div className="mt-2" />}
 
       {/* Overview Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-4 mb-8">
@@ -399,7 +402,6 @@ export function StreaksView() {
          </div>
       </div>
 
-      
       {/* Work Hours Chart */}
       <div className="mb-10 bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/30 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">

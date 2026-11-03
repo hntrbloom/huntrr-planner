@@ -1,5 +1,5 @@
 {
-  "name": "Serene Stationery",
+  "name": "Huntrr Space",
   "description": "A mindful digital stationery planner combining tactile paper planning with digital efficiency.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

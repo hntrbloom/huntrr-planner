@@ -31,9 +31,9 @@ export function RemindersView() {
     }
     if (user.isAnonymous) {
       setReminders([
-        { id: 'rem-1', text: '[Sample] Water the acrylic resin craft studio plants', time: '10:00', frequency: 'daily' },
-        { id: 'rem-2', text: '[Sample] Check 3D Printer filament spool levels', time: '18:00', frequency: 'daily' },
-        { id: 'rem-3', text: '[Sample] Post weekly character palette update on Instagram', time: '14:30', frequency: 'weekly' }
+        { id: 'rem-1', text: '[Sample] Water the acrylic resin craft studio plants', time: '10:00', active: true },
+        { id: 'rem-2', text: '[Sample] Check 3D Printer filament spool levels', time: '18:00', active: true },
+        { id: 'rem-3', text: '[Sample] Post weekly character palette update on Instagram', time: '14:30', active: true }
       ]);
       setLoading(false);
       return;

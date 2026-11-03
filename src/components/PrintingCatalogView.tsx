@@ -85,12 +85,23 @@ export function PrintingCatalogView() {
     );
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetchedBuilds = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as PrintBuild[];
+      const fetchedBuilds = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          name: typeof data.name === 'string' ? data.name : (data.name ? String(data.name) : 'Untitled'),
+          link: typeof data.link === 'string' ? data.link : '',
+          plates: typeof data.plates === 'number' ? data.plates : (parseInt(data.plates) || 1),
+          imageUrl: typeof data.imageUrl === 'string' ? data.imageUrl : '',
+          imageStoragePath: typeof data.imageStoragePath === 'string' ? data.imageStoragePath : undefined,
+          referenceId: typeof data.referenceId === 'string' ? data.referenceId : undefined,
+          mockupId: typeof data.mockupId === 'string' ? data.mockupId : undefined,
+          extraIds: Array.isArray(data.extraIds) ? data.extraIds.filter(id => typeof id === 'string') : [],
+          createdAt: data.createdAt
+        };
+      }) as PrintBuild[];
       setBuilds(fetchedBuilds);
-    });
+    }, (err) => console.error("Printing fetch error:", err));
     
     return () => unsubscribe();
   }, [user]);
@@ -210,20 +221,20 @@ export function PrintingCatalogView() {
   };
 
   const openEdit = (build: PrintBuild) => {
-    setFormName(build.name);
-    setFormLink(build.link);
+    setFormName(typeof build.name === 'string' ? build.name : (build.name ? String(build.name) : ''));
+    setFormLink(typeof build.link === 'string' ? build.link : '');
     setFormPlates(build.plates?.toString() || '1');
-    setFormImageUrl(build.imageUrl);
-    setFormReferenceId(build.referenceId || '');
-    setFormMockupId(build.mockupId || '');
-    setFormExtraIds(build.extraIds || []);
+    setFormImageUrl(typeof build.imageUrl === 'string' ? build.imageUrl : '');
+    setFormReferenceId(typeof build.referenceId === 'string' ? build.referenceId : '');
+    setFormMockupId(typeof build.mockupId === 'string' ? build.mockupId : '');
+    setFormExtraIds(Array.isArray(build.extraIds) ? build.extraIds.filter(id => typeof id === 'string') : []);
     setEditingId(build.id);
     setIsAdding(true);
     setSelectedBuild(null);
   };
 
   const filteredBuilds = builds.filter(b => 
-    (b.name || '').toLowerCase().includes((searchQuery || '').toLowerCase())
+    (typeof b.name === 'string' ? b.name : '').toLowerCase().includes((searchQuery || '').toLowerCase())
   );
 
   return (
@@ -519,7 +530,7 @@ export function PrintingCatalogView() {
                   </a>
                 )}
                 
-                {(selectedBuild.referenceId || selectedBuild.mockupId || (selectedBuild.extraIds && selectedBuild.extraIds.length > 0)) && (
+                {(selectedBuild.referenceId || selectedBuild.mockupId || (Array.isArray(selectedBuild.extraIds) && selectedBuild.extraIds.length > 0)) && (
                   <div className="bg-surface-variant/30 p-4 rounded-xl space-y-3 mt-4">
                     <h3 className="font-bold text-sm text-[#444444] flex items-center gap-2">
                       <ImageIcon className="w-4 h-4 text-primary" /> Connected Drive Photos
@@ -543,7 +554,7 @@ export function PrintingCatalogView() {
                       </div>
                     )}
                     
-                    {selectedBuild.extraIds && selectedBuild.extraIds.length > 0 && (
+                    {Array.isArray(selectedBuild.extraIds) && selectedBuild.extraIds.length > 0 && (
                       <div className="flex flex-col gap-2">
                         <span className="font-medium text-sm text-[#666666]">Extras ({selectedBuild.extraIds.length})</span>
                         {selectedBuild.extraIds.map((extraId, idx) => (

@@ -64,6 +64,12 @@
             "write": "$userId == request.auth.uid"
           }
         },
+        "clientReceipts": {
+          "$receiptId": {
+            "read": "$userId == request.auth.uid",
+            "write": "$userId == request.auth.uid"
+          }
+        },
         "activity": {
           "$activityId": {
             "read": "$userId == request.auth.uid",

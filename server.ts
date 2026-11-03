@@ -1,6 +1,7 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
+import { extractJobDataFromUrl, extractJobDataFromText } from "./src/lib/serverJobExtractor";
 
 async function startServer() {
   const app = express();
@@ -12,6 +13,52 @@ async function startServer() {
 
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+  });
+
+  // Extract job details from Indeed, LinkedIn, or career listing links
+  app.post("/api/extract-job-url", async (req, res) => {
+    try {
+      const { url } = req.body || {};
+      if (!url || typeof url !== "string" || !url.trim()) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "A valid job URL or partial link is required." 
+        });
+      }
+
+      const extracted = await extractJobDataFromUrl(url);
+      return res.json(extracted);
+    } catch (err: any) {
+      console.error("[/api/extract-job-url] Server Error:", err?.stack || err);
+      return res.json({
+        success: false,
+        warning: "This website blocked automatic importing. You can still add the application manually.",
+        originalUrl: req.body?.url || "",
+        link: req.body?.url || "",
+      });
+    }
+  });
+
+  // Extract structured job fields from pasted job description text using Gemini AI
+  app.post("/api/extract-job-text", async (req, res) => {
+    try {
+      const { text, originalUrl } = req.body || {};
+      if (!text || typeof text !== "string" || !text.trim()) {
+        return res.status(400).json({
+          success: false,
+          error: "Please provide job description text to analyze."
+        });
+      }
+
+      const extracted = await extractJobDataFromText(text, originalUrl);
+      return res.json(extracted);
+    } catch (err: any) {
+      console.error("[/api/extract-job-text] Server Error:", err?.stack || err);
+      return res.json({
+        success: false,
+        warning: "We couldn't automatically read all listing details, but you can still enter the details and save it manually.",
+      });
+    }
   });
 
   app.post("/api/pinterest/process", async (req, res) => {
@@ -255,10 +302,59 @@ async function startServer() {
     }
   });
 
+  // Google Sheets proxy fetch endpoint
+  app.post("/api/sheets/fetch", async (req, res) => {
+    try {
+      const { spreadsheetId, accessToken } = req.body || {};
+      if (!spreadsheetId || !accessToken) {
+        return res.status(400).json({ error: "Missing spreadsheetId or accessToken" });
+      }
+
+      // Fetch metadata to discover sheets
+      const metaRes = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties.title`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+
+      if (!metaRes.ok) {
+        const errorData = await metaRes.json().catch(() => ({}));
+        return res.status(metaRes.status).json({
+          error: errorData.error?.message || `Google Sheets API returned status ${metaRes.status}`
+        });
+      }
+
+      const meta = await metaRes.json();
+      const sheetsList: { properties: { title: string } }[] = meta.sheets || [];
+
+      const sheetsData: Record<string, any[][]> = {};
+
+      for (const s of sheetsList) {
+        const title = s.properties.title;
+        const valRes = await fetch(
+          `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(title)}?valueRenderOption=UNFORMATTED_VALUE`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        if (valRes.ok) {
+          const valData = await valRes.json();
+          sheetsData[title] = valData.values || [];
+        }
+      }
+
+      return res.json({ success: true, sheets: sheetsData, sheetTitles: Object.keys(sheetsData) });
+    } catch (err: any) {
+      console.error("Error fetching Google Sheets:", err);
+      return res.status(500).json({ error: err?.message || "Failed to fetch spreadsheet data" });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: false,
+        ws: false,
+      },
       appType: "spa",
     });
     app.use(vite.middlewares);

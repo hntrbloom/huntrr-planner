@@ -1,9 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getPhotoFromIDB } from '../lib/idb';
-import { storage, auth } from '../lib/firebase';
+import { storage } from '../lib/firebase';
 import { ref, getDownloadURL } from 'firebase/storage';
-import { resolveAndRepairImage } from '../lib/imageService';
-import { fetchDriveFileWithAuth, getCachedBlobUrl, setCachedBlobUrl } from '../lib/driveImageUtils';
+import { 
+  fetchDriveFileWithAuth, 
+  fetchDriveThumbnailWithAuth,
+  getCachedBlobUrl, 
+  extractDriveFileId 
+} from '../lib/driveImageUtils';
+import { getAccessToken, setAccessToken } from '../lib/AuthContext';
+import { requestFreshDriveToken } from '../lib/driveAuth';
 
 // Global memory cache for resolved Firebase Storage / HTTP / IDB URLs
 const imageCache = new Map<string, string | Promise<string>>();
@@ -28,7 +34,9 @@ export const getCachedImageUrl = async (path: string): Promise<string> => {
           imageCache.set(path, objUrl);
           return objUrl;
         }
-        throw new Error(`IDB photo not found: ${key}`);
+        if (path.startsWith('idb://')) {
+          throw new Error(`IDB photo not found: ${key}`);
+        }
       }
 
       // 2. Handle Normal HTTP/Data URLs
@@ -71,20 +79,27 @@ const isTempUrl = (url?: string) => {
   return url.startsWith('blob:') || url.startsWith('file:');
 };
 
-export const useImageCache = (storagePath?: string, src?: string, driveFileId?: string) => {
-  // Synchronous initial displayUrl determination to avoid re-render flashing
-  const [displayUrl, setDisplayUrl] = useState<string | null>(() => {
-    const cleanDriveId = (driveFileId || '').trim();
-    const cleanStoragePath = (storagePath || '').trim();
-    const cleanSrc = (src || '').trim();
+export const useImageCache = (
+  storagePath?: string, 
+  src?: string, 
+  driveFileId?: string,
+  fallbackDriveFileId?: string
+) => {
+  const primaryDriveId = extractDriveFileId(driveFileId) || extractDriveFileId(fallbackDriveFileId) || extractDriveFileId(src) || extractDriveFileId(storagePath);
+  const secondaryDriveId = (driveFileId && fallbackDriveFileId && extractDriveFileId(driveFileId) !== extractDriveFileId(fallbackDriveFileId))
+    ? extractDriveFileId(fallbackDriveFileId)
+    : undefined;
 
-    // 1. Check Google Drive memory cache
-    if (cleanDriveId) {
-      const cachedDrive = getCachedBlobUrl(cleanDriveId);
+  const [displayUrl, setDisplayUrl] = useState<string | null>(() => {
+    const cleanStoragePath = (typeof storagePath === 'string' ? storagePath : '').trim();
+    const cleanSrc = (typeof src === 'string' ? src : '').trim();
+
+    if (primaryDriveId) {
+      const cachedDrive = getCachedBlobUrl(primaryDriveId);
       if (cachedDrive) return cachedDrive;
+      return null;
     }
 
-    // 2. Check storagePath / src memory cache
     if (cleanStoragePath && imageCache.has(cleanStoragePath)) {
       const cached = imageCache.get(cleanStoragePath);
       if (typeof cached === 'string') return cached;
@@ -94,8 +109,7 @@ export const useImageCache = (storagePath?: string, src?: string, driveFileId?: 
       if (typeof cached === 'string') return cached;
     }
 
-    // 3. If cleanSrc is valid HTTP/HTTPS/data/blob URL, return it immediately
-    if (cleanSrc && !cleanSrc.startsWith('idb://') && !cleanSrc.startsWith('photo_')) {
+    if (cleanSrc && !cleanSrc.startsWith('idb://') && !cleanSrc.startsWith('photo_') && !cleanSrc.includes('drive.google.com') && !cleanSrc.includes('docs.google.com') && !cleanSrc.includes('googleusercontent.com')) {
       return cleanSrc;
     }
 
@@ -103,12 +117,10 @@ export const useImageCache = (storagePath?: string, src?: string, driveFileId?: 
   });
 
   const [isLoading, setIsLoading] = useState<boolean>(() => {
-    // Only set loading if no displayUrl is present and we have an identifier to fetch
     if (displayUrl) return false;
-    const cleanDriveId = (driveFileId || '').trim();
-    const cleanStoragePath = (storagePath || '').trim();
-    const cleanSrc = (src || '').trim();
-    return !!(cleanDriveId || cleanStoragePath || (cleanSrc && (cleanSrc.startsWith('idb://') || cleanSrc.startsWith('photo_'))));
+    const cleanStoragePath = (typeof storagePath === 'string' ? storagePath : '').trim();
+    const cleanSrc = (typeof src === 'string' ? src : '').trim();
+    return !!(primaryDriveId || cleanStoragePath || (cleanSrc && (cleanSrc.startsWith('idb://') || cleanSrc.startsWith('photo_'))));
   });
 
   const [hasError, setHasError] = useState<boolean>(false);
@@ -116,43 +128,25 @@ export const useImageCache = (storagePath?: string, src?: string, driveFileId?: 
 
   useEffect(() => {
     let active = true;
-    const cleanDriveId = (driveFileId || '').trim();
-    const cleanStoragePath = (storagePath || '').trim();
-    const cleanSrc = (src || '').trim();
 
-    // 1. If we already have a valid displayUrl, ensure state is updated without clearing image
-    if (displayUrl) {
-      if (cleanDriveId && getCachedBlobUrl(cleanDriveId) === displayUrl) {
-        setIsLoading(false);
-        setHasError(false);
-        return;
-      }
-      if (cleanStoragePath && imageCache.get(cleanStoragePath) === displayUrl) {
-        setIsLoading(false);
-        setHasError(false);
-        return;
-      }
-      if (cleanSrc && !isTempUrl(cleanSrc) && displayUrl === cleanSrc) {
-        setIsLoading(false);
-        setHasError(false);
-        return;
-      }
-    }
+    const cleanStoragePath = (typeof storagePath === 'string' ? storagePath : '').trim();
+    const cleanSrc = (typeof src === 'string' ? src : '').trim();
 
-    // 2. Drive File ID primary fetch
-    if (cleanDriveId) {
-      const cached = getCachedBlobUrl(cleanDriveId);
-      if (cached) {
-        setDisplayUrl(cached);
+    if (primaryDriveId) {
+      const cachedPrimary = getCachedBlobUrl(primaryDriveId);
+
+      if (cachedPrimary) {
+        setDisplayUrl(cachedPrimary);
         setIsLoading(false);
         setHasError(false);
         return;
       }
 
-      if (!displayUrl) setIsLoading(true);
+      setIsLoading(true);
       setHasError(false);
+      setErrorMessage(null);
 
-      fetchDriveFileWithAuth(cleanDriveId)
+      fetchDriveFileWithAuth(primaryDriveId)
         .then(url => {
           if (active) {
             setDisplayUrl(url);
@@ -160,42 +154,41 @@ export const useImageCache = (storagePath?: string, src?: string, driveFileId?: 
             setHasError(false);
           }
         })
-        .catch(async err => {
-          console.warn(`[useImageCache] Drive fetch failed for ${cleanDriveId}, attempting storage/repair fallback:`, err);
-          
-          // Fallback to storagePath or src if available
-          if (cleanStoragePath) {
-            try {
-              const url = await getCachedImageUrl(cleanStoragePath);
+        .catch(async primaryErr => {
+          console.warn(`[useImageCache] Drive fetch failed for primary ID ${primaryDriveId}:`, primaryErr?.message || primaryErr);
+          if (secondaryDriveId) {
+            const cachedSecondary = getCachedBlobUrl(secondaryDriveId);
+
+            if (cachedSecondary) {
               if (active) {
-                setDisplayUrl(url);
+                setDisplayUrl(cachedSecondary);
+                setIsLoading(false);
+                setHasError(false);
+              }
+              return;
+            }
+            try {
+              const fallbackUrl = await fetchDriveFileWithAuth(secondaryDriveId);
+              if (active) {
+                setDisplayUrl(fallbackUrl);
                 setIsLoading(false);
                 setHasError(false);
                 return;
               }
-            } catch (_) {}
-          }
-
-          if (cleanSrc && !isTempUrl(cleanSrc)) {
-            if (active) {
-              setDisplayUrl(cleanSrc);
-              setIsLoading(false);
-              setHasError(false);
-              return;
+            } catch (secondaryErr: any) {
+              console.warn(`[useImageCache] Secondary Drive fetch also failed for ${secondaryDriveId}:`, secondaryErr?.message || secondaryErr);
             }
           }
-
           if (active) {
             setIsLoading(false);
             setHasError(true);
-            setErrorMessage(err?.message || 'Drive fetch failed');
+            setErrorMessage(primaryErr?.message || 'Drive fetch failed');
           }
         });
 
       return () => { active = false; };
     }
 
-    // 3. Storage Path secondary fetch
     if (cleanStoragePath) {
       const cached = imageCache.get(cleanStoragePath);
       if (typeof cached === 'string') {
@@ -205,7 +198,7 @@ export const useImageCache = (storagePath?: string, src?: string, driveFileId?: 
         return;
       }
 
-      if (!displayUrl) setIsLoading(true);
+      setIsLoading(true);
       setHasError(false);
 
       getCachedImageUrl(cleanStoragePath)
@@ -236,12 +229,7 @@ export const useImageCache = (storagePath?: string, src?: string, driveFileId?: 
       return () => { active = false; };
     }
 
-    // 4. Fallback to src
-    if (cleanSrc && !isTempUrl(cleanSrc)) {
-      setDisplayUrl(cleanSrc);
-      setIsLoading(false);
-      setHasError(false);
-    } else if (cleanSrc && isTempUrl(cleanSrc)) {
+    if (cleanSrc) {
       setDisplayUrl(cleanSrc);
       setIsLoading(false);
       setHasError(false);
@@ -252,34 +240,46 @@ export const useImageCache = (storagePath?: string, src?: string, driveFileId?: 
     }
 
     return () => { active = false; };
-  }, [storagePath, src, driveFileId]);
+  }, [storagePath, src, driveFileId, fallbackDriveFileId]);
 
-  const retry = async () => {
-    const cleanDriveId = (driveFileId || '').trim();
-    const cleanStoragePath = (storagePath || '').trim();
-    const cleanSrc = (src || '').trim();
+  const retry = useCallback(async (interactiveAuth: boolean = false) => {
+    if (!primaryDriveId && !storagePath && !src) return;
 
-    if (!cleanDriveId && !cleanStoragePath && !cleanSrc) return;
-
-    if (!displayUrl) setIsLoading(true);
+    setIsLoading(true);
     setHasError(false);
     setErrorMessage(null);
 
-    if (cleanDriveId) {
+    if (primaryDriveId) {
+      let token = getAccessToken();
+      if (!token && interactiveAuth) {
+        token = await requestFreshDriveToken(true);
+        if (token) setAccessToken(token);
+      }
       try {
-        const url = await fetchDriveFileWithAuth(cleanDriveId);
+        const url = await fetchDriveFileWithAuth(primaryDriveId);
         setDisplayUrl(url);
         setHasError(false);
+        setIsLoading(false);
+        return;
       } catch (err: any) {
-        console.error(`[useImageCache] Retry failed for driveFileId ${cleanDriveId}:`, err);
+        if (secondaryDriveId) {
+          try {
+            const fallbackUrl = await fetchDriveFileWithAuth(secondaryDriveId);
+            setDisplayUrl(fallbackUrl);
+            setHasError(false);
+            setIsLoading(false);
+            return;
+          } catch (_) {}
+        }
+        console.warn(`[useImageCache] Retry failed for driveFileId ${primaryDriveId}:`, err);
         setHasError(true);
         setErrorMessage(err?.message || 'Drive retry failed');
-      } finally {
         setIsLoading(false);
+        return;
       }
-      return;
     }
 
+    const cleanStoragePath = (typeof storagePath === 'string' ? storagePath : '').trim();
     if (cleanStoragePath) {
       imageCache.delete(cleanStoragePath);
       try {
@@ -295,7 +295,21 @@ export const useImageCache = (storagePath?: string, src?: string, driveFileId?: 
       }
       return;
     }
-  };
+  }, [primaryDriveId, secondaryDriveId, storagePath, src]);
 
-  return { displayUrl, isLoading, hasError, errorMessage, retry };
+  // Automatically retry when a fresh Google Drive token becomes available
+  useEffect(() => {
+    const handleTokenUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail?.hasToken && primaryDriveId && (hasError || !displayUrl)) {
+        retry(false);
+      }
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('drive-token-updated', handleTokenUpdate);
+      return () => window.removeEventListener('drive-token-updated', handleTokenUpdate);
+    }
+  }, [primaryDriveId, hasError, displayUrl, retry]);
+
+  return { displayUrl, isLoading, hasError, errorMessage, retry: (interactiveAuth: boolean = true) => retry(interactiveAuth) };
 };

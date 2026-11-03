@@ -11,6 +11,30 @@ export function getPastelImage(title: string, colorHex: string, width = 600, hei
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
+export const GUEST_SAMPLE_SHOPPING_LISTS = [
+  {
+    id: 'list-1',
+    name: 'Groceries',
+    items: [
+      { id: 'item-1', name: 'Almond Milk', quantity: '2', completed: false, createdAt: Date.now() - 1000 },
+      { id: 'item-2', name: 'Strawberries', quantity: '1 box', completed: false, createdAt: Date.now() - 2000 },
+      { id: 'item-3', name: 'Matcha Powder', quantity: '', completed: true, createdAt: Date.now() - 3000 },
+    ],
+    createdAt: Date.now() - 100000,
+    updatedAt: Date.now()
+  },
+  {
+    id: 'list-2',
+    name: 'Target Run',
+    items: [
+      { id: 'item-4', name: 'Cotton rounds', quantity: '', completed: false, createdAt: Date.now() - 4000 },
+      { id: 'item-5', name: 'Cute pens', quantity: '3', completed: false, createdAt: Date.now() - 5000 },
+    ],
+    createdAt: Date.now() - 50000,
+    updatedAt: Date.now()
+  }
+];
+
 // 1. CHARACTER WIKI
 export const GUEST_SAMPLE_FRANCHISES = [
   { id: 'f-1', name: 'Sanrio', createdAt: Date.now() - 100000 },
@@ -255,11 +279,18 @@ export const GUEST_SAMPLE_JOB_APPLICATIONS = [
     id: 'guest-job-1',
     companyName: 'Sanrio Craft Studios',
     roleTitle: 'Product Designer (Keychains & Prints)',
-    status: 'Interviewing' as const,
+    status: 'Interview' as const,
     location: 'Remote / Los Angeles, CA',
+    workplaceType: 'Remote',
+    employmentType: 'Full-time',
     salary: '$75,000 - $90,000 / year',
-    appliedDate: '2026-07-15',
+    pay: '$75,000 - $90,000 / year',
+    priority: 'High',
+    appliedDate: '2026-09-30',
+    datePosted: '2026-09-22',
     jobUrl: 'https://example.com/jobs/sanrio-designer',
+    whyIMatch: 'Strong portfolio in kawaii character merchandise, pastel color swatches, and acrylic shaker charm design.',
+    importantRequirements: 'Proficiency in Figma, Illustrator, UV resin casting knowledge',
     notes: '[Sample] Second round interview scheduled. Prepared portfolio with 3D print samples and character color palettes.',
     contactName: 'Hana Tanaka (Design Lead)',
     contactEmail: 'hana@example.com'
@@ -270,12 +301,79 @@ export const GUEST_SAMPLE_JOB_APPLICATIONS = [
     roleTitle: '3D Modeling & Production Specialist',
     status: 'Applied' as const,
     location: 'San Francisco, CA',
+    workplaceType: 'Hybrid',
+    employmentType: 'Full-time',
     salary: '$80,000 / year',
-    appliedDate: '2026-07-22',
+    pay: '$80,000 / year',
+    priority: 'Medium',
+    appliedDate: '2026-10-02',
+    datePosted: '2026-09-28',
     jobUrl: 'https://example.com/jobs/crafty-3d',
+    whyIMatch: 'Experience managing multi-bed 3D printer farms and optimizing miniature STL prints.',
+    importantRequirements: 'CAD modeling, slicing software, printer troubleshooting',
     notes: '[Sample] Submitted resume and link to personal 3D printing catalog.',
     contactName: 'Recruiting Team',
     contactEmail: 'jobs@craftylabs.example'
+  },
+  {
+    id: 'guest-job-3',
+    companyName: 'Studio Kawaii Corp',
+    roleTitle: 'Senior Stationery & Digital Planner Designer',
+    status: 'NOT COMPLETED' as const,
+    location: 'Remote / New York, NY',
+    workplaceType: 'Remote',
+    employmentType: 'Full-time',
+    salary: '$90,000 - $110,000 / year',
+    pay: '$90,000 - $110,000 / year',
+    priority: 'High',
+    appliedDate: '',
+    datePosted: '2026-10-03',
+    jobUrl: 'https://example.com/jobs/kawaii-stationery-lead',
+    whyIMatch: 'Designed digital stationery, habit trackers, and printable notebook systems with over 10k users.',
+    importantRequirements: 'Design systems, typography hierarchy, tactile aesthetic experience',
+    notes: 'Prioritized for Monday application batch. Cover letter needs customized stationery highlights.',
+    contactName: 'Creative Director',
+    contactEmail: 'talent@studiokawaii.example'
+  },
+  {
+    id: 'guest-job-4',
+    companyName: 'Pastel Workshop Labs',
+    roleTitle: 'Miniature Hardware & Resin Casting Specialist',
+    status: 'NOT COMPLETED' as const,
+    location: 'Seattle, WA',
+    workplaceType: 'On-site',
+    employmentType: 'Full-time',
+    salary: '$70,000 - $82,000 / year',
+    pay: '$70,000 - $82,000 / year',
+    priority: 'High',
+    appliedDate: '',
+    datePosted: '2026-10-01',
+    jobUrl: 'https://example.com/jobs/pastel-resin-specialist',
+    whyIMatch: 'Extensive background in bubble-free silicone molding, mini furniture assembly, and custom finishes.',
+    importantRequirements: 'Silicone mold fabrication, quality inspection, resin safety handling',
+    notes: 'Need to submit link to Mini Furniture photo portfolio.',
+    contactName: 'Lab Operations',
+    contactEmail: 'jobs@pastelworkshop.example'
+  },
+  {
+    id: 'guest-job-5',
+    companyName: 'Cozy Games Media',
+    roleTitle: 'Community & Merchandise Manager',
+    status: 'NOT COMPLETED' as const,
+    location: 'Remote',
+    workplaceType: 'Remote',
+    employmentType: 'Part-time',
+    salary: '$40 - $50 / hr',
+    pay: '$40 - $50 / hr',
+    priority: 'Medium',
+    appliedDate: '',
+    datePosted: '2026-09-29',
+    jobUrl: 'https://example.com/jobs/cozy-games-merch',
+    whyIMatch: 'Strong community engagement and knowledge of cozy game aesthetics and merchandising.',
+    importantRequirements: 'Social media planning, vendor coordination, pop-up booth logistics',
+    notes: 'Apply after reviewing current shop catalog items.',
+    contactName: 'Community Lead',
+    contactEmail: 'team@cozygames.example'
   }
 ];
 
@@ -507,5 +605,57 @@ export const GUEST_SAMPLE_GOALS = [
       { id: 'sub-6', text: 'Add Rilakkuma with honey color scheme', completed: true },
       { id: 'sub-7', text: 'Add Isabelle with Town Hall tags', completed: true }
     ]
+  }
+];
+
+// 13. CLIENT RECEIPTS (NailsByHuntrr)
+export const GUEST_SAMPLE_RECEIPTS = [
+  {
+    id: 'guest-receipt-1',
+    customerName: 'Chloe M. (@chloenails)',
+    orderNumber: '#ETSY-29481',
+    orderDate: '2026-08-16',
+    whereFrom: 'Etsy',
+    nailSizes: 'Thumb 15mm, Index 12mm, Middle 13mm, Ring 11mm, Pinky 9mm',
+    shapeLength: 'Almond • Medium',
+    items: [
+      {
+        id: 'item-1',
+        name: 'Pastel Cloud Almond Press-On Nails Set',
+        quantity: 1,
+        price: 34.00
+      },
+      {
+        id: 'item-2',
+        name: 'Deluxe Application Prep Kit & Sweet Almond Cuticle Oil',
+        quantity: 1,
+        price: 8.50
+      }
+    ],
+    discount: 5.00,
+    notes: 'Top coat: Ultra Glossy ✨ Application prep kit included.',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'guest-receipt-2',
+    customerName: 'Sarah K. (@sarahkawaii)',
+    orderNumber: '#ETSY-30192',
+    orderDate: '2026-08-14',
+    whereFrom: 'Instagram',
+    nailSizes: 'Size S (2, 5, 4, 6, 9)',
+    shapeLength: 'Coffin • Long',
+    items: [
+      {
+        id: 'item-3',
+        name: 'Hand-sculpted 3D Cinnamoroll Cloud Coffin Press-On Set',
+        quantity: 1,
+        price: 45.00
+      }
+    ],
+    discount: 0,
+    notes: 'Thank you for your repeat order Sarah! Included a complimentary mini nail file and heart charms 💕',
+    createdAt: new Date(Date.now() - 172800000).toISOString(),
+    updatedAt: new Date(Date.now() - 172800000).toISOString()
   }
 ];

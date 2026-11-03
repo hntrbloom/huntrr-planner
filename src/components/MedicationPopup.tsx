@@ -1,160 +1,336 @@
-import { safeGetDoc as getDoc, safeGetDocs as getDocs, safeGetDocs } from '../lib/firebase';
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
-import { collection, addDoc, query, where, Timestamp } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { useAuth } from '../lib/AuthContext';
-import { Pill, Check, X } from 'lucide-react';
+import { Pill, Check, X, AlertTriangle, Plus, Edit2, Trash2, CheckCircle2, Clock } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
+
+export interface MedicationLog {
+  id: string;
+  name: string;
+  date: string; // YYYY-MM-DD
+  timeTaken: string; // HH:mm
+  dosage?: string;
+  notes?: string;
+  createdAt?: number;
+}
 
 export function MedicationPopup() {
   const { user } = useAuth();
-  const [show, setShow] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [time, setTime] = useState('');
+  const [logs, setLogs] = useState<MedicationLog[]>([]);
+  const [showModal, setShowModal] = useState(false);
+  const [editingLog, setEditingLog] = useState<MedicationLog | null>(null);
 
-  useEffect(() => {
-    if (show) {
-      const now = new Date();
-      setTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }));
-    }
-  }, [show]);
-
+  // Sync medication logs from Firestore
   useEffect(() => {
     if (!user) {
-      setLoading(false);
+      setLogs([]);
       return;
     }
-    const checkMeds = async () => {
-      // Get the start of the current local day
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
-      
-      const endOfDay = new Date();
-      endOfDay.setHours(23, 59, 59, 999);
 
+    if (user.isAnonymous) {
       try {
-        const q = query(
-          collection(db, `users/${user.uid}/medications`),
-          where('dateTimestamp', '>=', Timestamp.fromDate(startOfDay)),
-          where('dateTimestamp', '<=', Timestamp.fromDate(endOfDay)),
-          where('completed', '==', true)
-        );
-        const snapshot = await safeGetDocs(q);
-        
-        // If there is no completed record for today, show popup
-        if (snapshot.empty) {
-          setShow(true);
-        }
-      } catch (err) {
-        console.error("Error checking meds:", err);
-      } finally {
-        setLoading(false);
+        const saved = localStorage.getItem('guest_medication_logs');
+        if (saved) setLogs(JSON.parse(saved));
+      } catch (e) {
+        console.error("Error loading guest medication logs", e);
       }
-    };
-    checkMeds();
+      return;
+    }
+
+    const q = query(collection(db, `users/${user.uid}/medications`));
+    const unsub = onSnapshot(q, (snap) => {
+      const list: MedicationLog[] = [];
+      snap.forEach(d => {
+        const data = d.data();
+        list.push({
+          id: d.id,
+          name: data.name || 'Daily Medication',
+          date: data.date || new Date().toISOString().split('T')[0],
+          timeTaken: data.timeTaken || '08:00',
+          dosage: data.dosage || '',
+          notes: data.notes || '',
+          createdAt: data.createdAt || Date.now()
+        });
+      });
+      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      setLogs(list);
+    }, (err) => {
+      console.error("Error subscribing to medication logs:", err);
+    });
+
+    return () => unsub();
   }, [user]);
 
-  const handleSave = async (tookMeds: boolean) => {
-    if (!tookMeds) {
-      // "Not Yet" - close popup without saving to db
-      setShow(false);
+  const handleSaveLog = async (log: MedicationLog) => {
+    if (!user) throw new Error("User not authenticated");
+
+    if (user.isAnonymous) {
+      setLogs(prev => {
+        const exists = prev.find(l => l.id === log.id);
+        const updated = exists ? prev.map(l => l.id === log.id ? log : l) : [log, ...prev];
+        try { localStorage.setItem('guest_medication_logs', JSON.stringify(updated)); } catch(e){}
+        return updated;
+      });
       return;
     }
-    
-    if (!user || isSaving) return;
-    
-    setIsSaving(true);
+
+    // Save directly using setDoc to prevent index/query issues
+    await setDoc(doc(db, `users/${user.uid}/medications`, log.id), {
+      name: log.name,
+      date: log.date,
+      timeTaken: log.timeTaken,
+      dosage: log.dosage || '',
+      notes: log.notes || '',
+      completed: true,
+      createdAt: log.createdAt || Date.now()
+    });
+  };
+
+  const handleDeleteLog = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this medication log?")) return;
+
+    if (user?.isAnonymous) {
+      setLogs(prev => {
+        const updated = prev.filter(l => l.id !== id);
+        try { localStorage.setItem('guest_medication_logs', JSON.stringify(updated)); } catch(e){}
+        return updated;
+      });
+      return;
+    }
+
     try {
-      const now = new Date();
-      // Date in ISO format for easy reading: 'YYYY-MM-DD'
-      const isoDate = now.toLocaleDateString('en-CA');
+      await deleteDoc(doc(db, `users/${user.uid}/medications`, id));
+    } catch (err: any) {
+      alert("Failed to delete log: " + (err?.message || "Unknown error"));
+    }
+  };
+
+  return (
+    <>
+      {showModal && (
+        <MedicationFormModal
+          initialLog={editingLog}
+          onSave={handleSaveLog}
+          onClose={() => {
+            setShowModal(false);
+            setEditingLog(null);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+export function MedicationLogModal({ initialLog, isOpen, onClose, onSave, onDelete }: {
+  initialLog?: MedicationLog | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (log: MedicationLog) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
+}) {
+  if (!isOpen) return null;
+  return (
+    <MedicationFormModal
+      initialLog={initialLog || null}
+      onSave={onSave}
+      onClose={onClose}
+    />
+  );
+}
+
+export function MedicationFormModal({ initialLog, onSave, onClose }: {
+  initialLog: MedicationLog | null;
+  onSave: (log: MedicationLog) => Promise<void>;
+  onClose: () => void;
+}) {
+  const now = new Date();
+  const defaultDate = now.toISOString().split('T')[0];
+  const defaultTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+
+  const [name, setName] = useState(initialLog?.name || '');
+  const [date, setDate] = useState(initialLog?.date || defaultDate);
+  const [timeTaken, setTimeTaken] = useState(initialLog?.timeTaken || defaultTime);
+  const [dosage, setDosage] = useState(initialLog?.dosage || '');
+  const [notes, setNotes] = useState(initialLog?.notes || '');
+
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    // Form Field Validation
+    if (!name.trim()) {
+      setErrorMsg("Medication name is required.");
+      return;
+    }
+    if (!date) {
+      setErrorMsg("Date is required.");
+      return;
+    }
+    if (!timeTaken) {
+      setErrorMsg("Time taken is required.");
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const payload: MedicationLog = {
+        id: initialLog?.id || uuidv4(),
+        name: name.trim(),
+        date,
+        timeTaken,
+        dosage: dosage.trim(),
+        notes: notes.trim(),
+        createdAt: initialLog?.createdAt || Date.now()
+      };
+
+      await onSave(payload);
+
+      setSuccessMsg("Medication log saved successfully!");
       
-      // Let's use the user's input time but attach it to today's date for accurate timestamping if we wanted, 
-      // but the original request wants exact time taken and date. We will store it exactly as inputted.
-      let timeTakenStr = time;
-      // Also format it nicely to 12-hour for the view if they inputted 24-hour (time input is usually 24-hour)
-      const [hours, minutes] = time.split(':');
-      let h = parseInt(hours, 10);
-      const ampm = h >= 12 ? 'PM' : 'AM';
-      h = h % 12;
-      h = h ? h : 12;
-      timeTakenStr = `${h}:${minutes} ${ampm}`;
-      
-      // Check again right before saving to prevent duplicates if user double clicks
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date();
-      endOfDay.setHours(23, 59, 59, 999);
-      const q = query(
-        collection(db, `users/${user.uid}/medications`),
-        where('dateTimestamp', '>=', Timestamp.fromDate(startOfDay)),
-        where('dateTimestamp', '<=', Timestamp.fromDate(endOfDay)),
-        where('completed', '==', true)
-      );
-      const snapshot = await safeGetDocs(q);
-      
-      if (snapshot.empty) {
-        await addDoc(collection(db, `users/${user.uid}/medications`), {
-          date: isoDate,
-          dateTimestamp: Timestamp.fromDate(now),
-          timeTaken: timeTakenStr,
-          completed: true
-        });
-      }
-      setShow(false);
-    } catch (error) {
-      console.error('Error saving med log:', error);
-      alert('Failed to save medication record. Please try again.');
-    } finally {
+      // Reset & close after success feedback
+      setTimeout(() => {
+        onClose();
+      }, 1200);
+    } catch (err: any) {
+      console.error("Save medication error:", err);
+      setErrorMsg(err?.message || "Failed to save medication record. Please check your connection and try again.");
       setIsSaving(false);
     }
   };
 
-  if (loading || !show) return null;
-
   return (
-    <div className="fixed inset-0 bg-inverse-surface/40 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="bg-surface-container-lowest w-full max-w-sm rounded-2xl p-6 shadow-xl border border-outline-variant/30 animate-in fade-in zoom-in duration-200">
-        <div className="w-12 h-12 bg-primary-container text-primary rounded-full flex items-center justify-center mx-auto mb-4">
-          <Pill className="w-6 h-6" />
+    <div className="fixed inset-0 bg-inverse-surface/40 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-surface-container-lowest w-full max-w-md rounded-2xl p-6 shadow-2xl border border-outline-variant/30 animate-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between pb-4 border-b border-outline-variant/20 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-primary/10 text-primary rounded-full flex items-center justify-center">
+              <Pill className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-[20px] font-bold text-on-surface leading-tight">
+                {initialLog ? "Edit Medication Log" : "Log Medication"}
+              </h3>
+              <p className="text-[13px] text-on-surface-variant font-medium">Record daily dosage details</p>
+            </div>
+          </div>
+          <button 
+            type="button"
+            onClick={onClose} 
+            disabled={isSaving}
+            className="p-2 text-on-surface-variant hover:bg-surface-variant rounded-full transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
-        <h2 className="text-center text-[24px] font-headline-sm text-on-surface mb-2 tracking-tight">Medication</h2>
-        <p className="text-center text-[16px] font-body-md text-on-surface-variant mb-6">
-          Have you taken your medication today?
-        </p>
 
-        <div className="space-y-4">
-          <div className="flex flex-col gap-2">
-            <label className="text-[12px] font-bold tracking-wider text-on-surface-variant uppercase text-center">
-              Time Taken
+        {errorMsg && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-200 rounded-xl text-red-800 text-[14px] font-medium flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-red-600" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {successMsg && (
+          <div className="mb-4 p-3 bg-emerald-100 border border-emerald-200 rounded-xl text-emerald-800 text-[14px] font-bold flex items-center gap-2 animate-in fade-in">
+            <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-600" />
+            <span>{successMsg}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-[13px] font-bold text-on-surface mb-1">
+              Medication Name <span className="text-red-500">*</span>
             </label>
             <input 
-              type="time" 
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              className="w-full bg-surface-container-low border border-outline-variant/50 rounded-xl px-4 py-3 text-center text-[16px] font-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              type="text"
+              required
+              placeholder="e.g. Vitamin D3, Allergy Meds, Aspirin"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-xl px-4 py-2.5 text-[15px] font-medium text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             />
           </div>
 
-          <div className="flex gap-3 mt-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[13px] font-bold text-on-surface mb-1">
+                Date <span className="text-red-500">*</span>
+              </label>
+              <input 
+                type="date"
+                required
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full bg-surface-container-low border border-outline-variant/40 rounded-xl px-3 py-2.5 text-[14px] font-medium text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[13px] font-bold text-on-surface mb-1">
+                Time Taken <span className="text-red-500">*</span>
+              </label>
+              <input 
+                type="time"
+                required
+                value={timeTaken}
+                onChange={(e) => setTimeTaken(e.target.value)}
+                className="w-full bg-surface-container-low border border-outline-variant/40 rounded-xl px-3 py-2.5 text-[14px] font-medium text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[13px] font-bold text-on-surface mb-1">
+              Dosage / Amount <span className="text-on-surface-variant font-normal">(Optional)</span>
+            </label>
+            <input 
+              type="text"
+              placeholder="e.g. 1 pill, 500mg, 10ml"
+              value={dosage}
+              onChange={(e) => setDosage(e.target.value)}
+              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-xl px-4 py-2.5 text-[14px] font-medium text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[13px] font-bold text-on-surface mb-1">
+              Notes <span className="text-on-surface-variant font-normal">(Optional)</span>
+            </label>
+            <textarea 
+              rows={2}
+              placeholder="e.g. Taken with breakfast and full glass of water"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-xl px-4 py-2.5 text-[14px] font-medium text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-3 border-t border-outline-variant/10">
             <button 
-              onClick={() => handleSave(false)}
+              type="button" 
+              onClick={onClose}
               disabled={isSaving}
-              className="flex-1 py-3 px-4 rounded-xl border border-outline-variant bg-surface text-on-surface font-label-md font-semibold hover:bg-surface-variant transition-colors flex items-center justify-center gap-2"
+              className="flex-1 py-3 px-4 rounded-full border border-outline-variant bg-surface text-on-surface font-semibold text-[14px] hover:bg-surface-variant transition-colors"
             >
-              <X className="w-5 h-5 text-on-surface-variant" />
-              Not Yet
+              Cancel
             </button>
             <button 
-              onClick={() => handleSave(true)}
-              disabled={isSaving || !time}
-              className="flex-1 py-3 px-4 rounded-xl bg-primary text-on-primary font-label-md font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              type="submit"
+              disabled={isSaving || !name.trim()}
+              className="flex-1 py-3 px-4 rounded-full bg-primary text-on-primary font-bold text-[14px] hover:bg-primary/90 transition-colors shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              <Check className="w-5 h-5" />
-              Taken
+              {isSaving ? "Saving..." : (initialLog ? "Save Changes" : "Save Log")}
             </button>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );

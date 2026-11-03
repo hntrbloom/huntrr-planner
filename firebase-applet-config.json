@@ -1,12 +1,12 @@
 {
-  "projectId": "huntrr-app-1c0de",
-  "appId": "1:495117552717:web:be231707991a15f857a004",
-  "apiKey": "AIzaSyBa-tH7x_MdBE_aitFDByp5eH0Tj959cXI",
-  "authDomain": "huntrr-app-1c0de.firebaseapp.com",
+  "projectId": "project-5a12a31b-d1aa-4d8d-a7d",
+  "appId": "1:488791639521:web:1d6a9b31c70a3e3aa33ea0",
+  "apiKey": "AIzaSyDAoN99-qgWHOsCtirvCZ99E5Qipov1tAY",
+  "authDomain": "project-5a12a31b-d1aa-4d8d-a7d.firebaseapp.com",
   "firestoreDatabaseId": "ai-studio-huntrrworkspace-d7ae5fa2-be9a-46f0-ac07-95dab5c07625",
-  "storageBucket": "huntrr-app-1c0de.firebasestorage.app",
-  "messagingSenderId": "495117552717",
+  "storageBucket": "project-5a12a31b-d1aa-4d8d-a7d.firebasestorage.app",
+  "messagingSenderId": "488791639521",
   "measurementId": "",
-  "oAuthClientId": "495117552717-f7ikq12l0se8fr7skro4o6eko8ohr23p.apps.googleusercontent.com",
+  "oAuthClientId": "488791639521-9ha05i58ualsuodci67fgtt8mbg62jre.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }

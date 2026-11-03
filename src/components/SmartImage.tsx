@@ -1,101 +1,132 @@
 import React, { useState, useEffect } from 'react';
-import { Image as ImageIcon, AlertCircle, RefreshCw, LogIn } from 'lucide-react';
+import { Image as ImageIcon, AlertCircle, RefreshCw } from 'lucide-react';
 import { useImageCache } from '../hooks/useImageCache';
-import { requestFreshDriveToken } from '../lib/driveAuth';
 
-interface SmartImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
+export interface ImageCropSettings {
+  x: number;
+  y: number;
+  zoom: number;
+}
+
+export interface SmartImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src?: string;
   storagePath?: string;
   driveFileId?: string;
+  fallbackDriveFileId?: string;
   isThumbnail?: boolean;
   fallbackIcon?: React.ReactNode;
+  crop?: ImageCropSettings;
+  priority?: boolean;
 }
 
 export const SmartImage: React.FC<SmartImageProps> = ({ 
   src, 
   storagePath, 
-  driveFileId,
-  isThumbnail = true,
+  driveFileId, 
+  fallbackDriveFileId,
+  isThumbnail,
+  priority,
   fallbackIcon, 
+  crop,
   alt, 
   className = '', 
+  style, 
   ...props 
 }) => {
-  const { displayUrl, isLoading, hasError, errorMessage, retry } = useImageCache(storagePath, src, driveFileId);
   const [retried, setRetried] = useState(false);
-  const [isReconnecting, setIsReconnecting] = useState(false);
+
+  const { displayUrl, isLoading, hasError, errorMessage, retry } = useImageCache(
+    storagePath, 
+    src, 
+    driveFileId, 
+    fallbackDriveFileId
+  );
 
   useEffect(() => {
     setRetried(false);
-  }, [src, storagePath, driveFileId]);
+  }, [src, storagePath, driveFileId, fallbackDriveFileId]);
 
   const handleError = () => {
     if (!retried) {
       setRetried(true);
-      retry();
+      retry(false);
     }
   };
 
-  const handleReconnect = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsReconnecting(true);
-    try {
-      const newToken = await requestFreshDriveToken(true);
-      if (newToken) {
-        await retry();
-      }
-    } catch (err) {
-      console.error('[SmartImage] Reconnect failed:', err);
-    } finally {
-      setIsReconnecting(false);
-    }
-  };
-
-  if (isLoading && !displayUrl) {
+  // Loading state
+  if (isLoading) {
     return (
-      <div className="w-full h-full bg-[#F5F0EB] animate-pulse flex items-center justify-center p-2 select-none">
-        <ImageIcon className="w-5 h-5 text-[#B0A59B]/50" />
+      <div className={`w-full h-full flex items-center justify-center bg-black/5 animate-pulse ${className || ''}`} style={style}>
+        <ImageIcon className="w-6 h-6 text-black/20" />
       </div>
     );
   }
 
-  const isAuthError = errorMessage?.includes('401') || errorMessage?.includes('403') || errorMessage?.includes('re-authorize') || errorMessage?.includes('expired');
-
-  if ((hasError && retried) || (!displayUrl && !isLoading)) {
+  // Error state
+  if (hasError || !displayUrl) {
     if (fallbackIcon) return <>{fallbackIcon}</>;
     return (
-      <div className="w-full h-full flex flex-col items-center justify-center bg-[#F5F0EB] text-[#7D7065] p-2 text-center select-none">
-        <AlertCircle className="w-5 h-5 text-[#B0A59B] mb-1" />
-        <span className="text-[10px] font-semibold text-[#6E6258] mb-1">
-          {isAuthError ? 'Drive Auth Needed' : 'Photo load failed'}
-        </span>
-        {isAuthError ? (
-          <button 
-            type="button"
-            onClick={handleReconnect}
-            disabled={isReconnecting}
-            className="flex items-center gap-1 text-[10px] font-bold bg-[#FF6B9E] text-white hover:bg-[#FF6B9E]/90 px-2.5 py-1 rounded-md shadow-sm transition-colors disabled:opacity-50"
-          >
-            <LogIn className="w-3 h-3" /> {isReconnecting ? 'Connecting...' : 'Reconnect Google Drive'}
-          </button>
-        ) : (
-          <button 
-            type="button"
-            onClick={(e) => { e.stopPropagation(); retry(); }} 
-            className="flex items-center gap-1 text-[10px] font-bold bg-white/80 hover:bg-white text-[#5C5046] px-2.5 py-1 rounded-md shadow-sm border border-[#E0D5CB] transition-colors"
-          >
-            <RefreshCw className="w-3 h-3" /> Retry
-          </button>
-        )}
+      <div className={`w-full h-full flex flex-col items-center justify-center bg-black/5 text-black/40 p-2 text-center select-none ${className || ''}`} style={style}>
+        <AlertCircle className="w-5 h-5 mb-1 opacity-50 text-amber-600/70" />
+        <span className="text-[10px] line-clamp-1 mb-1">{errorMessage || 'Image not found'}</span>
+        <button 
+          type="button"
+          onClick={(e) => { e.stopPropagation(); retry(true); }}
+          className="flex items-center gap-1 text-[10px] font-semibold bg-white/90 hover:bg-white text-black/70 px-2 py-0.5 rounded-full shadow-xs border border-black/10 transition-colors cursor-pointer"
+        >
+          <RefreshCw className="w-3 h-3" /> Retry
+        </button>
+      </div>
+    );
+  }
+
+  // Cropped Image Rendering
+  if (crop) {
+    return (
+      <div 
+        className={`relative overflow-hidden ${className || ''}`.replace('object-cover', '')}
+        style={style}
+      >
+        <div 
+          className="w-full h-full relative"
+          style={{
+            transform: `translate(${crop.x || 0}%, ${crop.y || 0}%) scale(${crop.zoom ?? 1})`,
+            transformOrigin: 'center center'
+          }}
+        >
+          <img
+            src={displayUrl}
+            alt={alt || ''}
+            loading={priority ? "eager" : "lazy"}
+            decoding="async"
+            onError={handleError}
+            {...props}
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              minWidth: '100%',
+              minHeight: '100%',
+              width: 'auto',
+              height: 'auto',
+              transform: 'translate(-50%, -50%)',
+              maxWidth: 'none',
+              maxHeight: 'none'
+            }}
+          />
+        </div>
       </div>
     );
   }
 
   return (
     <img
-      src={displayUrl || src}
+      src={displayUrl}
       alt={alt || ''}
+      loading={priority ? "eager" : "lazy"}
+      decoding="async"
       className={className}
+      style={style}
       onError={handleError}
       {...props}
     />

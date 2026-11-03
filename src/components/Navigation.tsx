@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { CheckCircle2, Armchair, SquarePen, Box, Award, Calendar, FileText, BarChart, Printer, Bell, Image, Smile, X, BookOpen, Briefcase, Target, Key , Settings } from 'lucide-react';
+import { CheckCircle2, Armchair, SquarePen, Box, Award, Calendar, CalendarDays, FileText, BarChart, Printer, Bell, Image, Smile, X, BookOpen, Target, Key, Settings, Receipt, ShoppingCart, ScanEye } from 'lucide-react';
 import { ViewState } from '../types';
 
 interface NavProps {
@@ -10,20 +10,78 @@ interface NavProps {
 }
 
 export function Sidebar({ currentView, onChangeView, isOpen = true, onClose }: NavProps) {
-  const navItems: { id: ViewState; label: string; Icon: any }[] = [
+  const topNavItems: { id: ViewState; label: string; Icon: any }[] = [
+    { id: 'agenda', label: 'Agenda', Icon: CalendarDays },
     { id: 'log', label: 'Daily Log', Icon: SquarePen },
+    { id: 'shopping', label: 'Shopping Lists', Icon: ShoppingCart },
+    { id: 'receipts', label: 'Client Receipts', Icon: Receipt },
     { id: 'habits', label: 'Habit Tracker', Icon: CheckCircle2 },
     { id: 'minifurniture', label: 'Prints', Icon: Box },
-    { id: 'goals', label: 'Goals', Icon: Target },
+  ];
+
+  const featureNavItems: { id: ViewState; label: string; Icon: any }[] = [
+    { id: 'models', label: '3D Models', Icon: ScanEye },
+    { id: 'wiki', label: 'Character Wiki', Icon: FileText },
+  ];
+
+  const bottomNavItems: { id: ViewState; label: string; Icon: any }[] = [
+    { id: 'goals_streaks', label: 'Goals & Streaks', Icon: Target },
     { id: 'month', label: 'Monthly View', Icon: Calendar },
     { id: 'notes', label: 'Notes', Icon: FileText },
     { id: 'blog', label: 'Blog', Icon: BookOpen },
-    { id: 'streaks', label: 'Streaks', Icon: Award },
-    { id: 'pinterest', label: 'Boards', Icon: Image },
-    { id: 'wiki', label: 'Character Wiki', Icon: FileText },
-    { id: 'jobs', label: 'Job Applications', Icon: Briefcase },
+  ];
+
+  const settingsNavItem: { id: ViewState; label: string; Icon: any }[] = [
     { id: 'settings', label: 'Settings', Icon: Settings },
   ];
+
+  const renderRowItem = (item: { id: ViewState; label: string; Icon: any }) => {
+    const isActive = currentView === item.id || (item.id === 'goals_streaks' && (currentView === 'goals' || currentView === 'streaks'));
+    return (
+      <button
+        key={item.id}
+        id={`nav-item-${item.id}`}
+        onClick={() => {
+          onChangeView(item.id);
+          // Only close sidebar on mobile screen sizes
+          if (window.innerWidth < 768 && onClose) {
+            onClose();
+          }
+        }}
+        className={`flex items-center gap-4 px-4 py-3 rounded-full transition-all duration-150 cursor-pointer ${
+          isActive
+            ? 'text-on-primary font-bold bg-primary border-l-4 border-primary scale-95'
+            : 'text-[#666666] hover:bg-primary/10 hover:text-[#222222]'
+        }`}
+      >
+        <item.Icon className={`w-5 h-5 ${isActive ? 'text-[#333333]' : 'text-[#666666]'}`} strokeWidth={isActive ? 2.5 : 2} />
+        <span className="text-[14px] leading-[1.2] font-semibold tracking-[0.05em] font-label-md">{item.label}</span>
+      </button>
+    );
+  };
+
+  const renderFeatureItem = (item: { id: ViewState; label: string; Icon: any }) => {
+    const isActive = currentView === item.id;
+    return (
+      <button
+        key={item.id}
+        onClick={() => {
+          onChangeView(item.id);
+          if (window.innerWidth < 768 && onClose) {
+            onClose();
+          }
+        }}
+        className={`flex flex-col items-center justify-center p-3 rounded-2xl transition-all duration-150 cursor-pointer shadow-sm border ${
+          isActive 
+            ? 'bg-primary border-primary text-on-primary scale-95 shadow-inner' 
+            : 'bg-white border-primary/15 hover:border-primary/40 text-[#666666] hover:bg-[#FFF0F4] hover:text-[#222222] hover:shadow-md'
+        }`}
+      >
+        <item.Icon className={`w-7 h-7 mb-2 ${isActive ? 'text-on-primary' : 'text-primary/80'}`} strokeWidth={isActive ? 2.5 : 2} />
+        <span className="text-[13px] leading-[1.2] font-bold text-center tracking-wide">{item.label}</span>
+      </button>
+    );
+  };
 
   return (
     <>
@@ -32,7 +90,6 @@ export function Sidebar({ currentView, onChangeView, isOpen = true, onClose }: N
         className={`fixed inset-0 bg-black/20 z-40 transition-opacity duration-300 md:hidden ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
         onClick={onClose}
       />
-
       <nav 
         className={`
           flex flex-col h-[100dvh] bg-white border-r border-surface-container-low py-margin-desktop overflow-y-auto overflow-x-hidden shadow-[0_8px_24px_rgba(125,97,144,0.02)]
@@ -41,7 +98,6 @@ export function Sidebar({ currentView, onChangeView, isOpen = true, onClose }: N
           /* Mobile: fixed temporary overlay */
           fixed left-0 top-0 z-50 w-64
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-
           /* Desktop: persistent in-flow collapsible sidebar */
           md:sticky md:top-0 md:translate-x-0 md:z-10 md:shrink-0
           ${isOpen ? 'md:w-64 md:ml-0 md:opacity-100 md:border-r' : 'md:w-0 md:ml-0 md:opacity-0 md:border-r-0 md:pointer-events-none md:overflow-hidden'}
@@ -58,30 +114,22 @@ export function Sidebar({ currentView, onChangeView, isOpen = true, onClose }: N
               <X className="w-5 h-5" />
             </button>
           </div>
-          <div className="flex flex-col space-y-2 px-4 pb-12">
-            {navItems.map((item) => {
-              const isActive = currentView === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    onChangeView(item.id);
-                    // Only close sidebar on mobile screen sizes
-                    if (window.innerWidth < 768 && onClose) {
-                      onClose();
-                    }
-                  }}
-                  className={`flex items-center gap-4 px-4 py-3 rounded-full transition-all duration-150 cursor-pointer ${
-                  isActive
-                    ? 'text-on-primary font-bold bg-primary border-l-4 border-primary scale-95'
-                    : 'text-[#666666] hover:bg-primary/10 hover:text-[#222222]'
-                }`}
-              >
-                <item.Icon className={`w-5 h-5 ${isActive ? 'text-[#333333]' : 'text-[#666666]'}`} strokeWidth={isActive ? 2.5 : 2} />
-                <span className="text-[14px] leading-[1.2] font-semibold tracking-[0.05em] font-label-md">{item.label}</span>
-              </button>
-            );
-          })}
+          <div className="flex flex-col px-4 pb-12">
+            <div className="flex flex-col space-y-2 mb-3">
+              {topNavItems.map(renderRowItem)}
+            </div>
+            
+            <div className="flex flex-col space-y-2 mb-3">
+              {bottomNavItems.map(renderRowItem)}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mb-3 px-1">
+              {featureNavItems.map(renderFeatureItem)}
+            </div>
+
+            <div className="flex flex-col space-y-2">
+              {settingsNavItem.map(renderRowItem)}
+            </div>
           </div>
         </div>
       </nav>
@@ -91,14 +139,15 @@ export function Sidebar({ currentView, onChangeView, isOpen = true, onClose }: N
 
 export function BottomNav({ currentView, onChangeView }: NavProps) {
   const navItems: { id: ViewState; label: string; Icon: any }[] = [
+    { id: 'agenda', label: 'Agenda', Icon: CalendarDays },
     { id: 'log', label: 'Log', Icon: SquarePen },
+    { id: 'shopping', label: 'Shopping', Icon: ShoppingCart },
+    { id: 'receipts', label: 'Receipts', Icon: Receipt },
     { id: 'habits', label: 'Habits', Icon: CheckCircle2 },
-    { id: 'goals', label: 'Goals', Icon: Target },
+    { id: 'goals_streaks', label: 'Goals & Streaks', Icon: Target },
     { id: 'minifurniture', label: 'Prints', Icon: Box },
-    { id: 'streaks', label: 'Streaks', Icon: Award },
-    { id: 'pinterest', label: 'Boards', Icon: Image },
+    { id: 'models', label: '3D Models', Icon: ScanEye },
     { id: 'wiki', label: 'Wiki', Icon: FileText },
-    { id: 'jobs', label: 'Jobs', Icon: Briefcase },
     { id: 'settings', label: 'Settings', Icon: Settings },
     { id: 'month', label: 'Month', Icon: Calendar },
     { id: 'notes', label: 'Notes', Icon: FileText },
@@ -143,8 +192,9 @@ export function BottomNav({ currentView, onChangeView }: NavProps) {
 
   // Scroll active tab into view on view change
   useEffect(() => {
-    if (currentView && itemRefs.current[currentView]) {
-      itemRefs.current[currentView]?.scrollIntoView({
+    const targetId = (currentView === 'goals' || currentView === 'streaks') ? 'goals_streaks' : currentView;
+    if (targetId && itemRefs.current[targetId]) {
+      itemRefs.current[targetId]?.scrollIntoView({
         behavior: 'smooth',
         block: 'nearest',
         inline: 'center'
@@ -171,13 +221,14 @@ export function BottomNav({ currentView, onChangeView }: NavProps) {
       className={`mobile-bottom-nav md:hidden fixed bottom-0 left-0 right-0 z-50 flex flex-nowrap items-center w-full overflow-x-auto overflow-y-hidden no-scrollbar px-1 pt-1.5 bg-white/95 backdrop-blur-md shadow-[0_-4px_20px_rgba(0,0,0,0.08)] border-t border-outline-variant/30 ${isKeyboardOpen ? 'hidden' : 'flex'}`}
     >
       {navItems.map((item) => {
-        const isActive = currentView === item.id;
+        const isActive = currentView === item.id || (item.id === 'goals_streaks' && (currentView === 'goals' || currentView === 'streaks'));
         return (
           <button
             key={item.id}
+            id={`bottom-nav-item-${item.id}`}
             ref={(el) => { itemRefs.current[item.id] = el; }}
             onClick={() => onChangeView(item.id)}
-            className={`flex-none w-[58px] min-w-[58px] max-w-[58px] flex flex-col items-center justify-center py-1 px-0.5 transition-colors duration-150 cursor-pointer ${
+            className={`flex-none w-[64px] min-w-[64px] max-w-[64px] flex flex-col items-center justify-center py-1 px-0.5 transition-colors duration-150 cursor-pointer ${
               isActive
                 ? 'text-primary'
                 : 'text-[#666666] hover:text-[#222222]'

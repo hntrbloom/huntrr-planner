@@ -13,12 +13,16 @@ export async function uploadToGoogleDriveDirect(
   blob: Blob,
   filename: string,
   mimeType: string,
-  accessToken: string
+  accessToken: string,
+  folderId?: string
 ): Promise<{ id: string }> {
-  const metadata = {
+  const metadata: any = {
     name: filename,
     mimeType: mimeType
   };
+  if (folderId) {
+    metadata.parents = [folderId];
+  }
 
   const boundary = '-------314159265358979323846' + Math.random().toString(36).substring(2, 8);
   const delimiter = "\r\n--" + boundary + "\r\n";
@@ -173,6 +177,7 @@ export async function uploadImageToService({
   filename,
   width,
   height,
+  driveFolderId,
   onProgress
 }: {
   file?: File | Blob | null;
@@ -184,6 +189,7 @@ export async function uploadImageToService({
   filename?: string;
   width?: number;
   height?: number;
+  driveFolderId?: string;
   onProgress?: (progress: number) => void;
 }): Promise<ImageMetaData> {
   if (onProgress) onProgress(10);
@@ -212,29 +218,35 @@ export async function uploadImageToService({
 
   if (onProgress) onProgress(25);
 
-  // 1. Upload main optimized file to Firebase Storage
-  const storageRef = ref(storage, storagePath);
-  const snapshot = await withTimeout(
-    uploadBytes(storageRef, targetBlob, { contentType: targetMimeType }),
-    20000,
-    `Firebase storage upload timed out for ${cleanName}`
-  );
-  const downloadURL = await withTimeout(
-    getDownloadURL(snapshot.ref),
-    10000,
-    `Failed to retrieve download URL for ${cleanName}`
-  );
+  let downloadURL: string | undefined = undefined;
+  let thumbDownloadURL: string | undefined = undefined;
+
+  // 1. Upload main optimized file to Firebase Storage (with graceful failure if network/storage is slow)
+  try {
+    const storageRef = ref(storage, storagePath);
+    const snapshot = await withTimeout(
+      uploadBytes(storageRef, targetBlob, { contentType: targetMimeType }),
+      15000,
+      `Firebase storage upload timed out for ${cleanName}`
+    );
+    downloadURL = await withTimeout(
+      getDownloadURL(snapshot.ref),
+      10000,
+      `Failed to retrieve download URL for ${cleanName}`
+    );
+  } catch (fbErr: any) {
+    console.warn(`[uploadImageToService] Firebase storage upload skipped or failed for ${cleanName}:`, fbErr?.message || fbErr);
+  }
 
   if (onProgress) onProgress(50);
 
   // 2. Upload thumbnail file to Firebase Storage if available
-  let thumbDownloadURL: string | undefined = undefined;
   if (thumbnailFile && thumbStoragePath) {
     try {
       const thumbRef = ref(storage, thumbStoragePath);
       const thumbSnapshot = await withTimeout(
         uploadBytes(thumbRef, thumbnailFile, { contentType: thumbnailFile.type || targetMimeType }),
-        15000,
+        10000,
         `Thumbnail upload timed out`
       );
       thumbDownloadURL = await getDownloadURL(thumbSnapshot.ref);
@@ -252,7 +264,7 @@ export async function uploadImageToService({
   const accessToken = getAccessToken();
   if (accessToken) {
     try {
-      const driveResult = await uploadToGoogleDriveDirect(targetBlob, `${uniqueId}-${cleanName}.${ext}`, targetMimeType, accessToken);
+      const driveResult = await uploadToGoogleDriveDirect(targetBlob, `${uniqueId}-${cleanName}.${ext}`, targetMimeType, accessToken, driveFolderId);
       if (driveResult?.id) {
         driveFileId = driveResult.id;
       }
@@ -267,7 +279,8 @@ export async function uploadImageToService({
           thumbnailFile,
           `${uniqueId}-thumb-${cleanName}.${ext}`,
           thumbnailFile.type || targetMimeType,
-          accessToken
+          accessToken,
+          driveFolderId
         );
         if (thumbDriveResult?.id) {
           thumbDriveFileId = thumbDriveResult.id;
@@ -282,11 +295,15 @@ export async function uploadImageToService({
     }
   }
 
+  if (!downloadURL && !driveFileId) {
+    throw new Error(`Failed to upload ${cleanName} to cloud storage (both Firebase Storage and Google Drive failed).`);
+  }
+
   if (onProgress) onProgress(100);
 
   return {
     storagePath,
-    downloadURL,
+    downloadURL: downloadURL || '',
     driveFileId,
     thumbStoragePath,
     thumbDownloadURL,
@@ -338,12 +355,17 @@ export async function resolveAndRepairImage(
           const { blob } = dataURLtoBlob(`data:${mimeType};base64,${data.base64Data}`);
           const newPath = storagePath || `users/${userId}/photos/restored/${Date.now()}-${uuidv4().substring(0,6)}.webp`;
           const storageRef = ref(storage, newPath);
-          await uploadBytes(storageRef, blob, { contentType: mimeType });
-          return await getDownloadURL(storageRef);
+          try {
+            await uploadBytes(storageRef, blob, { contentType: mimeType });
+            return await getDownloadURL(storageRef);
+          } catch (storageErr) {
+            console.warn('Firebase Storage upload failed during restore, falling back to data URL:', storageErr);
+            return `data:${mimeType};base64,${data.base64Data}`;
+          }
         }
       }
     } catch (driveRestoreErr) {
-      console.error('Failed to restore photo from Drive:', driveRestoreErr);
+      console.warn('Failed to restore photo from Drive:', driveRestoreErr);
     }
   }
 
@@ -363,7 +385,7 @@ export async function runPhotoMigration(userId: string): Promise<MigrationReport
     return report;
   }
 
-  const collectionsToScan = ['prints', 'miniFurniture', 'boards', 'photos', 'printing', 'keychains'];
+  const collectionsToScan = ['prints', 'miniFurniture', 'photos', 'printing', 'keychains'];
 
   for (const colName of collectionsToScan) {
     try {

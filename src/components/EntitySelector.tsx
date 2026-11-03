@@ -65,7 +65,7 @@ export function EntitySelector({
       const updatePosition = () => {
         if (wrapperRef.current) {
           const rect = wrapperRef.current.getBoundingClientRect();
-          const viewportHeight = window.innerHeight;
+          const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
           const viewportWidth = window.innerWidth;
 
           const spaceBelow = viewportHeight - rect.bottom - 12;
@@ -207,13 +207,27 @@ export function EntitySelector({
             setInputValue(e.target.value);
             setIsOpen(true);
             setIsManaging(false);
-            // Also notify parent of text change fallback
             const matched = entities.find(ent => ent.name.toLowerCase() === e.target.value.trim().toLowerCase());
             if (matched) {
               onChange(matched.id, matched.name);
             } else {
               onChange('', e.target.value);
             }
+          }}
+          onBlur={() => {
+            // Give a slight delay so clicks on dropdown items can register before we close
+            setTimeout(() => {
+              // We do not save to Firebase here; the form handles saving.
+              // We just make sure the dropdown closes nicely when tapping away.
+              // We also ensure that if they typed something, we notify parent one last time
+              const matched = entities.find(ent => ent.name.toLowerCase() === inputValue.trim().toLowerCase());
+              if (matched) {
+                onChange(matched.id, matched.name);
+              } else if (inputValue.trim()) {
+                onChange('', inputValue);
+              }
+              setIsOpen(false);
+            }, 200);
           }}
           onFocus={() => setIsOpen(true)}
           placeholder={placeholder || `Type or select a ${label}...`}
@@ -281,6 +295,10 @@ export function EntitySelector({
                   <button
                     type="button"
                     onMouseDown={(ev) => {
+                      ev.preventDefault();
+                      handleCreateNew();
+                    }}
+                    onTouchEnd={(ev) => {
                       ev.preventDefault();
                       handleCreateNew();
                     }}

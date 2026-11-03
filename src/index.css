@@ -71,8 +71,8 @@
   background-image: repeating-linear-gradient(
     transparent,
     transparent 31px,
-    rgba(87, 86, 87, 0.15) 31px,
-    rgba(87, 86, 87, 0.15) 32px
+    rgba(185, 165, 215, 0.25) 31px,
+    rgba(185, 165, 215, 0.25) 32px
   );
   background-size: 100% 32px;
   background-attachment: local;
@@ -101,6 +101,17 @@
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Agenda View Scrollbar suppression */
+.agenda-scroll-container {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-behavior: smooth;
+}
+
+.agenda-scroll-container::-webkit-scrollbar {
+  display: none;
 }
 
 /* Custom Checkbox */
@@ -147,6 +158,121 @@ body,
     transparent 6.5px
   );
   background-size: 48px 48px;
+}
+
+/* Receipt & Combined Print Styles */
+.receipt-form {
+  width: 100%;
+  max-width: none;
+}
+
+.receipt-actions {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.combined-print-section {
+  display: block !important;
+  visibility: visible !important;
+  width: 100%;
+  min-height: 8.5in;
+  margin-top: 24px;
+  padding: 16px;
+  overflow-x: auto;
+  overflow-y: visible;
+  grid-column: 1 / -1;
+  background: white;
+  border: 2px solid #f1d7e4;
+  border-radius: 16px;
+}
+
+.combined-print-page {
+  position: relative;
+  left: 0;
+  top: 0;
+  width: 1056px;
+  height: 816px;
+  min-width: 1056px;
+  min-height: 816px;
+  margin: 12px auto;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 528px 528px;
+  background: white;
+  overflow: hidden;
+  box-sizing: border-box;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.15);
+}
+
+.combined-print-half {
+  position: relative;
+  width: 528px;
+  height: 816px;
+  margin: 0;
+  padding: 24px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.receipt-print-content {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 94%;
+  max-height: 94%;
+  object-fit: contain;
+  flex-shrink: 1;
+}
+
+.combined-print-half:last-child img,
+.combined-print-half:last-child canvas,
+.postage-print-image {
+  display: block;
+  position: static;
+  width: auto;
+  height: auto;
+  max-width: 72%;
+  max-height: 72%;
+  object-fit: contain;
+  flex-shrink: 1;
+  margin: auto;
+  transform: none;
+}
+
+@page {
+  size: letter landscape;
+  margin: 0;
+}
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+
+  .combined-print-page,
+  .combined-print-page * {
+    visibility: visible !important;
+  }
+
+  .combined-print-page {
+    position: fixed;
+    inset: 0;
+    margin: 0;
+    width: 11in !important;
+    height: 8.5in !important;
+    max-width: 11in !important;
+    max-height: 8.5in !important;
+    display: grid !important;
+    grid-template-columns: 5.5in 5.5in !important;
+    background: white !important;
+    z-index: 999999 !important;
+  }
 }
 @layer utilities {
   .no-scrollbar::-webkit-scrollbar {
@@ -412,3 +538,180 @@ body,
   flex-shrink: 0;
 }
 
+/* Google Picker Modal Overlay Z-Index Overrides */
+.picker-dialog-bg {
+  z-index: 10000 !important;
+}
+
+.picker-dialog {
+  z-index: 10001 !important;
+}
+
+
+@media (max-width: 768px) and (orientation: portrait) {
+  .wiki-edit-overlay {
+    padding: 12px !important;
+  }
+  
+  .wiki-edit-modal {
+    width: calc(100vw - 24px) !important;
+    max-width: 420px !important;
+    height: auto !important;
+    max-height: calc(100dvh - 24px) !important;
+    margin: auto !important;
+    border-radius: 16px !important;
+  }
+
+  .wiki-edit-modal > .flex-1 {
+    padding: 12px !important;
+    overflow-y: auto !important;
+  }
+
+  .wiki-edit-modal .flex.flex-col.md\:flex-row {
+    flex-direction: column !important;
+    gap: 16px !important;
+  }
+
+  /* Target the container wrapping the image controls */
+  .wiki-edit-modal .w-full.md\:w-\[170px\] > div {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    gap: 12px !important;
+    align-items: flex-start !important;
+    max-width: 100% !important;
+  }
+
+  /* Label goes full width */
+  .wiki-edit-modal .w-full.md\:w-\[170px\] > div > label {
+    width: 100% !important;
+    margin-bottom: -4px !important;
+  }
+
+  /* The actual image square */
+  .wiki-edit-modal .w-full.md\:w-\[170px\] .aspect-square {
+    width: 80px !important;
+    height: 80px !important;
+    min-height: 80px !important;
+    max-width: 80px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  /* The buttons container under the image */
+  .wiki-edit-modal .w-full.md\:w-\[170px\] .flex.gap-2.mt-2 {
+    flex: 1 !important;
+    flex-direction: column !important;
+    margin-top: 0 !important;
+    max-width: none !important;
+  }
+
+  .wiki-edit-modal .flex-1.space-y-4 {
+    margin-top: 0 !important;
+  }
+
+  /* Reduce gaps in the form */
+  .wiki-edit-modal .flex-1.space-y-4 > div.grid {
+    gap: 10px !important;
+  }
+
+  .wiki-edit-modal input,
+  .wiki-edit-modal select,
+  .wiki-edit-modal textarea {
+    padding: 6px 10px !important;
+    min-height: 36px !important;
+    font-size: 14px !important;
+  }
+
+  .wiki-edit-modal .border-t {
+    padding: 12px !important;
+  }
+}
+
+.receipt-brand-header {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  margin: 0 0 28px;
+  padding: 0;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+}
+
+.receipt-label {
+  position: static;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.receipt-shop-name {
+  position: static;
+  display: block;
+  margin: 0;
+  padding: 0 4px;
+  font-size: 38px;
+  line-height: 1.15;
+  white-space: nowrap;
+  transform: none;
+}
+
+.receipt-shop-type,
+.receipt-etsy-shop {
+  position: static;
+  display: block;
+  width: fit-content;
+  margin: 0;
+  line-height: 1.25;
+  transform: none;
+}
+
+.receipt-info-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 24px;
+  row-gap: 16px;
+}
+
+.receipt-info-grid > * {
+  min-width: 0;
+}
+
+.receipt-field-value {
+  display: block;
+  max-width: 100%;
+  line-height: 1.3;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.receipt-info-grid > *:nth-child(even) {
+  text-align: right;
+}
+
+.receipt-items-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  column-gap: 12px;
+  align-items: start;
+}
+
+.receipt-items-grid > * {
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.receipt-item-description {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.receipt-export-content,
+.receipt-card {
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+}

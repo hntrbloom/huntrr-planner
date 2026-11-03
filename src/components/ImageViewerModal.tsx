@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { X, Download, Archive, Loader2 } from 'lucide-react';
-import { SmartImage } from './SmartImage';
+import { SmartImage, ImageCropSettings } from './SmartImage';
 import { downloadSingleImage, downloadImagesZip } from '../lib/downloadUtils';
 
 export interface ImageToView {
   url: string;
   storagePath?: string;
   driveFileId?: string;
+  thumbDriveFileId?: string;
   title?: string;
   filename?: string;
+  crop?: ImageCropSettings;
 }
 
 export interface ImageViewerModalProps {
@@ -108,9 +110,13 @@ export function ImageViewerModal({ image, allImages, zipTitle, onClose }: ImageV
         <SmartImage
           src={image.url}
           storagePath={image.storagePath}
-          driveFileId={image.driveFileId}
+          driveFileId={image.driveFileId || image.thumbDriveFileId}
+          fallbackDriveFileId={image.thumbDriveFileId}
           alt={title}
+          isThumbnail={false}
+          priority={true}
           className="max-w-full max-h-[80vh] md:max-h-[85vh] object-contain rounded-xl shadow-2xl"
+          crop={image.crop}
         />
       </div>
 

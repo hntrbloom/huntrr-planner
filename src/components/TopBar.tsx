@@ -1,9 +1,11 @@
 import { safeGetDoc as getDoc, safeGetDocs as getDocs, safeGetDoc } from '../lib/firebase';
 import React, { useState, useEffect } from 'react';
-import { PaintBucket, Search, X } from 'lucide-react';
+import { PaintBucket, Search, X, Pill } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { useAuth } from '../lib/AuthContext';
+import { MedicationFormModal, MedicationLog } from './MedicationPopup';
+import { v4 as uuidv4 } from 'uuid';
 
 interface TopBarProps {
   title?: string;
@@ -13,6 +15,7 @@ interface TopBarProps {
 export function TopBar({ title = "My Planner", showSearch = false }: TopBarProps) {
   const { user } = useAuth();
   const [isBgModalOpen, setIsBgModalOpen] = useState(false);
+  const [isMedModalOpen, setIsMedModalOpen] = useState(false);
   const [hexColor, setHexColor] = useState('#FFF0F4');
   const [pickerColor, setPickerColor] = useState('#FFF0F4');
   const [hexError, setHexError] = useState('');
@@ -77,6 +80,30 @@ export function TopBar({ title = "My Planner", showSearch = false }: TopBarProps
     setIsBgModalOpen(false);
   };
 
+  const handleSaveMed = async (log: MedicationLog) => {
+    if (!user) throw new Error("User not authenticated");
+
+    if (user.isAnonymous) {
+      try {
+        const saved = localStorage.getItem('guest_medication_logs');
+        const list = saved ? JSON.parse(saved) : [];
+        list.unshift(log);
+        localStorage.setItem('guest_medication_logs', JSON.stringify(list));
+      } catch (e) {}
+      return;
+    }
+
+    await setDoc(doc(db, `users/${user.uid}/medications`, log.id), {
+      name: log.name,
+      date: log.date,
+      timeTaken: log.timeTaken,
+      dosage: log.dosage || '',
+      notes: log.notes || '',
+      completed: true,
+      createdAt: log.createdAt || Date.now()
+    });
+  };
+
   return (
     <>
       <header className="flex justify-between items-center w-full px-margin-mobile md:px-margin-desktop py-4 h-rule-height min-h-[72px] bg-surface md:bg-transparent z-30 shrink-0 sticky top-0">
@@ -86,16 +113,34 @@ export function TopBar({ title = "My Planner", showSearch = false }: TopBarProps
         <div className="hidden md:block"></div>
         
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsMedModalOpen(true)}
+            aria-label="Log Medication"
+            title="Log Medication"
+            className="h-10 px-3.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary font-bold text-[13px] flex items-center gap-1.5 transition-colors shadow-sm"
+          >
+            <Pill className="w-4 h-4" />
+            <span>Log Medication</span>
+          </button>
 
           <button 
             onClick={() => setIsBgModalOpen(true)}
             aria-label="Customize background"
+            title="Customize Background"
             className="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors"
           >
             <PaintBucket className="w-5 h-5" />
           </button>
         </div>
       </header>
+
+      {isMedModalOpen && (
+        <MedicationFormModal
+          initialLog={null}
+          onSave={handleSaveMed}
+          onClose={() => setIsMedModalOpen(false)}
+        />
+      )}
 
       {isBgModalOpen && (
         <div 

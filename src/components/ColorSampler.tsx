@@ -37,7 +37,12 @@ export function ColorSampler({ initialImageUrl, onSave, onCancel }: { initialIma
                canvas.width = w; canvas.height = h;
                const ctx = canvas.getContext('2d');
                if (ctx) {
+                 ctx.save();
+                 ctx.globalCompositeOperation = "source-over";
+                 ctx.fillStyle = "#ffffff";
+                 ctx.fillRect(0, 0, w, h);
                  ctx.drawImage(img, 0, 0, w, h);
+                 ctx.restore();
                  canvas.toBlob(async (blob) => {
                    if (blob) {
                      const f = new File([blob], file.name, { type: 'image/jpeg' });

@@ -1,16 +1,24 @@
 import { safeGetDoc as getDoc, safeGetDocs as getDocs } from '../lib/firebase';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Search, Heart, Plus, X, Edit, Trash2, Image as ImageIcon, Upload, ChevronLeft, Wand2, Loader2, Droplet } from 'lucide-react';
 import { ImageUploaderArea } from './ui/ImageUploaderArea';
 import { ColorSampler } from './ColorSampler';
 import { EntitySelector } from './EntitySelector';
+import { useGoogleDrivePicker } from '../hooks/useGoogleDrivePicker';
+import { requestFreshDriveToken } from '../lib/driveAuth';
+import { searchOrResolveHuntrrSpaceFolders, getWikiFolderId } from '../lib/driveFolderUtils';
 import { db } from '../lib/firebase';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '../lib/AuthContext';
 import { SyncStatus } from './SyncStatus';
+import { SmartImage } from './SmartImage';
 import { ImageViewerModal, ImageToView } from './ImageViewerModal';
 import { uploadFileToStorage, deleteFileFromStorage } from '../lib/storage';
+import { getUserSettings } from '../lib/settingsUtils';
+import { uploadImageToService } from '../lib/imageService';
+import { flattenImageOverWhite } from '../lib/imageFlattening';
 import { GUEST_SAMPLE_CHARACTERS, GUEST_SAMPLE_SERIES, GUEST_SAMPLE_FRANCHISES } from '../lib/guestSampleData';
+import { extractDriveFileId } from '../lib/driveImageUtils';
 
 interface CharacterImage {
   url: string;
@@ -66,7 +74,7 @@ export function extractMainColorFromImageDataUrl(dataUrl: string): Promise<strin
           resolve(null);
           return;
         }
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        ctx.save(); ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.drawImage(img, 0, 0, canvas.width, canvas.height); ctx.restore();
         const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
 
         // Histogram buckets for quantization, but storing actual raw RGB of the first pixel in bucket
@@ -148,7 +156,7 @@ export function extractMainColorFromImageDataUrl(dataUrl: string): Promise<strin
                 canvas.height = Math.max(1, h);
                 const ctx = canvas.getContext('2d', { willReadFrequently: true });
                 if (!ctx) return resolve(null);
-                ctx.drawImage(fallbackImg, 0, 0, canvas.width, canvas.height);
+                ctx.save(); ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.drawImage(fallbackImg, 0, 0, canvas.width, canvas.height); ctx.restore();
                 const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
                 URL.revokeObjectURL(blobUrl);
                 
@@ -182,7 +190,7 @@ export function extractMainColorFromImageDataUrl(dataUrl: string): Promise<strin
         })
         .catch(() => resolve(null));
     };
-    if (dataUrl.startsWith('data:')) img.removeAttribute('crossOrigin');
+    if (dataUrl.startsWith('data:') || dataUrl.startsWith('blob:')) img.removeAttribute('crossOrigin');
     img.src = dataUrl;
   });
 }
@@ -206,7 +214,7 @@ export async function extractPaletteFromImageDataUrl(url: string, numColors = 5)
         canvas.height = Math.max(1, h);
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) return resolve(null);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        ctx.save(); ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.drawImage(img, 0, 0, canvas.width, canvas.height); ctx.restore();
         const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
         
         const buckets: Record<string, { count: number; rawR: number; rawG: number; rawB: number }> = {};
@@ -270,7 +278,7 @@ export async function extractPaletteFromImageDataUrl(url: string, numColors = 5)
                 canvas.height = Math.max(1, h);
                 const ctx = canvas.getContext('2d', { willReadFrequently: true });
                 if (!ctx) return resolve(null);
-                ctx.drawImage(fallbackImg, 0, 0, canvas.width, canvas.height);
+                ctx.save(); ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.drawImage(fallbackImg, 0, 0, canvas.width, canvas.height); ctx.restore();
                 const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
                 URL.revokeObjectURL(blobUrl);
                 
@@ -319,7 +327,7 @@ export async function extractPaletteFromImageDataUrl(url: string, numColors = 5)
         })
         .catch(err => reject(new Error("Image CORS or fetch failure: " + err.message)));
     };
-    if (url.startsWith('data:')) img.removeAttribute('crossOrigin');
+    if (url.startsWith('data:') || url.startsWith('blob:')) img.removeAttribute('crossOrigin');
     img.src = url;
   });
 }
@@ -376,10 +384,97 @@ interface Character {
   description?: string;
   imageUrl: string;
   imageStoragePath?: string;
+  driveFileId?: string;
+  driveFileName?: string;
+  driveMimeType?: string;
   myDesigns: (string | CharacterImage)[];
 }
 
 
+
+export async function processAndUploadWikiPhoto({
+  file,
+  user,
+  characterName,
+  onProgress
+}: {
+  file: File;
+  user: any;
+  characterName?: string;
+  onProgress?: (progress: number, statusText: string) => void;
+}): Promise<{
+  url: string;
+  storagePath: string;
+  driveFileId: string;
+  flattenedDataUrl: string;
+}> {
+  onProgress?.(10, 'Processing & flattening transparent background...');
+
+  // 1. Resolve configured Wiki Folder ID from Settings
+  let userSettings = null;
+  if (user && !user.isAnonymous) {
+    try {
+      userSettings = await getUserSettings(user.uid);
+    } catch (e) {
+      console.warn("Could not fetch user settings:", e);
+    }
+  }
+
+  let wikiFolderId = getWikiFolderId(userSettings);
+  if (!wikiFolderId || wikiFolderId === '1_wiki_subfolder') {
+    try {
+      const resolved = await searchOrResolveHuntrrSpaceFolders();
+      if (resolved.wikiFolderId) {
+        wikiFolderId = resolved.wikiFolderId;
+      }
+    } catch (e) {
+      console.warn("Could not auto-resolve wiki folder:", e);
+    }
+  }
+
+  if (!wikiFolderId || wikiFolderId === '1_wiki_subfolder') {
+    throw new Error(
+      "Wiki Character folder ID is missing or not configured. Please open Settings > Drive Folder IDs to configure your Wiki folder before uploading."
+    );
+  }
+
+  const { blob: flattenedBlob, dataUrl: flattenedDataUrl, width, height } = await flattenImageOverWhite(file);
+
+  onProgress?.(35, 'Uploading photo to Google Drive...');
+
+  const cleanName = (characterName || file.name || 'wiki_photo')
+    .replace(/\.[^/.]+$/, '')
+    .replace(/[^a-zA-Z0-9_-]/g, '_');
+  const safeFilename = `${cleanName}_${Date.now()}.png`;
+
+  // 3. Upload to Google Drive and Firebase via imageService
+  const result = await uploadImageToService({
+    file: flattenedBlob,
+    userId: user?.uid || 'guest',
+    section: 'wiki',
+    recordId: cleanName,
+    filename: safeFilename,
+    width,
+    height,
+    driveFolderId: wikiFolderId,
+    onProgress: (p) => {
+      onProgress?.(35 + Math.round(p * 0.6), `Uploading to Google Drive (${Math.round(p)}%)...`);
+    }
+  });
+
+  if (!result.driveFileId) {
+    throw new Error("Upload completed, but no Google Drive file ID was returned. Please verify your Google Drive connection in Settings.");
+  }
+
+  onProgress?.(100, 'Upload complete!');
+
+  return {
+    url: result.downloadURL || `https://drive.google.com/thumbnail?id=${result.driveFileId}`,
+    storagePath: result.storagePath,
+    driveFileId: result.driveFileId,
+    flattenedDataUrl
+  };
+}
 
 const processAndUploadImage = async (file: File, user: any, path: string): Promise<{ url: string, storagePath: string } | null> => {
   return new Promise((resolve) => {
@@ -404,6 +499,8 @@ const processAndUploadImage = async (file: File, user: any, path: string): Promi
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         if (ctx) {
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, width, height);
           ctx.drawImage(img, 0, 0, width, height);
           canvas.toBlob(async (blob) => {
             if (blob) {
@@ -426,80 +523,7 @@ const processAndUploadImage = async (file: File, user: any, path: string): Promi
 
 
 export function WikiImage({ url, storagePath, alt, className, onRemove }: { url?: string, storagePath?: string, alt: string, className?: string, onRemove?: () => void }) {
-  const [imgSrc, setImgSrc] = React.useState<string | null>(null);
-  const [status, setStatus] = React.useState<'loading' | 'loaded' | 'error' | 'empty'>('loading');
-  const [isRetrying, setIsRetrying] = React.useState(false);
-
-  React.useEffect(() => {
-    let isMounted = true;
-    let objectUrl: string | null = null;
-
-    const resolveImg = async () => {
-      if (!url && !storagePath) {
-        if (isMounted) setStatus('empty');
-        return;
-      }
-      setStatus('loading');
-
-      // Check for IDB
-      let idbKey = null;
-      if (storagePath && (storagePath.startsWith('idb://') || storagePath.startsWith('photo_'))) {
-        idbKey = storagePath.replace('idb://', '');
-      } else if (url && url.startsWith('idb://')) {
-        idbKey = url.replace('idb://', '');
-      }
-
-      if (idbKey) {
-        try {
-          const { getPhotoFromIDB } = await import('../lib/idb');
-          const blob = await getPhotoFromIDB(idbKey);
-          if (blob && isMounted) {
-            objectUrl = URL.createObjectURL(blob);
-            setImgSrc(objectUrl);
-            // wait for onLoad to set loaded
-            return;
-          }
-        } catch (e) {}
-      }
-
-      if (url && !url.startsWith('idb://')) {
-        if (isMounted) {
-          setImgSrc(url);
-          return;
-        }
-      }
-
-      if (isMounted) setStatus('error');
-    };
-
-    resolveImg();
-
-    return () => {
-      isMounted = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [url, storagePath]);
-
-  const handleError = async () => {
-    if (isRetrying) return;
-    setIsRetrying(true);
-    
-    if (storagePath && !storagePath.startsWith('idb://') && !storagePath.startsWith('photo_')) {
-      try {
-        const { ref, getDownloadURL } = await import('firebase/storage');
-        const { storage } = await import('../lib/firebase');
-        const freshUrl = await getDownloadURL(ref(storage, storagePath));
-        setImgSrc(freshUrl);
-        return;
-      } catch (e) {
-        setStatus('error');
-      }
-    } else {
-      setStatus('error');
-    }
-  };
-
-  if (status === 'empty') {
+  if (!url && !storagePath) {
     return (
       <div className={`flex flex-col items-center justify-center bg-[#FFF0F4] text-black/30 ${className}`}>
         <ImageIcon className="w-10 h-10 mb-2" />
@@ -508,49 +532,26 @@ export function WikiImage({ url, storagePath, alt, className, onRemove }: { url?
     );
   }
 
-  if (status === 'error') {
-    return (
-      <div className={`flex flex-col items-center justify-center bg-red-50 text-red-400 ${className} p-2 text-center relative`}>
-        <ImageIcon className="w-8 h-8 mb-2 opacity-50" />
-        <div className="px-3 py-1.5 bg-red-100 rounded-lg shadow-sm border border-red-200 cursor-pointer pointer-events-none">
-           <span className="text-[12px] font-bold leading-tight">Photo needs to be reuploaded</span>
-        </div>
-        {onRemove && (
-           <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRemove(); }} className="absolute top-2 right-2 p-1.5 bg-white/90 text-red-500 rounded-full shadow-sm hover:bg-red-100 z-10">
-             <X className="w-3 h-3" />
-           </button>
-        )}
-      </div>
-    );
-  }
-
   return (
-    <>
-      {status === 'loading' && (
-        <div className={`absolute inset-0 flex items-center justify-center bg-[#FFF0F4] ${className}`}>
-          <Loader2 className="w-6 h-6 animate-spin text-[#FFB8CD]" />
-        </div>
-      )}
-      {imgSrc && (
-        <img 
-          referrerPolicy="no-referrer"
-          src={imgSrc} 
-          alt={alt} 
-          className={className} 
-          onError={handleError}
-          onLoad={() => setStatus('loaded')}
-          style={{ opacity: status === 'loaded' ? 1 : 0 }}
-        />
-      )}
-      {onRemove && status === 'loaded' && (
+    <div className={`relative w-full h-full ${className || ''}`}>
+      <SmartImage
+        src={url}
+        storagePath={storagePath}
+        alt={alt}
+        className="w-full h-full object-contain bg-white"
+      />
+      {onRemove && (
         <button 
+          type="button"
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRemove(); }}
-          className="absolute top-2 right-2 p-1.5 bg-white/90 text-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm hover:bg-red-50 z-10"
+          className="absolute top-2 right-2 p-1.5 bg-white/90 text-red-500 rounded-full shadow-sm hover:bg-red-50 z-10 cursor-pointer"
+          title="Remove image"
+          aria-label="Remove image"
         >
-          <X className="w-3 h-3" />
+          <X className="w-3.5 h-3.5" />
         </button>
       )}
-    </>
+    </div>
   );
 }
 
@@ -596,7 +597,12 @@ export function CharacterWikiView() {
       const char = charsToProcess[i];
       let success = false;
       try {
-        const hex = await extractMainColorFromImageDataUrl(char.imageUrl);
+        let extractUrl = char.imageUrl;
+        if (char.driveFileId) {
+          const { fetchDriveFileWithAuth } = await import('../lib/driveImageUtils');
+          extractUrl = await fetchDriveFileWithAuth(char.driveFileId);
+        }
+        const hex = await extractMainColorFromImageDataUrl(extractUrl);
         if (hex) {
           const charIndex = currentChars.findIndex(c => c.id === char.id);
           if (charIndex > -1) {
@@ -687,6 +693,9 @@ export function CharacterWikiView() {
           } catch(e) {}
         }
       }
+      setIsLoaded(true);
+    }, (err) => {
+      console.error("Wiki fetch error:", err);
       setIsLoaded(true);
     });
     return () => unsub();
@@ -1046,7 +1055,7 @@ export function CharacterWikiView() {
       )}
 
       {isEditing && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-5 md:p-6 bg-black/40 backdrop-blur-sm pointer-events-auto overflow-hidden">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-5 md:p-6 bg-black/40 backdrop-blur-sm pointer-events-auto overflow-hidden wiki-edit-overlay">
           <CharacterForm 
             initialData={selectedCharacter}
             existingCharacters={characters}
@@ -1142,31 +1151,36 @@ function CharacterDetail({ character, onClose, onEdit, onDelete, onUpdate, user 
   return (
     <div className="bg-white rounded-[2rem] shadow-[0_8px_32px_rgba(255,184,205,0.3)] border border-[#FFB8CD]/30 overflow-hidden flex flex-col md:flex-row min-h-[600px] animate-in fade-in zoom-in-95 duration-200">
       {/* Left sidebar / Image area */}
-      <div className="w-full md:w-1/3 bg-[#FFF0F4] flex flex-col relative shrink-0 border-b md:border-b-0 md:border-r border-[#FFB8CD]/30">
+      <div className="w-full md:w-1/3 bg-white flex flex-col relative shrink-0 border-b md:border-b-0 md:border-r border-[#FFB8CD]/30">
         <button onClick={onClose} className="absolute top-4 left-4 p-2 rounded-full bg-white/80 backdrop-blur-sm shadow-sm hover:bg-white transition-colors z-10 md:hidden">
           <ChevronLeft className="w-5 h-5 text-black" />
         </button>
         
         <div 
-          className="aspect-square md:aspect-auto md:flex-1 relative flex items-center justify-center p-8 wiki-character-image-container cursor-pointer"
+          className="aspect-square md:aspect-auto md:flex-1 relative flex items-center justify-center p-8 bg-white wiki-character-image-container cursor-pointer"
           onClick={() => {
-            if (character.imageUrl) {
+            if (character.imageUrl || character.imageStoragePath) {
               setViewingImage({
-                url: character.imageUrl,
+                url: character.imageUrl || '',
                 storagePath: character.imageStoragePath,
                 title: `${character.name} Character Photo`,
                 allImages: (character.myDesigns || []).map((d, idx) => ({
                   url: typeof d === 'string' ? d : d.url,
                   storagePath: typeof d === 'string' ? undefined : d.storagePath,
                   title: `${character.name} Design ${idx + 1}`
-                })).concat([{ url: character.imageUrl, storagePath: character.imageStoragePath, title: `${character.name} Main Photo` }]),
+                })).concat([{ url: character.imageUrl || '', storagePath: character.imageStoragePath, title: `${character.name} Main Photo` }]),
                 zipTitle: `${character.name}_Photos.zip`
               });
             }
           }}
         >
-          {character.imageUrl ? (
-            <WikiImage url={character.imageUrl} storagePath={character.imageStoragePath} alt={character.name} className="w-full h-full object-contain drop-shadow-md max-h-[400px]" />
+          {character.imageUrl || character.imageStoragePath ? (
+            <WikiImage 
+              url={character.imageUrl} 
+              storagePath={character.imageStoragePath} 
+              alt={character.name} 
+              className="w-full h-full object-contain drop-shadow-md max-h-[400px]" 
+            />
           ) : (
             <div className="flex flex-col items-center gap-3 text-black/30">
               <ImageIcon className="w-16 h-16" />
@@ -1306,7 +1320,7 @@ function CharacterDetail({ character, onClose, onEdit, onDelete, onUpdate, user 
                     });
                   }}
                 >
-                  <WikiImage url={typeof designUrl === "string" ? designUrl : designUrl.url} storagePath={typeof designUrl === "string" ? undefined : designUrl.storagePath} alt={`Design ${i+1}`} className="w-full h-full object-cover" onRemove={() => removeDesign(i)} />
+                  <WikiImage url={typeof designUrl === "string" ? designUrl : designUrl.url} storagePath={typeof designUrl === "string" ? undefined : designUrl.storagePath} alt={`Design ${i+1}`} className="w-full h-full object-contain bg-white" onRemove={() => removeDesign(i)} />
                 </div>
               ))}
               {(!character.myDesigns || character.myDesigns.length === 0) && (
@@ -1359,6 +1373,7 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
   onRenameEntity: (type: 'series'|'franchise', id: string, newName: string) => Promise<void>,
   onCancel: () => void 
 }) {
+  const { openDrivePicker } = useGoogleDrivePicker();
   const [isSaving, setIsSaving] = useState(false);
   const { user } = useAuth();
   const [formData, setFormData] = useState<Omit<Character, 'id'>>(() => {
@@ -1380,6 +1395,9 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
         species: initialData.species || '',
         imageUrl: initialData.imageUrl || '',
         imageStoragePath: initialData.imageStoragePath || '',
+        driveFileId: initialData.driveFileId,
+        driveFileName: initialData.driveFileName,
+        driveMimeType: initialData.driveMimeType,
         notes: initialData.notes || '',
         myDesigns: initialData.myDesigns || []
       };
@@ -1395,6 +1413,9 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
       species: '',
       imageUrl: '',
       imageStoragePath: '',
+      driveFileId: undefined,
+      driveFileName: undefined,
+      driveMimeType: undefined,
       notes: '',
       myDesigns: []
     };
@@ -1402,13 +1423,22 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
 
   const [colorInput, setColorInput] = useState('');
   const [showSampler, setShowSampler] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [uploadStatusText, setUploadStatusText] = useState('');
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     if (initialData?.imageUrl && (!initialData.colors || initialData.colors.length === 0) && !formData.colors?.length) {
       // Automatically generate colors for existing character with image but no palette
       const autoGen = async () => {
          try {
-           const palette = await extractPaletteFromImageDataUrl(initialData.imageUrl!);
+           let extractUrl = initialData.imageUrl!;
+           if (initialData.driveFileId) {
+             const { fetchDriveFileWithAuth } = await import('../lib/driveImageUtils');
+             extractUrl = await fetchDriveFileWithAuth(initialData.driveFileId);
+           }
+           const palette = await extractPaletteFromImageDataUrl(extractUrl);
            if (palette && palette.length > 0) {
              setFormData(prev => {
                 if (prev.colors && prev.colors.length > 0) return prev; // don't overwrite if user added one mean time
@@ -1439,7 +1469,12 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
     if (!url) return;
     setIsGeneratingMainColor(true);
     try {
-      const color = await extractMainColorFromImageDataUrl(url);
+      let extractUrl = url;
+      if (formData.driveFileId) {
+        const { fetchDriveFileWithAuth } = await import('../lib/driveImageUtils');
+        extractUrl = await fetchDriveFileWithAuth(formData.driveFileId);
+      }
+      const color = await extractMainColorFromImageDataUrl(extractUrl);
       if (color) {
         setFormData(prev => ({ ...prev, mainColor: color }));
       }
@@ -1462,7 +1497,12 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
 
     setIsGeneratingColors(true);
     try {
-      const palette = await extractPaletteFromImageDataUrl(url);
+      let extractUrl = url;
+      if (formData.driveFileId) {
+        const { fetchDriveFileWithAuth } = await import('../lib/driveImageUtils');
+        extractUrl = await fetchDriveFileWithAuth(formData.driveFileId);
+      }
+      const palette = await extractPaletteFromImageDataUrl(extractUrl);
       if (palette && palette.length > 0) {
          setFormData(prev => ({
             ...prev,
@@ -1478,42 +1518,59 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
       setIsGeneratingColors(false);
     }
   };
-  const handleMainImageUpload = async (e: any) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // 1. Instant client-side main color extraction from local file data URL
-      const reader = new FileReader();
-      reader.onload = async (ev) => {
-        const dataUrl = ev.target?.result as string;
-        if (dataUrl) {
-          const detectedHex = await extractMainColorFromImageDataUrl(dataUrl);
-          if (detectedHex) {
-            setFormData(prev => ({ ...prev, mainColor: detectedHex }));
-          }
-          const palette = await extractPaletteFromImageDataUrl(dataUrl);
-          if (palette && palette.length > 0) {
-            setFormData(prev => {
-              const currentHexes = (prev.colors || []).map(c => typeof c === 'string' ? c.toUpperCase() : c.hex.toUpperCase());
-              const newColors = [...(prev.colors || [])];
-              palette.forEach(hex => {
-                if (!currentHexes.includes(hex.toUpperCase())) {
-                   newColors.push(hex);
-                }
-              });
-              return { ...prev, colors: newColors };
-            });
-          }
-        }
-      };
-      reader.readAsDataURL(file);
 
-      // 2. Upload file to storage
-      if (user) {
-        const res = await processAndUploadImage(file, user, `users/${user.uid}/characterWiki/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`);
-        if (res) {
-          setFormData(prev => ({ ...prev, imageUrl: res.url, imageStoragePath: res.storagePath }));
+  const handleDirectPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingPhoto(true);
+    setUploadError(null);
+    setUploadStatusText('Processing image...');
+
+    try {
+      const res = await processAndUploadWikiPhoto({
+        file,
+        user,
+        characterName: formData.name || file.name,
+        onProgress: (p, text) => {
+          setUploadStatusText(text);
+        }
+      });
+
+      // Automatically detect main color if not already specified
+      if (!formData.mainColor) {
+        const detectedHex = await extractMainColorFromImageDataUrl(res.flattenedDataUrl);
+        if (detectedHex) {
+          setFormData(prev => ({ ...prev, mainColor: detectedHex }));
         }
       }
+
+      // Automatically detect palette if empty
+      if (!formData.colors || formData.colors.length === 0) {
+        const palette = await extractPaletteFromImageDataUrl(res.flattenedDataUrl);
+        if (palette && palette.length > 0) {
+          setFormData(prev => ({
+            ...prev,
+            colors: palette.map((hex: string, i: number) => ({ hex, name: `Color ${i + 1}` }))
+          }));
+        }
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        imageUrl: res.url,
+        driveFileId: res.driveFileId,
+        imageStoragePath: res.storagePath
+      }));
+    } catch (err: any) {
+      console.error('Wiki photo upload failed:', err);
+      const msg = err.message || 'Failed to upload photo.';
+      setUploadError(msg);
+      alert(msg);
+    } finally {
+      setIsUploadingPhoto(false);
+      setUploadStatusText('');
+      if (e.target) e.target.value = '';
     }
   };
 
@@ -1537,8 +1594,86 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
     }));
   };
 
+  const handleSelectFromDrive = async () => {
+    try {
+      let wikiFolderId = '';
+      try {
+        let userSettings = null;
+        if (user && !user.isAnonymous) {
+          userSettings = await getUserSettings(user.uid);
+        }
+        const resolvedId = getWikiFolderId(userSettings);
+        if (resolvedId && resolvedId !== '1_wiki_subfolder' && !resolvedId.startsWith('1_')) {
+          wikiFolderId = resolvedId;
+        }
+      } catch (e) {
+        console.warn('[Character Wiki] Could not load userSettings wiki folder:', e);
+      }
+
+      openDrivePicker({
+        slotType: 'wiki',
+        slotLabel: 'Wiki Character Photo',
+        printsFolderId: wikiFolderId || undefined,
+        multiSelect: false,
+        includeFolders: true,
+        onPick: async (images) => {
+          if (!images || images.length === 0) return;
+          const picked = images[0];
+          const fileId = picked.fileId;
+          const fileName = picked.name;
+          const mimeType = picked.mimeType || 'image/jpeg';
+          const driveUrl = picked.url || `https://drive.google.com/thumbnail?id=${fileId}`;
+
+          setFormData(prev => ({
+            ...prev,
+            imageUrl: driveUrl,
+            driveFileId: fileId,
+            driveFileName: fileName,
+            driveMimeType: mimeType,
+            imageStoragePath: undefined
+          }));
+
+          // Automatically extract main color and palette if missing
+          try {
+            const { fetchDriveFileWithAuth } = await import('../lib/driveImageUtils');
+            const dataUrl = await fetchDriveFileWithAuth(fileId);
+            if (dataUrl) {
+              const detectedHex = await extractMainColorFromImageDataUrl(dataUrl);
+              if (detectedHex) {
+                setFormData(prev => (!prev.mainColor ? { ...prev, mainColor: detectedHex } : prev));
+              }
+              const palette = await extractPaletteFromImageDataUrl(dataUrl);
+              if (palette && palette.length > 0) {
+                setFormData(prev => ((!prev.colors || prev.colors.length === 0) ? {
+                  ...prev,
+                  colors: palette.map((hex: string, i: number) => ({ hex, name: `Color ${i + 1}` }))
+                } : prev));
+              }
+            }
+          } catch (colorErr) {
+            console.warn('[Character Wiki] Color auto-detection skipped for Drive image:', colorErr);
+          }
+        },
+        onError: (errMsg) => {
+          console.error('[Character Wiki] Drive Picker Error:', errMsg);
+          alert(errMsg);
+        },
+        onNeedAuth: async () => {
+          console.log('[Character Wiki] Interactive Drive authorization needed...');
+          const token = await requestFreshDriveToken(true);
+          if (token) {
+            handleSelectFromDrive();
+          }
+        }
+      });
+    } catch (err: any) {
+      console.error('[Character Wiki] Failed to trigger Drive picker:', err);
+      alert('Failed to open Google Drive picker: ' + (err?.message || err));
+    }
+  };
+
   return (
-    <div className="w-full max-w-2xl max-h-[85vh] sm:max-h-[80vh] my-auto bg-white rounded-2xl md:rounded-3xl shadow-[0_12px_40px_rgba(0,0,0,0.18)] border border-[#FFB8CD]/40 flex flex-col animate-in fade-in zoom-in-95 duration-200 box-border overflow-hidden">
+    <div className="w-full max-w-2xl h-[100dvh] max-h-[100dvh] sm:h-auto sm:max-h-[85vh] md:max-h-[80vh] my-0 sm:my-auto bg-white rounded-none sm:rounded-2xl md:rounded-3xl shadow-[0_12px_40px_rgba(0,0,0,0.18)] sm:border border-[#FFB8CD]/40 flex flex-col animate-in fade-in zoom-in-95 duration-200 box-border overflow-hidden wiki-edit-modal">
       <div className="flex justify-between items-center px-4 py-3 md:px-5 md:py-3.5 border-b border-[#FFB8CD]/30 shrink-0 bg-[#FFF0F4]/40">
         <h2 className="text-[18px] md:text-[20px] font-bold font-headline-md text-black m-0">{initialData ? 'Edit Character' : 'Add New Character'}</h2>
         <button onClick={onCancel} className="p-1.5 hover:bg-[#FFF0F4] rounded-full transition-colors text-black/60 shrink-0 cursor-pointer" aria-label="Close">
@@ -1546,36 +1681,96 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
         </button>
       </div>
 
-      <div className="flex-1 p-4 md:p-5 space-y-4 min-h-0">
+      <div className="flex-1 p-4 md:p-5 space-y-4 min-h-0 overflow-y-auto">
         <div className="flex flex-col md:flex-row gap-4 md:gap-5">
-        <div className="w-full md:w-[170px] shrink-0 space-y-2">
+        <div className="w-full md:w-[185px] shrink-0 space-y-2">
           <div className="box-border max-w-full">
             <label className="block text-[11px] font-bold text-black/60 uppercase tracking-wider mb-1">Main Image</label>
-            <ImageUploaderArea
-              onUpload={(files) => {
-                if (files && files.length > 0) {
-                  handleMainImageUpload({ target: { files } });
-                }
-              }}
-              className="w-full box-border"
+            
+            <input 
+              type="file"
+              ref={fileInputRef}
+              accept="image/*,image/png,image/jpeg,image/jpg,image/webp,image/heic,image/heif,.heic,.heif,.png,.jpg,.jpeg,.webp"
+              onChange={handleDirectPhotoUpload}
+              className="hidden"
+              disabled={isUploadingPhoto}
+            />
+
+            <div 
+              className="w-full aspect-square max-w-[185px] mx-auto md:mx-0 bg-white rounded-xl border-2 border-dashed border-[#FFB8CD] flex flex-col items-center justify-center relative overflow-hidden group shadow-sm wiki-character-image-container"
             >
-              <div className="w-full aspect-square max-w-[170px] mx-auto md:mx-0 bg-[#FFF0F4] rounded-xl border-2 border-dashed border-[#FFB8CD] flex flex-col items-center justify-center relative overflow-hidden group wiki-character-image-container">
-              {formData.imageUrl ? (
+              {isUploadingPhoto ? (
+                <div className="flex flex-col items-center justify-center p-3 text-center bg-white/95 absolute inset-0 z-20">
+                  <Loader2 className="w-8 h-8 animate-spin text-[#FF6B9E] mb-2" />
+                  <span className="text-[11px] font-bold text-[#FF6B9E] leading-tight px-1">
+                    {uploadStatusText || 'Uploading to Drive...'}
+                  </span>
+                </div>
+              ) : (formData.imageUrl || formData.imageStoragePath) ? (
                 <>
-                  <WikiImage url={formData.imageUrl} storagePath={formData.imageStoragePath} alt="Preview" className="w-full h-full object-contain" />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <span className="text-white font-bold text-[12px]">Change Image</span>
+                  <div className="w-full h-full flex items-center justify-center p-2 bg-white">
+                    <WikiImage 
+                      url={formData.imageUrl} 
+                      storagePath={formData.imageStoragePath} 
+                      alt="Preview" 
+                      className="w-full h-full object-contain bg-white" 
+                    />
                   </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFormData(prev => ({
+                        ...prev,
+                        imageUrl: '',
+                        driveFileId: undefined,
+                        imageStoragePath: undefined
+                      }));
+                    }}
+                    className="absolute top-2 right-2 p-1.5 bg-white/90 hover:bg-red-50 text-black/60 hover:text-red-500 rounded-full shadow-md transition-colors cursor-pointer z-10"
+                    title="Remove Photo"
+                    aria-label="Remove Photo"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </>
               ) : (
-                <div className="text-center p-3">
-                  <ImageIcon className="w-8 h-8 text-[#FFB8CD] mx-auto mb-1" />
-                  <span className="text-[#FFB8CD] font-bold text-[12px]">Upload Image</span>
+                <div className="text-center p-3 flex flex-col items-center justify-center">
+                  <ImageIcon className="w-8 h-8 text-[#FFB8CD] mb-1.5" />
+                  <span className="text-[#FF6B9E] font-bold text-[12px] leading-tight">No Photo Added</span>
+                  <span className="text-[10px] text-black/40 mt-0.5">Upload or select photo</span>
                 </div>
               )}
-              <input type="file" accept="image/*" onChange={handleMainImageUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
-              </div>
-            </ImageUploaderArea>
+            </div>
+
+            {uploadError && (
+              <p className="text-[11px] text-red-500 font-medium mt-1 leading-tight">{uploadError}</p>
+            )}
+
+            <div className="flex flex-col gap-1.5 mt-2 max-w-[185px] mx-auto md:mx-0">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingPhoto}
+                className="w-full px-2.5 py-1.5 bg-[#FF6B9E] hover:bg-[#FF6B9E]/90 disabled:opacity-50 text-white rounded-lg text-[12px] font-bold flex items-center justify-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                {isUploadingPhoto ? 'Uploading...' : 'Upload Photo'}
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSelectFromDrive();
+                }}
+                disabled={isUploadingPhoto}
+                className="w-full px-2.5 py-1.5 bg-[#FFF0F4] hover:bg-[#FFB8CD]/20 text-[#FF6B9E] border border-[#FFB8CD]/50 rounded-lg text-[12px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <ImageIcon className="w-3.5 h-3.5" />
+                Select from Drive
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1865,7 +2060,7 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
       </div>
     </div>
 
-      <div className="border-t border-[#FFB8CD]/30 px-4 py-2.5 md:px-5 md:py-3 flex justify-end gap-2.5 box-border shrink-0 bg-[#FFF0F4]/40 rounded-b-2xl md:rounded-b-3xl z-10">
+      <div className="border-t border-[#FFB8CD]/30 px-4 py-2.5 pb-[max(env(safe-area-inset-bottom),10px)] md:px-5 md:py-3 md:pb-3 flex justify-end gap-2.5 box-border shrink-0 bg-[#FFF0F4]/40 sm:rounded-b-2xl md:rounded-b-3xl z-10">
         <button type="button" onClick={onCancel} className="px-4 py-2 text-[13px] font-bold text-black/60 hover:text-black hover:bg-[#FFF0F4] rounded-lg transition-colors shrink-0 cursor-pointer">
           Cancel
         </button>
@@ -1897,9 +2092,37 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
             });
             const sanitizedColors = Array.from(uniqueColors);
 
+            let finalCompanyId = formData.companyId;
+            if (formData.company && !formData.companyId) {
+              const matched = franchiseList.find(f => f.name.toLowerCase() === formData.company!.trim().toLowerCase());
+              if (matched) {
+                finalCompanyId = matched.id;
+              } else {
+                const newId = Date.now().toString();
+                await onSaveEntity('franchise', [...franchiseList, { id: newId, name: formData.company.trim(), createdAt: Date.now() }]);
+                finalCompanyId = newId;
+              }
+            }
+            
+            let finalSeriesId = formData.seriesId;
+            if (formData.series && !formData.seriesId) {
+              const matched = seriesList.find(s => s.name.toLowerCase() === formData.series!.trim().toLowerCase());
+              if (matched) {
+                finalSeriesId = matched.id;
+              } else {
+                const newId = (Date.now() + 1).toString();
+                await onSaveEntity('series', [...seriesList, { id: newId, name: formData.series.trim(), createdAt: Date.now() }]);
+                finalSeriesId = newId;
+              }
+            }
+
             const payload: any = {
               ...(initialData || {}),
               ...formData,
+              companyId: finalCompanyId,
+              company: formData.company?.trim(),
+              seriesId: finalSeriesId,
+              series: formData.series?.trim(),
               mainColor: sanitizedMainColor,
               colors: sanitizedColors,
               additionalPalette: sanitizedColors
@@ -1932,6 +2155,7 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
           {isSaving ? 'Saving...' : (user?.isAnonymous ? 'Test Save' : 'Save Character')}
         </button>
       </div>
+
     </div>
   );
 }
@@ -1987,9 +2211,14 @@ function CharacterWikiCard({ char, onClick }: { char: any, onClick: () => void, 
       onClick={onClick}
       className="bg-white rounded-2xl overflow-hidden cursor-pointer group transition-all duration-300 hover:-translate-y-1 shadow-[0_4px_14px_rgba(255,184,205,0.25)] hover:shadow-[0_8px_24px_rgba(255,184,205,0.4)] border border-[#FFB8CD]/20 flex flex-col h-full"
     >
-      <div className="aspect-square relative bg-[#FFF0F4] flex items-center justify-center overflow-hidden wiki-character-image-container">
-        {char.imageUrl ? (
-          <WikiImage url={char.imageUrl} storagePath={char.imageStoragePath} alt={char.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+      <div className="aspect-square relative bg-white flex items-center justify-center overflow-hidden wiki-character-image-container">
+        {char.imageUrl || char.imageStoragePath ? (
+          <WikiImage 
+            url={char.imageUrl} 
+            storagePath={char.imageStoragePath} 
+            alt={char.name} 
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+          />
         ) : (
           <ImageIcon className="w-10 h-10 text-black/10" />
         )}
@@ -2021,6 +2250,7 @@ function CharacterWikiCard({ char, onClick }: { char: any, onClick: () => void, 
           ))}
         </div>
       </div>
+
     </div>
   );
 }

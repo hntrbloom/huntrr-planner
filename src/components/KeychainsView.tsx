@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { compressImageIfNeeded, uploadFileToStorage } from '../lib/storage';
 import { ImageUploaderArea } from './ui/ImageUploaderArea';
 import { ImageViewerModal } from './ImageViewerModal';
+import { SmartImage } from './SmartImage';
 import { GUEST_SAMPLE_KEYCHAINS } from '../lib/guestSampleData';
 
 interface Charm {
@@ -95,6 +96,9 @@ export function KeychainsView() {
     const unsub = onSnapshot(collection(db, `users/${user.uid}/keychains`), (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as KeychainIdea[];
       setIdeas(data);
+      setLoading(false);
+    }, (err) => {
+      console.error("Keychains fetch error:", err);
       setLoading(false);
     });
     return () => unsub();
@@ -558,7 +562,7 @@ export function KeychainsView() {
                     idea.charms.map((charm, idx) => (
                       <div key={charm.id || idx} className="relative group w-28 h-28 rounded-xl overflow-hidden border border-outline-variant/30 bg-surface-container-low shadow-sm">
                         {charm.imageUrl ? (
-                          <img src={charm.imageUrl} alt={charm.name} className="w-full h-full object-cover" />
+                          <SmartImage src={charm.imageUrl} alt={charm.name} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex flex-col items-center justify-center text-on-surface-variant/50">
                             <ImageIcon className="w-6 h-6 mb-1 opacity-50" />

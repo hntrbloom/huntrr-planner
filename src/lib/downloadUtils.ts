@@ -1,11 +1,24 @@
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
+import { extractDriveFileId, fetchDriveBlobWithAuth } from './driveImageUtils';
 
 export async function fetchBlobWithFallback(url: string): Promise<Blob> {
-  if (url.startsWith('data:')) {
+  if (!url) throw new Error('No URL provided');
+
+  if (url.startsWith('blob:') || url.startsWith('data:')) {
     const res = await fetch(url);
     return await res.blob();
   }
+
+  const driveId = extractDriveFileId(url);
+  if (driveId) {
+    try {
+      return await fetchDriveBlobWithAuth(driveId);
+    } catch (err) {
+      console.warn('[downloadUtils] Drive blob fetch failed, falling through to fetch:', err);
+    }
+  }
+
   try {
     const res = await fetch(url, { mode: 'cors' });
     if (!res.ok) throw new Error(`HTTP error ${res.status}`);

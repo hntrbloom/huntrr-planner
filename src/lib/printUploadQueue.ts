@@ -3,6 +3,14 @@ import { doc, runTransaction, updateDoc } from 'firebase/firestore';
 import { uploadImageToService } from './imageService';
 import { processAndCompressImage } from './imageProcessor';
 import { sanitizeFirestorePayload } from './firestoreUtils';
+import { getOrCreateMiniCharmsFolder, searchOrResolveHuntrrSpaceFolders, getOrCreateTypeExtrasFolder, getPrintFolderId } from './driveFolderUtils';
+import { DEFAULT_DRIVE_FOLDERS } from './driveFolderUtils';
+
+export interface ImageCropSettings {
+  x: number;
+  y: number;
+  zoom: number;
+}
 
 export interface PhotoTask {
   id: string;
@@ -22,12 +30,13 @@ export interface PhotoTask {
   width?: number;
   height?: number;
   filename?: string;
+  crop?: ImageCropSettings;
 }
 
 export interface PrintUploadStatus {
   printId: string;
   userId: string;
-  isMiniCharm: boolean;
+  printType: string;
   tasks: PhotoTask[];
   overallStatus: 'processing' | 'ready' | 'partial' | 'interrupted';
 }
@@ -62,7 +71,7 @@ class PrintUploadQueueManager {
   public enqueuePrintUpload(
     userId: string,
     printId: string,
-    isMiniCharm: boolean,
+    printType: string,
     tasks: PhotoTask[]
   ) {
     if (!tasks || tasks.length === 0) return;
@@ -72,7 +81,7 @@ class PrintUploadQueueManager {
       existing = {
         printId,
         userId,
-        isMiniCharm,
+        printType,
         tasks: [],
         overallStatus: 'processing'
       };
@@ -156,7 +165,8 @@ class PrintUploadQueueManager {
 
     this.runningUploads++;
     const task = targetTask;
-    const { userId, printId, isMiniCharm } = targetPrint;
+    const { userId, printId, printType } = targetPrint;
+    const isNailCharm = printType.toLowerCase() === 'nail charm' || printType.toLowerCase() === 'nail charms' || printType.toLowerCase() === 'nailcharm' || printType.toLowerCase() === 'nailcharms' || printType.toLowerCase() === 'mini charm' || printType.toLowerCase() === 'minicharm' || printType.toLowerCase() === 'mini charms';
 
     try {
       // Step 1: Compress image (max 1600px main, 480px thumbnail, WebP format)
@@ -171,6 +181,22 @@ class PrintUploadQueueManager {
       task.progress = 30;
       this.notify();
 
+      
+      let targetDriveFolderId: string | undefined = undefined;
+      
+      try {
+        if (task.type === 'inspiration') {
+          const resolved = await searchOrResolveHuntrrSpaceFolders().catch(() => null);
+          targetDriveFolderId = resolved?.referencesFolderId || DEFAULT_DRIVE_FOLDERS.referencesFolderId;
+        } else {
+          targetDriveFolderId = getPrintFolderId(printType);
+        }
+      } catch (e) {
+        console.warn("Could not resolve drive folders:", e);
+        targetDriveFolderId = getPrintFolderId(printType);
+      }
+
+
       const uploadRes = await uploadImageToService({
         file: processed.optimizedFile,
         thumbnailFile: processed.thumbnailFile,
@@ -180,6 +206,7 @@ class PrintUploadQueueManager {
         filename: processed.filename,
         width: processed.width,
         height: processed.height,
+        driveFolderId: targetDriveFolderId,
         onProgress: (percent) => {
           task.progress = 30 + Math.round(percent * 0.65);
           task.status = 'uploading';
@@ -223,33 +250,47 @@ class PrintUploadQueueManager {
               return url && !url.startsWith('blob:') && !url.startsWith('data:') && !url.startsWith('file:');
             });
 
-            if (isMiniCharm) {
-              updatedImages = updatedImages.filter((img: any) => img.type !== 'finished');
+            if (isNailCharm) {
+              updatedImages = updatedImages.filter((img: any) => img.type !== 'finished' && img.type !== 'mini_charm');
             }
 
-            const existingIndex = updatedImages.findIndex((img: any) => img.id === task.id);
             const newPhotoMeta = sanitizeFirestorePayload({
               id: task.id,
               url: uploadRes.downloadURL,
               storagePath: uploadRes.storagePath,
               ...(uploadRes.driveFileId ? { driveFileId: uploadRes.driveFileId } : {}),
+              ...(targetDriveFolderId ? { driveFolderId: targetDriveFolderId } : {}),
               ...(uploadRes.thumbDriveFileId ? { thumbDriveFileId: uploadRes.thumbDriveFileId } : {}),
               ...(uploadRes.thumbStoragePath ? { thumbStoragePath: uploadRes.thumbStoragePath } : {}),
               mimeType: uploadRes.mimeType,
               width: processed.width,
               height: processed.height,
               filename: processed.filename,
-              type: task.type,
-              ...(task.label ? { label: task.label } : {})
+              type: isNailCharm ? 'finished' : task.type,
+              label: isNailCharm ? 'Nail Charm Photo' : (task.label || ''),
+              ...(task.crop ? { crop: task.crop } : {})
             });
 
-            if (existingIndex >= 0) {
-              updatedImages[existingIndex] = newPhotoMeta;
+            if (isNailCharm) {
+              updatedImages = [newPhotoMeta];
             } else {
-              updatedImages.push(newPhotoMeta);
+              const existingIndex = updatedImages.findIndex((img: any) => img.id === task.id);
+              if (existingIndex >= 0) {
+                updatedImages[existingIndex] = newPhotoMeta;
+              } else {
+                updatedImages.push(newPhotoMeta);
+              }
             }
 
-            transaction.update(docRef, { images: updatedImages });
+            const docUpdates: any = { images: updatedImages };
+            if (uploadRes.driveFileId) {
+              docUpdates.driveFileId = uploadRes.driveFileId;
+            }
+            if (targetDriveFolderId) {
+              docUpdates.driveFolderId = targetDriveFolderId;
+            }
+
+            transaction.update(docRef, docUpdates);
           });
         } catch (txErr) {
           console.warn("Transaction update failed during photo save:", txErr);

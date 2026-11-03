@@ -1,20 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Edit3, LayoutGrid, Clock, ChevronLeft, ChevronRight, Image as ImageIcon, Tag, Check } from 'lucide-react';
-import { MiniFurniture, getGroupedPrintTime, isMiniCharmItem, getUniqueImages } from './MiniFurnitureView';
+import { X, Edit3, LayoutGrid, Clock, ChevronLeft, ChevronRight, Image as ImageIcon, Tag, Check, Link as LinkIcon, ExternalLink, AlertCircle } from 'lucide-react';
+import { MiniFurniture, getGroupedPrintTime, isNailCharmItem, getUniqueImages, isValidPrintUrl, getPrintLinkLabel } from './MiniFurnitureView';
 import { SmartImage } from './SmartImage';
 import { ImageViewerModal } from './ImageViewerModal';
 
 interface Props {
-  setInfo: { id: string; name: string; coverImageUrl?: string; fullPrintTime?: string };
+  setInfo: { id: string; name: string; coverImageUrl?: string; fullPrintTime?: string; printLink?: string };
   items: MiniFurniture[];
   onClose: () => void;
   onSetCover: (url: string) => void;
   onRename: (newName: string) => void;
   onUpdateFullPrintTime: (newTime: string) => void;
+  onUpdatePrintLink?: (newLink: string) => void;
   onDelete: (keepUngrouped: boolean) => void;
 }
 
-const HorizontalCarousel = ({ images, onImageClick, onSetCover }: { images: any[], onImageClick: (img: {url: string, storagePath?: string, driveFileId?: string}) => void, onSetCover: (url: string) => void }) => {
+const HorizontalCarousel = ({ images, onImageClick, onSetCover }: { images: any[], onImageClick: (img: {url: string, storagePath?: string, driveFileId?: string, thumbDriveFileId?: string}) => void, onSetCover: (url: string) => void }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollPos, setScrollPos] = useState(0);
   const uniqueImages = getUniqueImages(images);
@@ -47,9 +48,16 @@ const HorizontalCarousel = ({ images, onImageClick, onSetCover }: { images: any[
           <div 
             key={img.id || img.storagePath || img.driveFileId || img.url || idx} 
             className="snap-center shrink-0 w-[200px] sm:w-[250px] h-[200px] sm:h-[250px] relative rounded-xl overflow-hidden bg-surface-variant/30 cursor-pointer border border-outline-variant/20 group/img flex items-center justify-center"
-            onClick={() => onImageClick({ url: img.url, storagePath: img.storagePath, driveFileId: img.driveFileId })}
+            onClick={() => onImageClick({ url: img.url, storagePath: img.storagePath, driveFileId: img.driveFileId, thumbDriveFileId: img.thumbDriveFileId })}
           >
-            <SmartImage src={img.url} storagePath={img.thumbStoragePath || img.storagePath} driveFileId={img.thumbDriveFileId || img.driveFileId} className="w-full h-full object-contain" />
+            <SmartImage 
+              src={img.url} 
+              storagePath={img.thumbStoragePath || img.storagePath} 
+              driveFileId={img.thumbDriveFileId || img.driveFileId} 
+              fallbackDriveFileId={img.driveFileId}
+              className="w-full h-full object-contain" 
+              crop={img.crop}
+            />
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex flex-col items-center justify-center p-2">
                {img.type === 'design' && (<button onClick={(e) => { e.stopPropagation(); onSetCover(img.url); }} className="bg-white/90 text-on-surface text-[10px] font-bold px-3 py-1.5 rounded backdrop-blur-sm shadow-sm hover:bg-white transition-colors mb-2">Set as Cover</button>)}
             </div>
@@ -83,6 +91,7 @@ export const SetGalleryModal = ({
   onSetCover, 
   onRename, 
   onUpdateFullPrintTime,
+  onUpdatePrintLink,
   onDelete 
 }: Props) => {
   const [viewingImage, setViewingImage] = useState<{url: string, storagePath?: string, driveFileId?: string} | null>(null);
@@ -92,11 +101,19 @@ export const SetGalleryModal = ({
   const [isEditingPrintTime, setIsEditingPrintTime] = useState(false);
   const [customPrintTime, setCustomPrintTime] = useState(setInfo.fullPrintTime || '');
 
+  const [isEditingPrintLink, setIsEditingPrintLink] = useState(false);
+  const [customPrintLink, setCustomPrintLink] = useState(setInfo.printLink || '');
+  const [linkValidationMsg, setLinkValidationMsg] = useState('');
+
   const printTimeInfo = getGroupedPrintTime(items, setInfo.fullPrintTime);
 
   useEffect(() => {
     setCustomPrintTime(setInfo.fullPrintTime || '');
   }, [setInfo.fullPrintTime]);
+
+  useEffect(() => {
+    setCustomPrintLink(setInfo.printLink || '');
+  }, [setInfo.printLink]);
 
   useEffect(() => {
     // Lock body scroll
@@ -279,24 +296,176 @@ export const SetGalleryModal = ({
               )}
             </div>
 
+            {/* Set Print Link banner card */}
+            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-outline-variant/20 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-[#E8F5E9] flex items-center justify-center shrink-0 border border-[#A5D6A7]/40">
+                  <LinkIcon className="w-5 h-5 text-[#1B5E20]" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-bold text-on-surface-variant/70 uppercase tracking-wider">
+                    Set Print Link
+                  </div>
+                  {setInfo.printLink && isValidPrintUrl(setInfo.printLink) ? (
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                      <a
+                        href={setInfo.printLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#E8F5E9] hover:bg-[#C8E6C9] text-[#1B5E20] rounded-xl text-xs font-bold transition-all shadow-2xs border border-[#A5D6A7]/60"
+                        title={setInfo.printLink}
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>{getPrintLinkLabel(setInfo.printLink)}</span>
+                      </a>
+                      <span className="text-xs text-on-surface-variant truncate max-w-[280px] hidden sm:inline" title={setInfo.printLink}>
+                        {setInfo.printLink}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="text-sm font-medium text-on-surface-variant mt-0.5">
+                      No print link saved for this set yet
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {!isEditingPrintLink ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomPrintLink(setInfo.printLink || '');
+                    setLinkValidationMsg('');
+                    setIsEditingPrintLink(true);
+                  }}
+                  className="self-start md:self-center px-4 py-2 bg-[#E8F5E9] hover:bg-[#C8E6C9] text-[#1B5E20] rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-xs border border-[#A5D6A7]/40"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>{setInfo.printLink ? 'Edit Set Link' : 'Add Set Link'}</span>
+                </button>
+              ) : (
+                <div className="flex flex-col gap-2 bg-surface-variant/10 p-3 rounded-xl border border-outline-variant/30 w-full md:max-w-md">
+                  <div className="relative">
+                    <input
+                      type="url"
+                      value={customPrintLink}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setCustomPrintLink(val);
+                        if (val.trim() && !isValidPrintUrl(val)) {
+                          setLinkValidationMsg('Please enter a valid link starting with http:// or https://');
+                        } else {
+                          setLinkValidationMsg('');
+                        }
+                      }}
+                      placeholder="https://makerworld.com/en/models/... or https://..."
+                      className={`w-full px-3 py-2 bg-white border ${linkValidationMsg ? 'border-error ring-1 ring-error' : 'border-outline-variant focus:ring-2 focus:ring-primary'} rounded-lg text-sm text-on-surface focus:outline-none transition-all ${customPrintLink && isValidPrintUrl(customPrintLink) ? 'pr-16' : ''}`}
+                      autoFocus
+                    />
+                    {customPrintLink && isValidPrintUrl(customPrintLink) && (
+                      <a
+                        href={customPrintLink.trim()}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-0.5 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold rounded transition-colors flex items-center gap-1"
+                        title="Test Link"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        <span>Test</span>
+                      </a>
+                    )}
+                  </div>
+
+                  {linkValidationMsg && (
+                    <p className="text-xs text-error flex items-center gap-1 font-medium">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{linkValidationMsg}</span>
+                    </p>
+                  )}
+
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    {setInfo.printLink && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onUpdatePrintLink) {
+                            onUpdatePrintLink('');
+                          }
+                          setCustomPrintLink('');
+                          setLinkValidationMsg('');
+                          setIsEditingPrintLink(false);
+                        }}
+                        className="text-xs text-error hover:underline font-medium"
+                      >
+                        Remove Link
+                      </button>
+                    )}
+                    <div className="flex items-center gap-1.5 ml-auto">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const trimmed = customPrintLink.trim();
+                          if (trimmed && !isValidPrintUrl(trimmed)) {
+                            setLinkValidationMsg('Please enter a valid link starting with http:// or https://');
+                            return;
+                          }
+                          if (onUpdatePrintLink) {
+                            onUpdatePrintLink(trimmed);
+                          }
+                          setIsEditingPrintLink(false);
+                        }}
+                        className="px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary/90 transition-colors shadow-2xs"
+                      >
+                        Save Link
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsEditingPrintLink(false);
+                          setCustomPrintLink(setInfo.printLink || '');
+                          setLinkValidationMsg('');
+                        }}
+                        className="px-2.5 py-1.5 text-xs font-bold text-on-surface-variant hover:bg-surface-variant/30 rounded-lg"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {items.map(item => {
-              const isMini = isMiniCharmItem(item);
+              const isMini = isNailCharmItem(item);
               const uniqueImgs = getUniqueImages(item.images);
+              const mockupImgs = uniqueImgs.filter(img => img.type === 'design');
               const displayedImages = isMini
                 ? (uniqueImgs.length > 0 ? [uniqueImgs.find(img => img.type === 'finished') || uniqueImgs[0]] : [])
-                : uniqueImgs;
+                : mockupImgs;
 
               return (
                 <div key={item.id} className="bg-white rounded-2xl shadow-sm border border-outline-variant/30 overflow-hidden flex flex-col">
                   <div className="p-4 sm:p-5 border-b border-outline-variant/20 bg-surface-variant/5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
                       <h3 className="font-bold text-lg sm:text-xl text-on-surface truncate" title={item.name}>{item.name}</h3>
-                      <div className="text-sm text-on-surface-variant mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
+                      <div className="text-sm text-on-surface-variant mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
                         <span className="flex items-center gap-1.5"><Tag className="w-4 h-4 text-primary/70"/> {item.status}</span>
                         {item.printTime && (
                           <span className="flex items-center gap-1.5 font-medium text-[#7D6190]">
                             <Clock className="w-4 h-4 text-[#FF85A2]"/> Item Print Time: {item.printTime}
                           </span>
+                        )}
+                        {item.printLink && (
+                          <a
+                            href={item.printLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-[#E8F5E9] hover:bg-[#C8E6C9] text-[#1B5E20] rounded-md text-xs font-bold transition-all shadow-2xs border border-[#A5D6A7]/50"
+                            title={item.printLink}
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>{getPrintLinkLabel(item.printLink)}</span>
+                          </a>
                         )}
                       </div>
                     </div>

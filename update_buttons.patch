@@ -1,0 +1,39 @@
+--- src/components/MiniFurnitureView.tsx
++++ src/components/MiniFurnitureView.tsx
+@@ -2792,6 +2792,23 @@
+                                 )}
+ 
++                                <div className="absolute top-3 right-3 z-30 flex items-center gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
++                                  <button
++                                    type="button"
++                                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); downloadSingleImage(img.url, title || 'Photo'); }}
++                                    className="p-2 bg-black/60 hover:bg-black/80 text-white rounded-full backdrop-blur-sm shadow-md transition-all hover:scale-110 active:scale-95"
++                                    title="Download Photo"
++                                  >
++                                    <Download className="w-3.5 h-3.5" />
++                                  </button>
++                                  <button
++                                    type="button"
++                                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); setPhotoToRemove({ img, type, printId: formData.id }); }}
++                                    className="p-2 bg-black/60 hover:bg-error/90 text-white rounded-full backdrop-blur-sm shadow-md transition-all hover:scale-110 active:scale-95"
++                                    title="Remove Photo"
++                                  >
++                                    <Trash2 className="w-3.5 h-3.5" />
++                                  </button>
++                                </div>
++
+                                 <button
+                                   type="button"
+@@ -2857,11 +2874,2 @@
+                                   </label>
+-
+-                                  <button
+-                                    type="button"
+-                                    onClick={(e) => { e.stopPropagation(); removeImage(img.id); }}
+-                                    className="w-full max-w-[170px] py-1.5 px-3 bg-error text-white text-xs font-bold rounded-full shadow-md hover:bg-error/90 flex items-center justify-center gap-1.5 transition-colors"
+-                                    disabled={isSaving}
+-                                  >
+-                                    <Trash2 className="w-3.5 h-3.5" />
+-                                    <span>Remove Photo</span>
+-                                  </button>
+                                 </div>

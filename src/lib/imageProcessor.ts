@@ -166,6 +166,12 @@ async function createResizedBlobFromSource(
 
   if (!blob || blob.size === 0) {
     // Fallback to JPEG at 80%
+    if (preserveAlpha) {
+      ctx.globalCompositeOperation = 'destination-over';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, w, h);
+      ctx.globalCompositeOperation = 'source-over';
+    }
     blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.80));
     mimeType = 'image/jpeg';
   }

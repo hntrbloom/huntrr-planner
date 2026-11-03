@@ -1,25 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, AlertTriangle } from 'lucide-react';
 import { BottomNav, Sidebar } from './components/Navigation';
+import { AgendaView } from './components/AgendaView';
 import { NotesView } from './components/NotesView';
 import { HabitsView } from './components/HabitsView';
 import { DailyLogView } from './components/DailyLogView';
 import { MonthlyView } from './components/MonthlyView';
 import { PrintingCatalogView } from './components/PrintingCatalogView';
-import { InspirationView } from './components/InspirationView';
 import { StreaksView } from './components/StreaksView';
 import { CharacterWikiView } from './components/CharacterWikiView';
 import { MiniFurnitureView } from './components/MiniFurnitureView';
 import { BlogView } from './components/BlogView';
 import { GoalsView } from './components/GoalsView';
-import { JobApplicationsView } from './components/JobApplicationsView';
+import { GoalsAndStreaksView } from './components/GoalsAndStreaksView';
 import { KeychainsView } from './components/KeychainsView';
+import { ClientReceiptsView } from './components/ClientReceiptsView';
+import { ShoppingListsView } from './components/ShoppingListsView';
+import { ModelViewerView } from './components/ModelViewerView';
 import { ViewState } from './types';
 import { db } from './lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { useAuth } from './lib/AuthContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { FocusTimer } from './components/FocusTimer';
 import { SettingsView } from './components/SettingsView';
+import { MedicationPopup } from './components/MedicationPopup';
 import { runGlobalBase64Migration } from './lib/globalMigration';
 
 export default function App() {
@@ -31,18 +36,32 @@ export default function App() {
   }, [user]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || user.isAnonymous) return;
     const unsub = onSnapshot(doc(db, `users/${user.uid}/preferences`, 'global'), (snap) => {
       if (snap.exists() && snap.data().backgroundColor) {
         document.body.style.backgroundColor = snap.data().backgroundColor;
       } else {
         document.body.style.backgroundColor = '#FFF0F4';
       }
-    });
+    }, (err) => console.error("Global pref fetch error:", err));
     return () => unsub();
   }, [user]);
   
-  const [currentView, setCurrentView] = useState<ViewState>('log');
+  const [currentView, setCurrentView] = useState<ViewState>('agenda');
+  const [goalsStreaksSection, setGoalsStreaksSection] = useState<'goals' | 'streaks' | undefined>(undefined);
+
+  const handleViewChange = (v: ViewState) => {
+    if (v === 'goals') {
+      setGoalsStreaksSection('goals');
+      setCurrentView('goals_streaks');
+    } else if (v === 'streaks') {
+      setGoalsStreaksSection('streaks');
+      setCurrentView('goals_streaks');
+    } else {
+      setCurrentView(v);
+    }
+  };
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     try {
       const saved = localStorage.getItem('sidebar_open');
@@ -65,31 +84,52 @@ export default function App() {
 
   const renderView = () => {
     switch (currentView) {
+      case 'agenda':
+        return <AgendaView onNavigate={handleViewChange} />;
       case 'habits':
         return <HabitsView />;
+      case 'goals_streaks':
+        return (
+          <GoalsAndStreaksView 
+            initialSection={goalsStreaksSection} 
+            onSectionChange={(sec) => setGoalsStreaksSection(sec)} 
+          />
+        );
       case 'goals':
-        return <GoalsView />;
+        return (
+          <GoalsAndStreaksView 
+            initialSection="goals" 
+            onSectionChange={(sec) => setGoalsStreaksSection(sec)} 
+          />
+        );
+      case 'streaks':
+        return (
+          <GoalsAndStreaksView 
+            initialSection="streaks" 
+            onSectionChange={(sec) => setGoalsStreaksSection(sec)} 
+          />
+        );
       case 'keychains':
       case 'minifurniture':
         return <MiniFurnitureView />;
+      case 'models':
+        return <ModelViewerView />;
       case 'log':
         return <DailyLogView />;
+      case 'shopping':
+        return <ShoppingListsView />;
+      case 'receipts':
+        return <ClientReceiptsView />;
       case 'month':
         return <MonthlyView />;
       case 'notes':
         return <NotesView />;
       case 'printing':
         return <PrintingCatalogView />;
-      case 'pinterest':
-        return <InspirationView />;
-      case 'streaks':
-        return <StreaksView />;
       case 'wiki':
         return <CharacterWikiView />;
       case 'blog':
         return <BlogView />;
-      case 'jobs':
-        return <JobApplicationsView />;
       case 'settings':
         return <SettingsView />;
       case 'charts':
@@ -102,7 +142,7 @@ export default function App() {
           </div>
         );
       default:
-        return <DailyLogView />;
+        return <AgendaView onNavigate={handleViewChange} />;
     }
   };
 
@@ -117,12 +157,13 @@ export default function App() {
       )}
       
       <FocusTimer />
+      <MedicationPopup />
       
       {/* Menu button shown when sidebar is collapsed */}
       {!isSidebarOpen && (
         <button
           onClick={() => setIsSidebarOpen(true)}
-          className="fixed top-[20px] left-4 z-40 p-2.5 bg-white/80 backdrop-blur-md hover:bg-white text-[#666666] hover:text-[#222222] rounded-full shadow-md transition-all border border-black/10 flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95"
+          className="fixed bottom-[calc(env(safe-area-inset-bottom)+80px)] md:bottom-auto md:top-[20px] left-4 z-[60] p-2.5 bg-white/80 backdrop-blur-md hover:bg-white text-[#666666] hover:text-[#222222] rounded-full shadow-md transition-all border border-black/10 flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95"
           aria-label="Open sidebar menu"
           title="Open menu"
         >
@@ -132,18 +173,18 @@ export default function App() {
 
       <Sidebar 
         currentView={currentView} 
-        onChangeView={(v) => {
-          setCurrentView(v);
-        }}
+        onChangeView={handleViewChange}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
       />
       
       <div className="flex-1 flex flex-col relative w-full md:h-[100dvh] md:overflow-hidden min-w-0 transition-all duration-300 ease-in-out">
-        {renderView()}
+        <ErrorBoundary>
+          {renderView()}
+        </ErrorBoundary>
       </div>
 
-      <BottomNav currentView={currentView} onChangeView={setCurrentView} />
+      <BottomNav currentView={currentView} onChangeView={handleViewChange} />
     </div>
   );
 }

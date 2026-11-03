@@ -50,11 +50,22 @@ export function FocusTimer() {
   // Fetch habits for dropdown
   useEffect(() => {
     if (!user) return;
+    if (user.isAnonymous) {
+      try {
+        const localHabits = localStorage.getItem('habitsData');
+        if (localHabits) {
+          const parsed = JSON.parse(localHabits);
+          if (Array.isArray(parsed)) setHabits(parsed);
+          else if (parsed.habits) setHabits(parsed.habits);
+        }
+      } catch (_) {}
+      return;
+    }
     const unsub = onSnapshot(doc(db, `users/${user.uid}/preferences`, 'habitsData'), (snap) => {
       if (snap.exists() && snap.data().habits) {
         setHabits(snap.data().habits);
       }
-    });
+    }, (err) => console.error("Focus habits fetch error:", err));
     return () => unsub();
   }, [user]);
 

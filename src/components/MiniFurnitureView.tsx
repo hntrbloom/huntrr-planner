@@ -1,20 +1,31 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Plus, Copy, Box, Search, CheckCircle2, Armchair, ChevronDown, Clock, Tag, Ruler, X, Image as ImageIcon, LayoutGrid, List, Filter, Edit3, Trash2, Maximize2, Settings, Download, Loader2, AlertCircle } from 'lucide-react';
+import { Plus, Copy, Box, Search, CheckCircle2, Armchair, ChevronDown, Clock, Tag, Ruler, X, Image as ImageIcon, LayoutGrid, List, Filter, Edit3, Trash2, Maximize2, Settings, Download, Loader2, AlertCircle, FolderOpen, Upload, Folder, Crop, Check, RefreshCw, Link as LinkIcon, ExternalLink } from 'lucide-react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { ImageUploaderArea } from './ui/ImageUploaderArea';
 import { SetGalleryModal } from './SetGalleryModal';
-import { useAuth } from '../lib/AuthContext';
+import { useAuth, getAccessToken } from '../lib/AuthContext';
+import { requestFreshDriveToken } from '../lib/driveAuth';
 import { db, safeGetDoc } from '../lib/firebase';
 import { collection, doc, onSnapshot, setDoc, deleteDoc } from 'firebase/firestore';
 import { uploadFileToStorage, uploadDataUrlToStorage, deleteFileFromStorage } from '../lib/storage';
+import { uploadImageToService } from '../lib/imageService';
+import { processAndCompressImage } from '../lib/imageProcessor';
 import { printUploadQueue, PhotoTask } from '../lib/printUploadQueue';
 import { SmartImage } from './SmartImage';
+import { SharedDriveImagePicker } from './SharedDriveImagePicker';
+import { ImageCropModal, ImageCropSettings } from './ImageCropModal';
+import { fetchDriveFileWithAuth, deleteDriveFile } from '../lib/driveImageUtils';
+import { getCachedImageUrl } from '../hooks/useImageCache';
 import { ImageViewerModal, ImageToView } from './ImageViewerModal';
-import { downloadImagesZip } from '../lib/downloadUtils';
+import { downloadImagesZip, downloadSingleImage } from '../lib/downloadUtils';
 import { v4 as uuidv4 } from 'uuid';
 import { GUEST_SAMPLE_PRINT_DESIGNS, GUEST_SAMPLE_PRINT_CATEGORIES, GUEST_SAMPLE_PRINT_SETS } from '../lib/guestSampleData';
 import { sanitizeFirestorePayload, findUndefinedPaths } from '../lib/firestoreUtils';
+import { useGoogleDrivePicker, getFolderIdForSlot, CHARMS_FOLDER_ID, REFERENCES_FOLDER_ID, MOCKUPS_FOLDER_ID, EXTRAS_FOLDER_ID, PRINTS_FOLDER_ID } from '../hooks/useGoogleDrivePicker';
+import { getUserSettings, updateUserSettings } from '../lib/settingsUtils';
+import { searchOrResolveHuntrrSpaceFolders, getOrCreateMiniCharmsFolder, DEFAULT_DRIVE_FOLDERS, getPrintFolderId, DEFAULT_PRINT_TYPES } from '../lib/driveFolderUtils';
+import { getCachedBlobUrl } from '../lib/driveImageUtils';
 
 export interface MiniFurniturePart {
   id: string;
@@ -26,6 +37,7 @@ export interface MiniFurnitureImage {
   url: string;
   storagePath?: string;
   driveFileId?: string;
+  driveFolderId?: string;
   thumbDriveFileId?: string;
   thumbStoragePath?: string;
   mimeType?: string;
@@ -35,6 +47,8 @@ export interface MiniFurnitureImage {
   status?: 'ready' | 'uploading' | 'error' | 'unrecoverable';
   type: string;
   label?: string;
+  source?: 'google-drive' | 'firebase' | 'local';
+  crop?: ImageCropSettings;
 }
 
 export interface PrintSet {
@@ -42,14 +56,42 @@ export interface PrintSet {
   name: string;
   coverImageUrl?: string;
   fullPrintTime?: string;
+  printLink?: string;
 }
 
-export function isMiniCharmItem(item: Partial<MiniFurniture> | undefined | null): boolean {
+export function isValidPrintUrl(url: string | undefined | null): boolean {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim();
+  if (!trimmed) return true;
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+export function getPrintLinkLabel(url: string | undefined | null): string {
+  if (!url || typeof url !== 'string') return 'Open Print Link';
+  const lower = url.toLowerCase();
+  if (lower.includes('makerworld.com')) return 'Open in MakerWorld';
+  if (lower.includes('bambulab.com') || lower.includes('bambustudio') || lower.includes('bambu')) return 'Open in Bambu Studio';
+  if (lower.includes('printables.com')) return 'Open in Printables';
+  if (lower.includes('thingiverse.com')) return 'Open in Thingiverse';
+  return 'Open Print Link';
+}
+
+export function isNailCharmItem(item: any): boolean {
   if (!item) return false;
   const mf = (item.madeFor || '').toLowerCase().trim();
   const cat = (item.category || '').toLowerCase().trim();
   const type = ((item as any).type || '').toLowerCase().trim();
-  return mf === 'mini charm' || mf === 'minicharm' || cat === 'mini charm' || cat === 'minicharm' || type === 'minicharm' || type === 'mini charm';
+  return mf === 'nail charm' || mf === 'nail charms' || mf === 'nailcharm' || mf === 'nailcharms' || 
+         mf === 'mini charm' || mf === 'mini charms' || mf === 'minicharm' || mf === 'minicharms' ||
+         cat === 'nail charm' || cat === 'nail charms' || cat === 'nailcharm' || 
+         cat === 'mini charm' || cat === 'mini charms' || cat === 'minicharm' ||
+         type === 'nailcharm' || type === 'nail charm' || type === 'nail charms' ||
+         type === 'minicharm' || type === 'mini charm' || type === 'mini charms';
 }
 
 export function getUniqueImages(images: MiniFurnitureImage[] | undefined | null): MiniFurnitureImage[] {
@@ -164,8 +206,32 @@ export interface MiniFurniture {
   madeFor: string;
 
   images: MiniFurnitureImage[];
+  driveFileId?: string;
+  driveFolderId?: string;
   uploadStatus?: 'ready' | 'processing' | 'partial' | 'interrupted' | 'failed' | 'uploading' | 'compressing' | 'saving' | string;
   createdAt?: string;
+  printLink?: string;
+}
+
+export function extractDriveFileId(str?: string): string | undefined {
+  if (!str || typeof str !== 'string') return undefined;
+  const s = str.trim();
+  if (!s) return undefined;
+  
+  if (/^[a-zA-Z0-9_-]{25,55}$/.test(s)) {
+    return s;
+  }
+  
+  const matchD = s.match(/\/d\/([a-zA-Z0-9_-]{25,55})/);
+  if (matchD && matchD[1]) return matchD[1];
+
+  const matchId = s.match(/[?&]id=([a-zA-Z0-9_-]{25,55})/);
+  if (matchId && matchId[1]) return matchId[1];
+
+  const matchLh3 = s.match(/googleusercontent\.com\/d\/([a-zA-Z0-9_-]{25,55})/);
+  if (matchLh3 && matchLh3[1]) return matchLh3[1];
+
+  return undefined;
 }
 
 export function normalizePrintRecord(rawDoc: any): MiniFurniture {
@@ -229,7 +295,11 @@ export function normalizePrintRecord(rawDoc: any): MiniFurniture {
   const notes = rawDoc.notes || '';
   const setName = rawDoc.setName || '';
   const setId = rawDoc.setId || '';
-  const madeFor = rawDoc.madeFor || 'Whole Family';
+  let madeFor = rawDoc.madeFor || 'Whole Family';
+  if (madeFor.toLowerCase().trim() === 'figure') {
+    madeFor = 'Figures';
+  }
+  const printLink = (rawDoc.printLink || rawDoc.link || rawDoc.makerWorldLink || rawDoc.bambuLink || rawDoc.modelUrl || '').toString().trim();
 
   const extractedImages: MiniFurnitureImage[] = [];
 
@@ -255,12 +325,19 @@ export function normalizePrintRecord(rawDoc: any): MiniFurniture {
     let status: 'ready' | 'uploading' | 'error' | 'unrecoverable' | undefined = undefined;
 
     if (typeof urlOrObj === 'string') {
-      url = urlOrObj.trim();
+      const trimmed = urlOrObj.trim();
+      const extractedId = extractDriveFileId(trimmed);
+      if (extractedId) {
+        driveFileId = extractedId;
+        url = '';
+      } else {
+        url = trimmed;
+      }
     } else if (typeof urlOrObj === 'object') {
       url = (urlOrObj.url || urlOrObj.src || urlOrObj.downloadUrl || urlOrObj.path || '').trim();
       storagePath = urlOrObj.storagePath || urlOrObj.path || undefined;
-      driveFileId = urlOrObj.driveFileId || urlOrObj.fileId || undefined;
-      thumbDriveFileId = urlOrObj.thumbDriveFileId || undefined;
+      driveFileId = urlOrObj.driveFileId || urlOrObj.fileId || urlOrObj.drive_file_id || extractDriveFileId(url);
+      thumbDriveFileId = urlOrObj.thumbDriveFileId || extractDriveFileId(urlOrObj.thumbUrl);
       thumbStoragePath = urlOrObj.thumbStoragePath || undefined;
       mimeType = urlOrObj.mimeType || undefined;
       width = typeof urlOrObj.width === 'number' ? urlOrObj.width : undefined;
@@ -295,7 +372,6 @@ export function normalizePrintRecord(rawDoc: any): MiniFurniture {
       if (storagePath || driveFileId) {
         url = storagePath || '';
       } else {
-        // Requirement 7: Mark clearly as unrecoverable without deleting
         status = 'unrecoverable';
         url = '';
       }
@@ -330,57 +406,110 @@ export function normalizePrintRecord(rawDoc: any): MiniFurniture {
     }
   };
 
-  // 1. Process explicit images array
-  if (Array.isArray(rawDoc.images)) {
-    rawDoc.images.forEach((img: any, idx: number) => {
-      let defaultType: 'inspiration' | 'design' | 'finished' = idx === 0 ? 'inspiration' : 'design';
-      if (typeof img === 'object' && img?.type) {
-        const rawType = String(img.type).toLowerCase();
-        if (rawType.includes('ref') || rawType.includes('insp') || rawType.includes('reference')) {
-          defaultType = 'inspiration';
-        } else if (rawType.includes('mock') || rawType.includes('design') || rawType.includes('3d')) {
-          defaultType = 'design';
-        } else if (rawType.includes('finish') || rawType.includes('proto') || rawType.includes('charm')) {
-          defaultType = 'finished';
-        }
+  const isNailCharm = isNailCharmItem({ madeFor, category, type: rawDoc.type });
+
+  if (isNailCharm) {
+    // Nail Charm requires only ONE photo, stored in prints/nail charms.
+    // Do not search or include references or 3d mockups folders or legacy ref/mockup fields.
+    if (Array.isArray(rawDoc.images)) {
+      rawDoc.images.forEach((img: any) => {
+        addImage(img, 'finished', 'Nail Charm Photo');
+      });
+    }
+
+    const finPhoto = rawDoc.finishedPhoto || rawDoc.prototypePhoto || rawDoc.finishedImage || rawDoc.finishedDriveFileId || rawDoc.finishedFileId;
+    if (finPhoto) {
+      addImage(finPhoto, 'finished', 'Nail Charm Photo');
+    }
+
+    if (extractedImages.length === 0) {
+      const singleCover = rawDoc.coverImageUrl || rawDoc.imageUrl || rawDoc.photo || rawDoc.photoUrl || rawDoc.driveFileId || rawDoc.fileId;
+      if (singleCover) {
+        addImage(singleCover, 'finished', 'Nail Charm Photo');
       }
-      addImage(img, defaultType);
-    });
-  }
+    }
 
-  // 2. Process legacy reference photo fields
-  const refPhoto = rawDoc.referencePhoto || rawDoc.referenceImage || rawDoc.referencePhotoUrl || rawDoc.reference_photo;
-  if (refPhoto) {
-    addImage(refPhoto, 'inspiration', 'Reference Photo');
-  }
+    // Keep strictly ONE single photo for Nail Charms
+    if (extractedImages.length > 0) {
+      const singleImg = {
+        ...extractedImages[0],
+        type: 'finished',
+        label: 'Nail Charm Photo'
+      };
+      extractedImages.length = 0;
+      extractedImages.push(singleImg);
+    }
+  } else {
+    // Standard Print Design photo parsing
+    // 1. Process explicit images array
+    if (Array.isArray(rawDoc.images)) {
+      rawDoc.images.forEach((img: any, idx: number) => {
+        let defaultType: 'inspiration' | 'design' | 'finished' = idx === 0 ? 'inspiration' : 'design';
+        if (typeof img === 'object' && img?.type) {
+          const rawType = String(img.type).toLowerCase();
+          if (rawType.includes('ref') || rawType.includes('insp') || rawType.includes('reference')) {
+            defaultType = 'inspiration';
+          } else if (rawType.includes('mock') || rawType.includes('design') || rawType.includes('3d')) {
+            defaultType = 'design';
+          } else if (rawType.includes('finish') || rawType.includes('proto') || rawType.includes('charm')) {
+            defaultType = 'finished';
+          }
+        }
+        addImage(img, defaultType);
+      });
+    }
 
-  // 3. Process legacy mockup photo fields
-  const mockPhoto = rawDoc.mockupPhoto || rawDoc.mockupImage || rawDoc.mockupPhotoUrl || rawDoc.mockup_photo || rawDoc.designPhoto || rawDoc.designImage;
-  if (mockPhoto) {
-    addImage(mockPhoto, 'design', '3D Mock-Up');
-  }
+    // 2. Process legacy reference photo fields
+    const refPhoto = rawDoc.referencePhoto || rawDoc.referenceImage || rawDoc.referencePhotoUrl || rawDoc.reference_photo || rawDoc.referenceDriveFileId || rawDoc.referenceFileId || rawDoc.reference_drive_file_id || rawDoc.inspirationPhoto || rawDoc.inspirationImage;
+    if (refPhoto) {
+      addImage(refPhoto, 'inspiration', 'Reference Photo');
+    }
 
-  // 4. Process legacy finished photo fields
-  const finPhoto = rawDoc.finishedPhoto || rawDoc.prototypePhoto || rawDoc.finishedImage;
-  if (finPhoto) {
-    addImage(finPhoto, 'finished', 'Finished Print');
-  }
+    // 3. Process legacy mockup photo fields
+    const mockPhoto = rawDoc.mockupPhoto || rawDoc.mockupImage || rawDoc.mockupPhotoUrl || rawDoc.mockup_photo || rawDoc.mockupDriveFileId || rawDoc.mockupFileId || rawDoc.mockup_drive_file_id || rawDoc.designPhoto || rawDoc.designImage;
+    if (mockPhoto) {
+      addImage(mockPhoto, 'design', '3D Mock-Up');
+    }
 
-  // 5. Process legacy photos array
-  if (Array.isArray(rawDoc.photos)) {
-    rawDoc.photos.forEach((ph: any, idx: number) => {
-      const phType: 'inspiration' | 'design' | 'finished' = idx === 0 ? 'inspiration' : 'design';
-      addImage(ph, phType);
-    });
-  }
+    // 4. Process legacy finished photo fields
+    const finPhoto = rawDoc.finishedPhoto || rawDoc.prototypePhoto || rawDoc.finishedImage || rawDoc.finishedDriveFileId || rawDoc.finishedFileId;
+    if (finPhoto) {
+      addImage(finPhoto, 'finished', 'Finished Print');
+    }
 
-  // 6. Fallback cover / single photo fields
-  if (extractedImages.length === 0) {
-    const singleCover = rawDoc.coverImageUrl || rawDoc.imageUrl || rawDoc.photo || rawDoc.photoUrl;
-    if (singleCover) {
-      addImage(singleCover, 'inspiration');
+    // 5. Process legacy photos array
+    if (Array.isArray(rawDoc.photos)) {
+      rawDoc.photos.forEach((ph: any, idx: number) => {
+        const phType: 'inspiration' | 'design' | 'finished' = idx === 0 ? 'inspiration' : 'design';
+        addImage(ph, phType);
+      });
+    }
+
+    // 6. Direct top-level drive File ID properties (e.g., referenceDriveId, mockupDriveId, driveFileId)
+    if (rawDoc.referenceDriveId || rawDoc.referenceId || rawDoc.referencePhotoId) {
+      const refId = rawDoc.referenceDriveId || rawDoc.referenceId || rawDoc.referencePhotoId;
+      if (typeof refId === 'string' && extractDriveFileId(refId)) {
+        addImage({ driveFileId: extractDriveFileId(refId), type: 'inspiration', label: 'Reference Photo' }, 'inspiration', 'Reference Photo');
+      }
+    }
+    if (rawDoc.mockupDriveId || rawDoc.mockupId || rawDoc.mockupPhotoId) {
+      const mockId = rawDoc.mockupDriveId || rawDoc.mockupId || rawDoc.mockupPhotoId;
+      if (typeof mockId === 'string' && extractDriveFileId(mockId)) {
+        addImage({ driveFileId: extractDriveFileId(mockId), type: 'design', label: '3D Mock-Up' }, 'design', '3D Mock-Up');
+      }
+    }
+
+    // 7. Fallback cover / single photo fields
+    if (extractedImages.length === 0) {
+      const singleCover = rawDoc.coverImageUrl || rawDoc.imageUrl || rawDoc.photo || rawDoc.photoUrl || rawDoc.driveFileId || rawDoc.fileId;
+      if (singleCover) {
+        addImage(singleCover, 'design');
+      }
     }
   }
+
+  const topDriveFileId = rawDoc.driveFileId || rawDoc.fileId || extractedImages[0]?.driveFileId;
+  const topDriveFolderId = rawDoc.driveFolderId || rawDoc.miniCharmsFolderId;
 
   return {
     id,
@@ -410,8 +539,12 @@ export function normalizePrintRecord(rawDoc: any): MiniFurniture {
     setName,
     setId,
     madeFor,
+    images: extractedImages,
+    driveFileId: topDriveFileId,
+    driveFolderId: topDriveFolderId,
     uploadStatus: rawDoc.uploadStatus || 'ready',
-    images: extractedImages
+    createdAt: rawDoc.createdAt || dateAdded,
+    printLink: printLink || undefined
   };
 }
 
@@ -472,6 +605,7 @@ const PrintUploadStatusBadge = ({
   onSelectPhoto?: () => void; 
 }) => {
   const queueState = printUploadQueue.getPrintUploadState(item.id);
+  const token = getAccessToken();
 
   if (queueState) {
     const total = queueState.tasks.length;
@@ -520,27 +654,43 @@ const PrintUploadStatusBadge = ({
     }
 
     if (queueState.overallStatus === 'ready') {
-      return (
-        <div className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#E8F5E9] text-[#2E7D32] rounded-full text-xs font-bold border border-[#C8E6C9] shrink-0">
-          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-          <span>Photos saved</span>
-        </div>
-      );
+      if (!token) {
+        return (
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 text-amber-800 rounded-full text-xs font-bold border border-amber-500/20 shrink-0">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
+            <span>Photo saved—reconnect Drive to view</span>
+          </div>
+        );
+      }
+      return null;
     }
   }
 
   // Handle persisted uploadStatus when queue state is no longer in memory
-  const hasImages = Array.isArray(item.images) && item.images.length > 0 && item.images.some(img => img.driveFileId || img.storagePath || (img.url && !img.url.startsWith('blob:')));
+  const hasSavedPhotos = Array.isArray(item.images) && item.images.length > 0 && item.images.some(
+    img => (img.driveFileId && img.driveFileId.trim() !== '') || 
+           (img.thumbDriveFileId && img.thumbDriveFileId.trim() !== '') ||
+           (img.storagePath && img.storagePath.trim() !== '') ||
+           (img.url && img.url.trim() !== '' && !img.url.startsWith('blob:') && img.status !== 'unrecoverable')
+  );
 
-  if (item.uploadStatus === 'processing' || item.uploadStatus === 'uploading' || item.uploadStatus === 'compressing' || item.uploadStatus === 'saving') {
-    if (hasImages) {
+  const hasDriveImages = Array.isArray(item.images) && item.images.some(
+    img => (img.driveFileId && img.driveFileId.trim() !== '') || (img.thumbDriveFileId && img.thumbDriveFileId.trim() !== '')
+  );
+
+  if (hasSavedPhotos) {
+    if (hasDriveImages && !token) {
       return (
-        <div className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#E8F5E9] text-[#2E7D32] rounded-full text-xs font-bold border border-[#C8E6C9] shrink-0">
-          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-          <span>Photos saved</span>
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 text-amber-800 rounded-full text-xs font-bold border border-amber-500/20 shrink-0">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
+          <span>Photo saved—reconnect Drive to view</span>
         </div>
       );
     }
+    return null;
+  }
+
+  if (item.uploadStatus === 'processing' || item.uploadStatus === 'uploading' || item.uploadStatus === 'compressing' || item.uploadStatus === 'saving') {
     return (
       <div className="inline-flex items-center gap-2 bg-amber-500/10 text-amber-700 px-2.5 py-1 rounded-full text-xs font-bold border border-amber-500/20 shrink-0">
         <AlertCircle className="w-3.5 h-3.5 shrink-0" />
@@ -559,34 +709,22 @@ const PrintUploadStatusBadge = ({
     );
   }
 
-  if (item.uploadStatus === 'interrupted' || item.uploadStatus === 'partial' || item.uploadStatus === 'failed') {
-    if (hasImages) {
-      return (
-        <div className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#E8F5E9] text-[#2E7D32] rounded-full text-xs font-bold border border-[#C8E6C9] shrink-0">
-          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-          <span>Photos saved</span>
-        </div>
-      );
-    }
-    return (
-      <div className="inline-flex items-center gap-2 bg-error/10 text-error px-2.5 py-1 rounded-full text-xs font-bold border border-error/20 shrink-0">
-        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-        <span>Upload incomplete</span>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onSelectPhoto) onSelectPhoto();
-          }}
-          className="text-primary hover:underline font-extrabold bg-white px-2 py-0.5 rounded-full shadow-sm text-[11px]"
-        >
-          Select Photo Again
-        </button>
-      </div>
-    );
-  }
-
-  return null;
+  return (
+    <div className="inline-flex items-center gap-2 bg-error/10 text-error px-2.5 py-1 rounded-full text-xs font-bold border border-error/20 shrink-0">
+      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+      <span>Upload incomplete</span>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (onSelectPhoto) onSelectPhoto();
+        }}
+        className="text-primary hover:underline font-extrabold bg-white px-2 py-0.5 rounded-full shadow-sm text-[11px]"
+      >
+        Select Photo Again
+      </button>
+    </div>
+  );
 };
 
 export const MiniFurnitureView = () => {
@@ -599,16 +737,45 @@ export const MiniFurnitureView = () => {
   const [groupMode, setGroupMode] = useState<string>('all');
   const [viewingSet, setViewingSet] = useState<PrintSet | null>(null);
   const [isSetManagerOpen, setIsSetManagerOpen] = useState(false);
-  const [exportingSetKey, setExportingSetKey] = useState<{url: string, storagePath?: string} | null>(null);
+  const [exportingSetKey, setExportingSetKey] = useState<string | null>(null);
+  const { openDrivePicker, pickerError: drivePickerError, setPickerError: setDrivePickerError } = useGoogleDrivePicker();
+  const [driveFolders, setDriveFolders] = useState<any>(null);
 
-  const handleExportGroupMockups = async (groupKey: string, groupName: string, mockups: { url: string; printName: string; id: string }[]) => {
+  const handleExportGroupMockups = async (groupKey: string, groupName: string, mockups: { url: string; storagePath?: string; driveFileId?: string; printName: string; id: string }[]) => {
     if (!mockups || mockups.length === 0) return;
     
     setExportingSetKey(groupKey);
     try {
+      const resolveMockupBlob = async (mockup: { url: string; storagePath?: string; driveFileId?: string }) => {
+        let resolvedUrl = mockup.url;
+        if (mockup.driveFileId) {
+          try {
+            const authUrl = await fetchDriveFileWithAuth(mockup.driveFileId);
+            if (authUrl) resolvedUrl = authUrl;
+          } catch (e) {
+            console.warn('Failed to fetch Drive file with auth for export:', e);
+          }
+        }
+        if (!resolvedUrl && mockup.storagePath) {
+          try {
+            resolvedUrl = await getCachedImageUrl(mockup.storagePath);
+          } catch (e) {
+            console.warn('Failed to resolve storagePath for export:', e);
+          }
+        }
+        if (!resolvedUrl && mockup.url) {
+          try {
+            resolvedUrl = await getCachedImageUrl(mockup.url);
+          } catch (e) {
+            console.warn('Failed to resolve url for export:', e);
+          }
+        }
+        return await fetchImageBlob(resolvedUrl || mockup.url);
+      };
+
       if (mockups.length === 1) {
         const mockup = mockups[0];
-        const blob = await fetchImageBlob(mockup.url);
+        const blob = await resolveMockupBlob(mockup);
         let ext = 'png';
         if (blob.type) {
           const mimeExt = blob.type.split('/')[1]?.split('+')[0];
@@ -623,7 +790,7 @@ export const MiniFurnitureView = () => {
         
         for (const mockup of mockups) {
           try {
-            const blob = await fetchImageBlob(mockup.url);
+            const blob = await resolveMockupBlob(mockup);
             let ext = 'png';
             if (blob.type) {
               const mimeExt = blob.type.split('/')[1]?.split('+')[0];
@@ -663,9 +830,28 @@ export const MiniFurnitureView = () => {
   const [sortBy, setSortBy] = useState<'Newest' | 'Oldest' | 'Name' | 'Category'>('Newest');
   
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isTypeSelectorOpen, setIsTypeSelectorOpen] = useState(false);
+  const [draftFormData, setDraftFormData] = useState<MiniFurniture | null>(null);
+  const [selectedInitialType, setSelectedInitialType] = useState<string>("Mini Furniture");
+  const [sharedPickerConfig, setSharedPickerConfig] = useState<any>(null);
   const [editingItem, setEditingItem] = useState<MiniFurniture | null>(null);
   
-  const [viewingImage, setViewingImage] = useState<{url: string, storagePath?: string, title?: string, allImages?: ImageToView[], zipTitle?: string} | null>(null);
+  const [viewingImage, setViewingImage] = useState<ImageToView & { allImages?: ImageToView[], zipTitle?: string } | null>(null);
+
+  const resolveImageToView = (img: any, item: any, titleSuffix: string = 'Photo') => {
+    if (!img) return null;
+    const resolvedUrl = (img.driveFileId && getCachedBlobUrl(img.driveFileId)) ||
+                        (img.thumbDriveFileId && getCachedBlobUrl(img.thumbDriveFileId)) ||
+                        img.url;
+    return {
+      url: resolvedUrl,
+      storagePath: img.storagePath,
+      driveFileId: img.driveFileId,
+      filename: item.name,
+      crop: img.crop,
+      title: `${item.name} - ${titleSuffix}`
+    };
+  };
   const [isDownloadingCategory, setIsDownloadingCategory] = useState(false);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -767,12 +953,12 @@ export const MiniFurnitureView = () => {
     const unsubPrints = onSnapshot(collection(db, `users/${user.uid}/prints`), (snapPrints) => {
       printsDocs = snapPrints.docs;
       updateCombinedItems();
-    });
+    }, (err) => console.error("Prints fetch error:", err));
 
     const unsubMini = onSnapshot(collection(db, `users/${user.uid}/miniFurniture`), (snapMini) => {
       miniDocs = snapMini.docs;
       updateCombinedItems();
-    });
+    }, (err) => console.error("MiniFurniture fetch error:", err));
 
     return () => {
       unsubPrints();
@@ -790,15 +976,41 @@ export const MiniFurnitureView = () => {
     const itemUpdates: MiniFurniture[] = [];
 
     items.forEach(item => {
-      if (item.setName && item.setName.trim() && !item.setId) {
-         const typedName = item.setName.trim();
+      let currentItem = { ...item };
+      let itemChanged = false;
+
+      // Migrate madeFor to strictly unified internal values
+      const oldMadeFor = currentItem.madeFor || '';
+      const mfTrimmed = oldMadeFor.trim();
+      let newMadeFor = mfTrimmed;
+
+      const lower = mfTrimmed.toLowerCase();
+      if (lower === 'figure' || lower === 'figures') newMadeFor = 'Figures';
+      else if (lower === 'object' || lower === 'objects') newMadeFor = 'Objects';
+      else if (lower === 'charm' || lower === 'charms') newMadeFor = 'Charms';
+      else if (lower === 'nail charm' || lower === 'nail charms' || lower === 'nailcharm' || lower === 'nailcharms' || lower === 'mini charm' || lower === 'mini charms' || lower === 'minicharm' || lower === 'minicharms') newMadeFor = 'Nail Charms';
+      else if (lower === 'mini furniture' || lower === 'minifurniture' || !mfTrimmed) newMadeFor = 'Mini Furniture';
+
+      if (newMadeFor !== oldMadeFor) {
+         currentItem.madeFor = newMadeFor;
+         itemChanged = true;
+      }
+
+      if (currentItem.setName && currentItem.setName.trim() && !currentItem.setId) {
+         const typedName = currentItem.setName.trim();
          let existingSet = newSets.find(s => s.name.toLowerCase() === typedName.toLowerCase());
          if (!existingSet) {
            existingSet = { id: uuidv4(), name: typedName };
            newSets.push(existingSet);
            setsModified = true;
          }
-         itemUpdates.push({ ...item, setId: existingSet.id, setName: existingSet.name });
+         currentItem.setId = existingSet.id;
+         currentItem.setName = existingSet.name;
+         itemChanged = true;
+      }
+
+      if (itemChanged) {
+         itemUpdates.push(currentItem);
          itemsModified = true;
       }
     });
@@ -834,12 +1046,13 @@ export const MiniFurnitureView = () => {
     }), { merge: true });
   };
 
-  const handleSaveItem = async (item: MiniFurniture) => {
+  const handleSaveItem = async (item: MiniFurniture): Promise<MiniFurniture> => {
     if (!user) throw new Error("Not authenticated");
     
     let currentItem = { ...item };
 
-    // Migrate any remaining base64 images to Storage before writing to Firestore
+    // Migrate any remaining base64 images to Storage before writing to Firestore,
+    // preserving all Google Drive and metadata properties (driveFileId, filename, mimeType, etc.)
     if (currentItem.images && currentItem.images.length > 0) {
       const cleanImages: MiniFurnitureImage[] = [];
       for (const img of currentItem.images) {
@@ -847,28 +1060,32 @@ export const MiniFurnitureView = () => {
           const path = `users/${user.uid}/prints/${currentItem.id}/${img.id || uuidv4()}.jpg`;
           const uploadRes = await uploadDataUrlToStorage(user.uid, path, img.url);
           const cleanImg: MiniFurnitureImage = {
+            ...img,
             id: img.id || uuidv4(),
             url: uploadRes.url,
+            storagePath: uploadRes.path || img.storagePath,
             type: img.type || 'design'
           };
-          if (uploadRes.path) cleanImg.storagePath = uploadRes.path;
-          if (img.label) cleanImg.label = img.label;
           cleanImages.push(cleanImg);
         } else {
           const cleanImg: MiniFurnitureImage = {
+            ...img,
             id: img.id || uuidv4(),
-            url: img.url,
             type: img.type || 'design'
           };
-          if (img.storagePath) cleanImg.storagePath = img.storagePath;
-          if (img.label) cleanImg.label = img.label;
+          // Clean temporary blob or data URLs if driveFileId or storagePath is present
+          if (cleanImg.url && (cleanImg.url.startsWith('blob:') || cleanImg.url.startsWith('data:'))) {
+            if (cleanImg.driveFileId || cleanImg.storagePath) {
+              cleanImg.url = cleanImg.storagePath || '';
+            }
+          }
           cleanImages.push(cleanImg);
         }
       }
       currentItem.images = cleanImages;
     }
 
-    if (isMiniCharmItem(currentItem) && currentItem.images && currentItem.images.length > 0) {
+    if (isNailCharmItem(currentItem) && currentItem.images && currentItem.images.length > 0) {
       const uniqueImgs = getUniqueImages(currentItem.images);
       const finishedImg = uniqueImgs.find(img => img.type === 'finished');
       currentItem.images = finishedImg ? [finishedImg] : [uniqueImgs[0]];
@@ -903,7 +1120,32 @@ export const MiniFurnitureView = () => {
     }
 
     const cleanPayload = sanitizeFirestorePayload(currentItem);
-    await setDoc(doc(db, `users/${user.uid}/miniFurniture`, currentItem.id), cleanPayload, { merge: true });
+
+    if (user.isAnonymous) {
+      setItems(prev => {
+        const idx = prev.findIndex(i => i.id === currentItem.id);
+        if (idx >= 0) {
+          const copy = [...prev];
+          copy[idx] = currentItem;
+          return copy;
+        }
+        return [currentItem, ...prev];
+      });
+    } else {
+      await setDoc(doc(db, `users/${user.uid}/miniFurniture`, currentItem.id), cleanPayload, { merge: true });
+      // Immediately update local state so UI updates instantly without snapshot delay
+      setItems(prev => {
+        const idx = prev.findIndex(i => i.id === currentItem.id);
+        if (idx >= 0) {
+          const copy = [...prev];
+          copy[idx] = currentItem;
+          return copy;
+        }
+        return [currentItem, ...prev];
+      });
+    }
+
+    return currentItem;
   };
 
   const handleDeleteItem = async (id: string) => {
@@ -924,7 +1166,7 @@ export const MiniFurnitureView = () => {
   const [filterMaterial, setFilterMaterial] = useState('All');
   
   const extraCategories = useMemo(() => {
-    const known = new Set(['all', 'sets', 'grouped sets', 'mini furniture', 'minifurniture', 'charms', 'charm', 'mini charms', 'mini charm', 'objects', 'object']);
+    const known = new Set(['all', 'sets', 'grouped sets', 'mini furniture', 'minifurniture', 'charms', 'charm', 'nail charms', 'nail charm', 'objects', 'object', 'figures', 'figure']);
     const extraList: string[] = [];
     
     categories.forEach(cat => {
@@ -951,8 +1193,9 @@ export const MiniFurnitureView = () => {
       { id: 'sets', label: 'Sets' },
       { id: 'charms', label: 'Charms' },
       { id: 'objects', label: 'Objects' },
-      { id: 'miniCharms', label: 'Mini Charms' },
+      { id: 'nailCharms', label: 'Nail Charms' },
       { id: 'miniFurniture', label: 'Mini Furniture' },
+      { id: 'figures', label: 'Figures' },
       ...extraCategories.map(cat => ({ id: cat.toLowerCase(), label: cat }))
     ];
   }, [extraCategories]);
@@ -970,7 +1213,8 @@ export const MiniFurnitureView = () => {
       if (filterCompletion === 'Not Completed') matchComp = item.status !== 'Completed';
       
       let matchGroupMode = true;
-      const mf = (item.madeFor || '').toLowerCase().trim();
+      const mfRaw = item.madeFor || 'Mini Furniture';
+      const mf = mfRaw.toLowerCase().trim();
       const cat = (item.category || '').toLowerCase().trim();
 
       if (groupMode === 'all') {
@@ -978,13 +1222,15 @@ export const MiniFurnitureView = () => {
       } else if (groupMode === 'sets') {
         matchGroupMode = true;
       } else if (groupMode === 'charms') {
-        matchGroupMode = mf === 'charm' || mf === 'charms' || cat === 'charm' || cat === 'charms';
+        matchGroupMode = mf === 'charms';
       } else if (groupMode === 'objects') {
-        matchGroupMode = mf === 'object' || mf === 'objects' || cat === 'object' || cat === 'objects';
-      } else if (groupMode === 'miniCharms') {
-        matchGroupMode = mf === 'mini charm' || mf === 'mini charms' || cat === 'mini charm' || cat === 'mini charms';
+        matchGroupMode = mf === 'objects';
+      } else if (groupMode === 'nailCharms') {
+        matchGroupMode = mf === 'nail charms';
+      } else if (groupMode === 'figures') {
+        matchGroupMode = mf === 'figures';
       } else if (groupMode === 'miniFurniture') {
-        matchGroupMode = mf === 'mini furniture' || cat === 'mini furniture' || (cat && DEFAULT_CATEGORIES.map(c => c.toLowerCase()).includes(cat) && mf !== 'charm' && mf !== 'object' && mf !== 'mini charm');
+        matchGroupMode = mf === 'mini furniture';
       } else {
         const target = groupMode.toLowerCase();
         matchGroupMode = mf === target || cat === target;
@@ -992,14 +1238,107 @@ export const MiniFurnitureView = () => {
       
       return matchSearch && matchType && matchStatus && matchComp && matchMat && matchGroupMode;
     }).sort((a, b) => {
-      if (sortBy === 'Name') return a.name.localeCompare(b.name);
-      if (sortBy === 'Status') return a.status.localeCompare(b.status);
-      if (sortBy === 'Print Time') return (a.printTime || '').localeCompare(b.printTime || '');
+      if ((sortBy as string) === 'Name') return a.name.localeCompare(b.name);
+      if ((sortBy as string) === 'Status') return a.status.localeCompare(b.status);
+      if ((sortBy as string) === 'Print Time') return (a.printTime || '').localeCompare(b.printTime || '');
       if (sortBy === 'Oldest') return new Date(a.dateAdded).getTime() - new Date(b.dateAdded).getTime();
       return new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime(); // Newest
     });
   }, [items, searchTerm, filterType, filterStatus, filterCompletion, filterMaterial, sortBy, groupMode]);
   
+  
+  const handleTypeSelect = async (optType: string) => {
+    const isFigure = optType.toLowerCase().trim() === 'figures' || optType.toLowerCase().trim() === 'figure';
+    if (isFigure) {
+      try {
+        const figureFolderId = getPrintFolderId('figures', { driveFolders });
+        setSharedPickerConfig({
+          isOpen: true,
+          folderId: figureFolderId,
+          title: 'Select Figures Inspiration',
+          uploadSection: 'minifurniture',
+          onSelect: (doc: any) => {
+             setIsTypeSelectorOpen(false);
+             setIsFormOpen(true);
+             
+             if (!doc) {
+               if (draftFormData) {
+                 setDraftFormData({ ...draftFormData, madeFor: 'Figures' });
+               } else {
+                 setSelectedInitialType('Figures');
+               }
+               return;
+             }
+             
+             const newImg: MiniFurnitureImage = {
+                id: uuidv4(),
+                driveFileId: doc.id || doc.fileId,
+                driveFolderId: figureFolderId,
+                filename: doc.name || 'Drive Image',
+                mimeType: doc.mimeType || 'image/jpeg',
+                type: 'inspiration',
+                label: 'Reference Photo',
+                source: 'google-drive',
+                status: 'ready' as const,
+                url: doc.url || doc.thumbnailLink || ''
+             };
+             
+             if (draftFormData) {
+               const existing = draftFormData.images.filter(img => img.type !== 'design');
+               setDraftFormData({ ...draftFormData, madeFor: 'Figures', images: [...existing, newImg] });
+             } else {
+               setSelectedInitialType('Figures');
+               setDraftFormData({
+                 id: uuidv4(),
+                 name: '',
+                 category: '',
+                 description: '',
+                 status: 'Design',
+                 quantity: 1,
+                 color: '',
+                 material: '',
+                 width: '',
+                 depth: '',
+                 height: '',
+                 unit: 'mm',
+                 scale: '',
+                 is3DPrinted: true,
+                 printer: '',
+                 fileName: '',
+                 printTime: '',
+                 filamentUsed: '',
+                 filamentColor: '',
+                 parts: [],
+                 dateStarted: '',
+                 dateCompleted: '',
+                 notes: '',
+                 setName: '',
+                 madeFor: 'Figures',
+                 dateAdded: new Date().toISOString(),
+                 images: [newImg],
+               });
+             }
+             setSharedPickerConfig(null);
+          }
+        });
+      } catch (e) {
+        console.error(e);
+        if (draftFormData) setDraftFormData({ ...draftFormData, madeFor: 'Figures' });
+        else setSelectedInitialType('Figures');
+        setIsTypeSelectorOpen(false);
+        setIsFormOpen(true);
+      }
+    } else {
+      if (draftFormData) {
+        setDraftFormData({ ...draftFormData, madeFor: optType });
+      } else {
+        setSelectedInitialType(optType);
+      }
+      setIsTypeSelectorOpen(false);
+      setIsFormOpen(true);
+    }
+  };
+
   const uniqueMaterials = useMemo(() => {
     const mats = new Set<string>();
     items.forEach(i => { if (i.material) mats.add(i.material.toLowerCase().trim()); });
@@ -1022,7 +1361,7 @@ export const MiniFurnitureView = () => {
             <div className="flex items-center gap-3">
               
               <button 
-                onClick={() => { setEditingItem(null); setIsFormOpen(true); }}
+                onClick={() => { setEditingItem(null); setDraftFormData(null); setIsTypeSelectorOpen(true); }}
                 className="px-4 py-1.5 bg-[#FF85A2] hover:bg-[#FF7396] text-white rounded-full text-sm font-medium transition-colors shadow-sm flex items-center gap-1.5"
               >
                 <Plus className="w-4 h-4" /> Add Print
@@ -1087,9 +1426,11 @@ export const MiniFurnitureView = () => {
               <div className="flex flex-wrap gap-3 pt-4 border-t border-outline-variant/20">
                 <select value={filterType} onChange={e => setFilterType(e.target.value)} className="bg-surface-variant/30 border border-outline-variant/30 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
                   <option value="All">All Types</option>
-                  <option value="Object">Object</option>
-                  <option value="Charm">Charm</option>
-                  <option value="Mini Charm">Mini Charm</option>
+                  <option value="Mini Furniture">Mini Furniture</option>
+                  <option value="Objects">Objects</option>
+                  <option value="Charms">Charms</option>
+                  <option value="Nail Charms">Nail Charms</option>
+                  <option value="Figures">Figures</option>
                 </select>
                 <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="bg-surface-variant/30 border border-outline-variant/30 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
                   <option value="All">All Statuses</option>
@@ -1116,7 +1457,7 @@ export const MiniFurnitureView = () => {
               <h3 className="text-xl font-medium text-on-surface mb-2">No print design found</h3>
               <p className="text-on-surface-variant mb-6 max-w-md">Add your first piece of print design to start building your catalog.</p>
               <button 
-                onClick={() => { setEditingItem(null); setIsFormOpen(true); }}
+                onClick={() => { setEditingItem(null); setDraftFormData(null); setIsTypeSelectorOpen(true); }}
                 className="px-4 py-2 bg-[#FF85A2] hover:bg-[#FF7396] text-white rounded-full text-sm font-medium transition-colors shadow-sm"
               >
                 Add Print
@@ -1126,18 +1467,20 @@ export const MiniFurnitureView = () => {
             <>
               {(() => {
                 const renderItem = (item: MiniFurniture) => {
-                  const isMiniCharm = isMiniCharmItem(item);
+                  const isNailCharm = isNailCharmItem(item);
+                  const previewHeight = 'h-[160px] sm:h-[190px]';
+                  
                   const uniqueImages = getUniqueImages(item.images);
 
                   const inspirationImg = uniqueImages.find(img => img.type === 'inspiration');
                   const designImg = uniqueImages.find(img => img.type === 'design');
                   const finishedImg = uniqueImages.find(img => img.type === 'finished');
-                  const mainImg = isMiniCharm ? (finishedImg || uniqueImages[0]) : (inspirationImg || designImg || uniqueImages[0]);
+                  const mainImg = isNailCharm ? (finishedImg || uniqueImages[0]) : (inspirationImg || designImg || uniqueImages[0]);
                   
-                  const showSingleImage = isMiniCharm || uniqueImages.length <= 1 || !designImg || !inspirationImg || (mainImg && designImg && (designImg.url === mainImg.url || (designImg.storagePath && designImg.storagePath === mainImg.storagePath)));
+                  const showSingleImage = isNailCharm || uniqueImages.length <= 1 || !designImg || !inspirationImg || (mainImg && designImg && (designImg.url === mainImg.url || (designImg.storagePath && designImg.storagePath === mainImg.storagePath)));
 
                   const getBadgeText = (img: MiniFurnitureImage | undefined) => {
-                    if (isMiniCharm) return 'Charm Photo';
+                    if (isNailCharm) return 'Charm Photo';
                     if (!img) return 'No Photo';
                     if (img.type === 'design') return '3D Mock-Up';
                     if (img.type === 'inspiration') return 'Reference';
@@ -1146,26 +1489,36 @@ export const MiniFurnitureView = () => {
                   };
 
                   if (viewMode === 'grid') {
-                    return (
-                      <div key={item.id} className="bg-white rounded-[20px] overflow-hidden shadow-[0_4px_20px_rgba(125,97,144,0.06)] border border-outline-variant/10 flex flex-col group relative transition-all duration-300 hover:shadow-[0_8px_30px_rgba(125,97,144,0.12)] hover:-translate-y-1 h-full">
-                        {item.status === 'Completed' && (
-                          <div className="absolute top-2 right-2 z-10 bg-[#E8F5E9] text-[#2E7D32] px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm border border-[#C8E6C9]">
-                            <CheckCircle2 className="w-3 h-3" /> Completed
-                          </div>
-                        )}
-                        <div className="flex w-full h-[120px] sm:h-[140px]">
+                    
+                        
+                        return (
+                          <div key={item.id} className="bg-white rounded-[20px] overflow-hidden shadow-[0_4px_20px_rgba(125,97,144,0.06)] border border-outline-variant/10 flex flex-col group relative transition-all duration-300 hover:shadow-[0_8px_30px_rgba(125,97,144,0.12)] hover:-translate-y-1 h-full">
+                            {item.status === 'Completed' && (
+                              <div className="absolute top-2 right-2 z-10 bg-[#E8F5E9] text-[#2E7D32] px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm border border-[#C8E6C9]">
+                                <CheckCircle2 className="w-3 h-3" /> Completed
+                              </div>
+                            )}
+                            <div className={`flex w-full ${previewHeight} bg-white`}>
                           {showSingleImage ? (
                             <div 
-                              className="w-full bg-surface-variant/50 relative cursor-pointer h-full"
-                              onClick={() => mainImg && setViewingImage({ url: mainImg.url, storagePath: mainImg.storagePath, driveFileId: mainImg.driveFileId, filename: item.name })}
+                              className="w-full bg-white relative cursor-pointer h-full overflow-hidden flex items-center justify-center p-2"
+                              onClick={() => mainImg && setViewingImage(resolveImageToView(mainImg, item, 'Print Design Photo') as any)}
                             >
                               <div className="absolute top-2 left-2 z-10 bg-black/60 text-white px-2 py-0.5 rounded text-[9px] font-bold">
                                 {getBadgeText(mainImg)}
                               </div>
                               {mainImg ? (
-                                <SmartImage src={mainImg.url} storagePath={mainImg.thumbStoragePath || mainImg.storagePath} driveFileId={mainImg.thumbDriveFileId || mainImg.driveFileId} alt={item.name} className="w-full h-full object-cover" />
+                                <SmartImage 
+                                  src={mainImg.url} 
+                                  storagePath={mainImg.thumbStoragePath || mainImg.storagePath} 
+                                  driveFileId={mainImg.thumbDriveFileId || mainImg.driveFileId} 
+                                  fallbackDriveFileId={mainImg.driveFileId} 
+                                  alt={item.name} 
+                                  className="w-full h-full object-contain object-center" 
+                                  crop={mainImg.crop}
+                                />
                               ) : (
-                                <div className="w-full h-full flex flex-col items-center justify-center text-outline gap-1.5 p-2 text-center">
+                                <div className="w-full h-full flex flex-col items-center justify-center text-outline gap-1.5 p-2 text-center bg-white">
                                   <ImageIcon className="w-6 h-6 opacity-50" />
                                   <span className="text-[9px] text-on-surface-variant">No Photo</span>
                                 </div>
@@ -1174,28 +1527,44 @@ export const MiniFurnitureView = () => {
                           ) : (
                             <>
                               <div 
-                                className="w-1/2 bg-surface-variant/50 relative cursor-pointer h-full"
-                                onClick={() => inspirationImg && setViewingImage({ url: inspirationImg.url, storagePath: inspirationImg.storagePath, driveFileId: inspirationImg.driveFileId, filename: item.name })}
+                                className="w-1/2 bg-white relative cursor-pointer h-full overflow-hidden"
+                                onClick={() => inspirationImg && setViewingImage(resolveImageToView(inspirationImg, item, 'Reference') as any)}
                               >
                                 <div className="absolute top-2 left-2 z-10 bg-black/60 text-white px-2 py-0.5 rounded text-[9px] font-bold">Reference</div>
                                 {inspirationImg ? (
-                                  <SmartImage src={inspirationImg.url} storagePath={inspirationImg.thumbStoragePath || inspirationImg.storagePath} driveFileId={inspirationImg.thumbDriveFileId || inspirationImg.driveFileId} alt={item.name} className="w-full h-full object-cover" />
+                                  <SmartImage 
+                                    src={inspirationImg.url} 
+                                    storagePath={inspirationImg.thumbStoragePath || inspirationImg.storagePath} 
+                                    driveFileId={inspirationImg.thumbDriveFileId || inspirationImg.driveFileId} 
+                                    fallbackDriveFileId={inspirationImg.driveFileId}
+                                    alt={item.name} 
+                                    className="w-full h-full object-cover" 
+                                    crop={inspirationImg.crop}
+                                  />
                                 ) : (
-                                  <div className="w-full h-full flex flex-col items-center justify-center text-outline gap-1.5 p-2 text-center">
+                                  <div className="w-full h-full flex flex-col items-center justify-center text-outline gap-1.5 p-2 text-center bg-white">
                                     <ImageIcon className="w-6 h-6 opacity-50" />
                                     <span className="text-[9px] text-on-surface-variant">No Reference</span>
                                   </div>
                                 )}
                               </div>
                               <div 
-                                className="w-1/2 bg-surface-variant/30 relative cursor-pointer h-full border-l border-outline-variant/10"
-                                onClick={() => designImg && setViewingImage({ url: designImg.url, storagePath: designImg.storagePath, driveFileId: designImg.driveFileId, filename: item.name })}
+                                className="w-1/2 bg-white relative cursor-pointer h-full border-l border-outline-variant/10 overflow-hidden"
+                                onClick={() => designImg && setViewingImage(resolveImageToView(designImg, item, '3D Mock-Up') as any)}
                               >
                                 <div className="absolute top-2 right-2 z-10 bg-black/60 text-white px-2 py-0.5 rounded text-[9px] font-bold">Mock-Up</div>
                                 {designImg ? (
-                                  <SmartImage src={designImg.url} storagePath={designImg.thumbStoragePath || designImg.storagePath} driveFileId={designImg.thumbDriveFileId || designImg.driveFileId} alt={item.name} className="w-full h-full object-cover" />
+                                  <SmartImage 
+                                    src={designImg.url} 
+                                    storagePath={designImg.thumbStoragePath || designImg.storagePath} 
+                                    driveFileId={designImg.thumbDriveFileId || designImg.driveFileId} 
+                                    fallbackDriveFileId={designImg.driveFileId}
+                                    alt={item.name} 
+                                    className="w-full h-full object-cover" 
+                                    crop={designImg.crop}
+                                  />
                                 ) : (
-                                  <div className="w-full h-full flex flex-col items-center justify-center text-outline gap-1.5 p-2 text-center">
+                                  <div className="w-full h-full flex flex-col items-center justify-center text-outline gap-1.5 p-2 text-center bg-white">
                                     <Box className="w-6 h-6 opacity-50" />
                                     <span className="text-[9px] text-on-surface-variant">No Mock-Up</span>
                                   </div>
@@ -1204,7 +1573,7 @@ export const MiniFurnitureView = () => {
                             </>
                           )}
                         </div>
-                        <div className="p-3.5 md:p-4 flex flex-col flex-1">
+                        <div className="p-3.5 md:p-4 flex flex-col flex-1 bg-white">
                           <div className="flex justify-between items-start gap-3 mb-2.5">
                             <div className="min-w-0">
                               <h3 className="font-semibold text-[15px] text-on-surface mb-0.5 leading-tight truncate w-full" title={item.name}>{item.name}</h3>
@@ -1221,7 +1590,9 @@ export const MiniFurnitureView = () => {
                                         setViewingSet({ 
                                           name: setBadgeName, 
                                           id: setForBadge?.id || setBadgeName, 
-                                          coverImageUrl: setForBadge?.coverImageUrl 
+                                          coverImageUrl: setForBadge?.coverImageUrl,
+                                          fullPrintTime: setForBadge?.fullPrintTime,
+                                          printLink: setForBadge?.printLink
                                         });
                                       }}
                                     >
@@ -1240,6 +1611,19 @@ export const MiniFurnitureView = () => {
                               <div className="inline-flex items-center gap-1 w-max px-2 py-0.5 bg-surface-variant/50 text-on-surface-variant rounded-md text-[10px] font-medium border border-outline-variant/20">
                                 <Clock className="w-3 h-3" /> In Progress
                               </div>
+                            )}
+                            {item.printLink && (
+                              <a
+                                href={item.printLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full py-1.5 px-2 bg-[#E8F5E9] hover:bg-[#C8E6C9] text-[#1B5E20] rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs border border-[#A5D6A7]/50 truncate"
+                                title={item.printLink}
+                              >
+                                <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                                <span className="truncate">{getPrintLinkLabel(item.printLink)}</span>
+                              </a>
                             )}
                             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-on-surface-variant">
                               <span className="flex items-center gap-1 truncate max-w-[80px]"><Tag className="w-3 h-3 shrink-0" /> <span className="truncate">{item.madeFor || "Object"}</span></span>
@@ -1268,14 +1652,21 @@ export const MiniFurnitureView = () => {
                   } else {
                     return (
                       <div key={item.id} className="bg-white rounded-[24px] p-4 shadow-sm border border-outline-variant/20 flex items-center gap-5 transition-colors hover:bg-surface-variant/10">
-                        <div 
-                          className="h-24 w-24 rounded-[16px] overflow-hidden bg-surface-variant/50 shrink-0 cursor-pointer relative"
-                          onClick={() => mainImg && setViewingImage({ url: mainImg.url, storagePath: mainImg.storagePath, driveFileId: mainImg.driveFileId, filename: item.name })}
+                        <div className="h-28 w-28 rounded-[16px] overflow-hidden bg-white border border-outline-variant/15 shrink-0 cursor-pointer relative flex items-center justify-center p-1.5"
+                          onClick={() => mainImg && setViewingImage(resolveImageToView(mainImg, item, 'Print Design Photo') as any)}
                         >
                           {mainImg ? (
-                            <SmartImage src={mainImg.url} storagePath={mainImg.storagePath} driveFileId={mainImg.driveFileId} alt={item.name} className="w-full h-full object-cover" />
+                            <SmartImage 
+                              src={mainImg.url} 
+                              storagePath={mainImg.thumbStoragePath || mainImg.storagePath} 
+                              driveFileId={mainImg.thumbDriveFileId || mainImg.driveFileId} 
+                              fallbackDriveFileId={mainImg.driveFileId}
+                              alt={item.name} 
+                              className="w-full h-full object-contain object-center" 
+                              crop={mainImg.crop}
+                            />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-outline">
+                            <div className="w-full h-full flex items-center justify-center text-outline bg-white">
                               <ImageIcon className="w-8 h-8 opacity-50" />
                             </div>
                           )}
@@ -1295,7 +1686,9 @@ export const MiniFurnitureView = () => {
                                         setViewingSet({ 
                                           name: setBadgeName, 
                                           id: setForBadge?.id || setBadgeName, 
-                                          coverImageUrl: setForBadge?.coverImageUrl 
+                                          coverImageUrl: setForBadge?.coverImageUrl,
+                                          fullPrintTime: setForBadge?.fullPrintTime,
+                                          printLink: setForBadge?.printLink
                                         });
                                       }}
                                     >
@@ -1319,6 +1712,22 @@ export const MiniFurnitureView = () => {
                             <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {item.status}</span>
                             <span>•</span>
                             <span>Added: {new Date(item.dateAdded).toLocaleDateString()}</span>
+                            {item.printLink && (
+                              <>
+                                <span>•</span>
+                                <a
+                                  href={item.printLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#E8F5E9] hover:bg-[#C8E6C9] text-[#1B5E20] rounded-lg text-xs font-bold transition-all shadow-2xs border border-[#A5D6A7]/50"
+                                  title={item.printLink}
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                                  <span>{getPrintLinkLabel(item.printLink)}</span>
+                                </a>
+                              </>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-2 ml-4">
@@ -1446,18 +1855,19 @@ export const MiniFurnitureView = () => {
                                 }
                              }
                              
-                             const printsWithPrototypes = itemsInSet.filter(print => print.images.some(img => img.type === 'finished'));
-
-                             const groupMockups: { url: string; printName: string; id: string }[] = [];
+                             const groupMockups: { url: string; storagePath?: string; driveFileId?: string; printName: string; id: string }[] = [];
                              itemsInSet.forEach((print) => {
-                               const mockupImgs = print.images.filter((img) => img.type === 'design');
-                               mockupImgs.forEach((img) => {
+                               const uniqueImgs = getUniqueImages(print.images);
+                               const mockupImg = uniqueImgs.find((img) => img.type === 'design' && (img.url || img.storagePath || img.driveFileId));
+                               if (mockupImg) {
                                  groupMockups.push({
-                                   url: img.url,
+                                   url: mockupImg.url,
+                                   storagePath: mockupImg.storagePath,
+                                   driveFileId: mockupImg.driveFileId,
                                    printName: print.name || 'Print',
-                                   id: img.id,
+                                   id: mockupImg.id || uuidv4(),
                                  });
-                               });
+                               }
                              });
 
                              return (
@@ -1473,25 +1883,49 @@ export const MiniFurnitureView = () => {
                                         {getGroupedPrintTime(itemsInSet, printSet.fullPrintTime).isCustom && <span className="text-[10px] bg-[#FFF0F4] px-1.5 py-0.5 rounded-full text-[#7D6190] font-bold border border-[#FF85A2]/30">Custom</span>}
                                       </span>
                                       <span className="text-outline-variant hidden sm:inline">•</span>
-                                      <span className="flex items-center gap-1.5"><ImageIcon className="w-4 h-4" /> {totalPrototypePhotos} Prototype Photos</span>
+                                      <span className="flex items-center gap-1.5"><ImageIcon className="w-4 h-4" /> {groupMockups.length} 3D Mock-Ups</span>
                                       <span className="text-outline-variant hidden sm:inline">•</span>
                                       <span className={`flex items-center gap-1.5 font-bold ${allCompleted ? 'text-[#2E7D32]' : 'text-[#B8860B]'}`}>
                                         {statusText}
                                       </span>
+                                      {printSet.printLink && (
+                                        <>
+                                          <span className="text-outline-variant hidden sm:inline">•</span>
+                                          <a
+                                            href={printSet.printLink}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-[#E8F5E9] hover:bg-[#C8E6C9] text-[#1B5E20] rounded-lg text-xs font-bold transition-all shadow-2xs border border-[#A5D6A7]/50"
+                                            title={printSet.printLink}
+                                          >
+                                            <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                                            <span>{getPrintLinkLabel(printSet.printLink)}</span>
+                                          </a>
+                                        </>
+                                      )}
                                     </div>
                                     <div className="my-5 border-t border-outline-variant/30 w-full shrink-0"></div>
                                     
                                     <div className="flex overflow-x-auto gap-3 md:gap-4 pb-3 scrollbar-hide -mx-1 px-1 mt-auto w-full max-w-full">
                                       {itemsInSet.length > 0 ? (
                                         itemsInSet.map(print => {
-                                          const mockUp = print.images.find(img => img.type === 'design') || print.images.find(img => img.type === 'finished') || print.images.find(img => img.type === 'inspiration') || print.images[0];
+                                          const uniqueImgs = getUniqueImages(print.images);
+                                          const mockUp = uniqueImgs.find(img => img.type === 'design' && (img.url || img.storagePath || img.driveFileId));
                                           return (
                                             <div key={print.id} className="flex flex-col gap-1.5 shrink-0">
-                                              <div className="w-[80px] h-[80px] md:w-[100px] md:h-[100px] rounded-xl overflow-hidden bg-surface-variant/20 relative shrink-0 border border-outline-variant/10 shadow-sm group/img">
+                                              <div className="w-[80px] h-[80px] md:w-[100px] md:h-[100px] rounded-xl overflow-hidden bg-white relative shrink-0 border border-outline-variant/15 shadow-xs group/img flex items-center justify-center p-1">
                                                 {mockUp ? (
-                                                  <SmartImage src={mockUp.url} storagePath={mockUp.storagePath} className="w-full h-full object-cover" />
+                                                  <SmartImage 
+                                                    src={mockUp.url} 
+                                                    storagePath={mockUp.thumbStoragePath || mockUp.storagePath} 
+                                                    driveFileId={mockUp.thumbDriveFileId || mockUp.driveFileId} 
+                                                    fallbackDriveFileId={mockUp.driveFileId}
+                                                    className="w-full h-full object-contain object-center" 
+                                                    alt={`${print.name} 3D Mockup`}
+                                                  />
                                                 ) : (
-                                                  <div className="absolute inset-0 flex flex-col items-center justify-center p-2 text-center bg-surface-variant/10">
+                                                  <div className="absolute inset-0 flex flex-col items-center justify-center p-2 text-center bg-white">
                                                     <ImageIcon className="w-4 h-4 md:w-5 md:h-5 mb-1 text-on-surface-variant/40" />
                                                     <span className="text-[9px] md:text-[10px] text-on-surface-variant leading-tight font-medium">No<br/>Photo</span>
                                                   </div>
@@ -1583,23 +2017,61 @@ export const MiniFurnitureView = () => {
           )}
         </div>
       </div>
+      {sharedPickerConfig?.isOpen && (
+        <SharedDriveImagePicker
+          folderId={sharedPickerConfig.folderId}
+          title={sharedPickerConfig.title}
+          uploadSection={sharedPickerConfig.uploadSection}
+          onClose={() => setSharedPickerConfig(null)}
+          onSelect={sharedPickerConfig.onSelect}
+        />
+      )}
+      {isTypeSelectorOpen && (
+        <div className="fixed inset-0 z-[70] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6">
+          <div className="bg-white rounded-[28px] shadow-2xl w-full max-w-md overflow-hidden flex flex-col animate-fade-in">
+            <div className="px-6 py-5 border-b border-outline-variant/20 flex justify-between items-center bg-white">
+              <h2 className="text-xl font-headline-md font-semibold text-on-surface">
+                What type of print is this?
+              </h2>
+              <button onClick={() => { setIsTypeSelectorOpen(false); setDraftFormData(null); }} className="p-2 text-on-surface-variant hover:bg-surface-variant/50 rounded-full transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 flex flex-col gap-3 bg-surface/30">
+              {[ { type: "Mini Furniture", desc: "Furniture items and main pieces" }, { type: "Objects", desc: "Small accessories and decor" }, { type: "Charms", desc: "Standard charms with loops" }, { type: "Nail Charms", desc: "Small standalone charms" }, { type: "Figures", desc: "Detailed characters and figures" } ].map((opt) => (
+                <button
+                  key={opt.type}
+                  onClick={() => handleTypeSelect(opt.type)}
+                  className="w-full text-left p-4 rounded-2xl border border-outline-variant/30 bg-white hover:border-primary/50 hover:bg-primary/5 hover:shadow-md transition-all flex flex-col gap-1 active:scale-[0.98]"
+                >
+                  <span className="text-lg font-bold text-on-surface">{opt.type}</span>
+                  <span className="text-sm text-on-surface-variant">{opt.desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {isFormOpen && (
-        <FurnitureFormModal items={items} printSets={printSets} 
+        <FurnitureFormModal items={items} printSets={printSets}
           item={editingItem}
+          draftItem={draftFormData}
+          initialType={selectedInitialType}
+          onChangeType={(currentData) => {
+            setDraftFormData(currentData);
+            setIsFormOpen(false);
+            setIsTypeSelectorOpen(true);
+          }}
           categories={categories}
-          onClose={() => { setIsFormOpen(false); setEditingItem(null); }}
+          onClose={() => { setIsFormOpen(false); setEditingItem(null); setDraftFormData(null); }}
           onSave={handleSaveItem}
         />
       )}
 
       {viewingImage && (
         <ImageViewerModal
-          image={{
-            url: viewingImage.url,
-            storagePath: viewingImage.storagePath,
-            title: viewingImage.title || 'Print Design Photo',
-            filename: viewingImage.title || 'print_photo',
-          }}
+          image={viewingImage}
           allImages={viewingImage.allImages}
           zipTitle={viewingImage.zipTitle}
           onClose={() => setViewingImage(null)}
@@ -1631,6 +2103,13 @@ export const MiniFurnitureView = () => {
              setPrintSets(newSets);
              await setDoc(doc(db, `users/${user?.uid}/preferences`, 'miniFurnitureSets'), sanitizeFirestorePayload({ sets: newSets }), { merge: true });
              setViewingSet({ ...viewingSet, fullPrintTime: newTime });
+          }}
+          onUpdatePrintLink={async (newLink) => {
+             const trimmed = (newLink || '').trim();
+             const newSets = printSets.map(s => s.id === viewingSet.id ? { ...s, printLink: trimmed || undefined } : s);
+             setPrintSets(newSets);
+             await setDoc(doc(db, `users/${user?.uid}/preferences`, 'miniFurnitureSets'), sanitizeFirestorePayload({ sets: newSets }), { merge: true });
+             setViewingSet({ ...viewingSet, printLink: trimmed || undefined });
           }}
           onDelete={async (keepUngrouped) => {
              if (keepUngrouped) {
@@ -1776,11 +2255,25 @@ interface PendingUpload {
   error?: string;
   uploadedUrl?: string;
   uploadedPath?: string;
+  crop?: ImageCropSettings;
 }
 
-const FurnitureFormModal = ({ item, categories, printSets, items, onClose, onSave }: { item: MiniFurniture | null, categories: string[], printSets: {id: string, name: string}[], items: MiniFurniture[], onClose: () => void, onSave: (item: MiniFurniture) => Promise<void> }) => {
+const FurnitureFormModal = ({ item, draftItem, initialType, onChangeType, categories, printSets, items, onClose, onSave }: { item: MiniFurniture | null, draftItem?: MiniFurniture | null, initialType?: string, onChangeType?: (currentData: MiniFurniture) => void, categories: string[], printSets: {id: string, name: string}[], items: MiniFurniture[], onClose: () => void, onSave: (item: MiniFurniture) => Promise<any> }) => {
   const { user } = useAuth();
-  const [formData, setFormData] = useState<MiniFurniture>(item || {
+  const [cropEditingPhoto, setCropEditingPhoto] = useState<{
+    id: string;
+    url: string;
+    storagePath?: string;
+    driveFileId?: string;
+    thumbDriveFileId?: string;
+    title?: string;
+    crop?: ImageCropSettings;
+    isPending?: boolean;
+  } | null>(null);
+
+  
+
+    const [formData, setFormData] = useState<MiniFurniture>(item || draftItem || {
     id: uuidv4(),
     name: '',
     category: categories[0] || 'Bedroom',
@@ -1807,10 +2300,38 @@ const FurnitureFormModal = ({ item, categories, printSets, items, onClose, onSav
     createdAt: new Date().toISOString(),
     notes: '',
     setName: '',
-    madeFor: 'Object',
+    madeFor: initialType || 'Mini Furniture',
     images: []
   });
 
+  const activePhotoTargetRef = useRef<{ slotType: string; slotLabel: string } | null>(null);
+
+  const handleRemovePhoto = (imgId: string) => {
+    setFormData(prev => {
+      const remainingImages = (prev.images || []).filter((img: any) => img.id !== imgId);
+      const removedImg = (prev.images || []).find((img: any) => img.id === imgId);
+      const newDriveFileId = prev.driveFileId === removedImg?.driveFileId
+        ? (remainingImages.find((img: any) => img.driveFileId)?.driveFileId || '')
+        : prev.driveFileId;
+
+      return {
+        ...prev,
+        driveFileId: newDriveFileId,
+        images: remainingImages
+      };
+    });
+
+    setSlotUploadProgress(prev => {
+      const copy = { ...prev };
+      delete copy[imgId];
+      return copy;
+    });
+
+    setPendingUploads(prev => prev.filter(p => p.id !== imgId));
+  };
+
+  const { openDrivePicker, pickerError: drivePickerError, setPickerError: setDrivePickerError } = useGoogleDrivePicker();
+  const [driveFolders, setDriveFolders] = useState<any>(null);
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -1818,6 +2339,117 @@ const FurnitureFormModal = ({ item, categories, printSets, items, onClose, onSav
   const [uploadStageText, setUploadStageText] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'details' | 'images'>('details');
   const [extraSlots, setExtraSlots] = useState<{id: string, label: string}[]>([]);
+  const [showInspirationSlot, setShowInspirationSlot] = useState(false);
+  const [sharedPickerConfig, setSharedPickerConfig] = useState<any>(null);
+  const [linkValidationMsg, setLinkValidationMsg] = useState<string>('');
+
+  useEffect(() => {
+    if (user && !user.isAnonymous) {
+      getUserSettings(user.uid).then(settings => {
+        if (settings?.driveFolders) {
+          setDriveFolders(settings.driveFolders);
+        }
+      });
+    }
+  }, [user]);
+
+  const handleChooseFromDrive = async (type: string, label?: string) => {
+    setDrivePickerError(null);
+
+    const rawPrintType = (formData.madeFor || initialType || (formData as any).printType || (formData as any).type || (formData as any).category || '').toString().trim();
+    
+    // Resolve clean slot label matching the exact slot the user tapped
+    const slotLabel = label || (
+      type === 'inspiration' ? 'Reference Photo' :
+      type === 'design' ? '3D Mock-Up' :
+      type === 'finished' ? 'Finished Product' :
+      (type.startsWith('extra-') ? (extraSlots.find(s => s.id === type)?.label || 'Extra Photo') : 'Photo')
+    );
+
+    // Synchronously store the exact target slot so onPick returns to the exact same slot
+    const targetSlot = { slotType: type, slotLabel };
+    activePhotoTargetRef.current = targetSlot;
+
+    // Resolve target folder based on slot type:
+    // Reference Photo opens References folder, while others open the configured Print type folder
+    let folderId: string;
+    const typeLower = (type || '').toLowerCase();
+    const isFigure = rawPrintType.toLowerCase() === 'figures' || rawPrintType.toLowerCase() === 'figure';
+    if (isFigure) {
+      folderId = getPrintFolderId('figures', { driveFolders });
+    } else if (typeLower === 'inspiration' || typeLower.includes('reference') || typeLower.includes('inspiration')) {
+      folderId = driveFolders?.referencesFolderId || REFERENCES_FOLDER_ID;
+    } else {
+      folderId = getPrintFolderId(rawPrintType, { driveFolders });
+    }
+
+    console.log(`[Drive Picker] Opening slot "${targetSlot.slotType}" (${targetSlot.slotLabel}) with folder: ${folderId}`);
+
+    openDrivePicker({
+      slotType: targetSlot.slotType,
+      slotLabel: targetSlot.slotLabel,
+      printType: rawPrintType,
+      printsFolderId: folderId,
+      includeFolders: true,
+      multiSelect: false,
+      onPick: (selectedImages) => {
+        if (!selectedImages || selectedImages.length === 0) return;
+        const doc = selectedImages[0];
+        
+        // Retrieve the exact target slot stored prior to picker launch
+        const target = activePhotoTargetRef.current || targetSlot;
+        console.log(`[Drive Picker] Image selected for exact target slot:`, target.slotType, target.slotLabel, doc.fileId, doc.name);
+
+        const newDriveImage: MiniFurnitureImage = {
+          id: uuidv4(),
+          driveFileId: doc.fileId,
+          driveFolderId: folderId,
+          filename: doc.name || 'Drive Image',
+          mimeType: doc.mimeType || 'image/jpeg',
+          type: target.slotType as any,
+          label: target.slotLabel,
+          source: 'google-drive',
+          status: 'ready',
+          url: doc.url || `https://drive.google.com/thumbnail?id=${doc.fileId}`
+        };
+
+        setFormData((prev: any) => {
+          const currentImages = Array.isArray(prev.images) ? [...prev.images] : [];
+          const existingIndex = currentImages.findIndex((img: any) => 
+            img.type === target.slotType && (!target.slotLabel || img.label === target.slotLabel || target.slotType.startsWith('extra-'))
+          );
+
+          let updatedImages: MiniFurnitureImage[];
+          if (existingIndex >= 0) {
+            updatedImages = [...currentImages];
+            updatedImages[existingIndex] = newDriveImage;
+          } else {
+            updatedImages = [...currentImages, newDriveImage];
+          }
+
+          return {
+            ...prev,
+            driveFileId: (target.slotType === 'finished' || target.slotType === 'design' || !prev.driveFileId) ? doc.fileId : prev.driveFileId,
+            driveFolderId: folderId || prev.driveFolderId,
+            images: updatedImages
+          };
+        });
+
+        setPendingUploads(prev => prev.filter(p => p.type !== target.slotType));
+        setDrivePickerError(null);
+      },
+      onError: (err) => {
+        console.error('[Drive Picker Error]', err);
+        setDrivePickerError(err);
+      },
+      onNeedAuth: async () => {
+        const token = await requestFreshDriveToken(true);
+        if (token) {
+          handleChooseFromDrive(type, label);
+        }
+      }
+    });
+  };
 
   const addExtraSlot = () => {
     setExtraSlots(prev => [...prev, { id: `extra-${uuidv4()}`, label: 'Extra Photo' }]);
@@ -1856,28 +2488,203 @@ const FurnitureFormModal = ({ item, categories, printSets, items, onClose, onSav
     };
   }, []);
 
+  const [slotUploadProgress, setSlotUploadProgress] = useState<Record<string, {
+    status: 'uploading' | 'ready' | 'error';
+    progress: number;
+    error?: string;
+    file?: File;
+    slotType: string;
+    slotTitle: string;
+  }>>({});
+
+  const resolveFolderForUpload = async (slotType: string): Promise<string> => {
+    const slotLower = (slotType || '').toLowerCase();
+    if (slotLower === 'inspiration' || slotLower.includes('reference') || slotLower.includes('inspiration')) {
+      return driveFolders?.referencesFolderId || REFERENCES_FOLDER_ID;
+    }
+
+    const rawPrintType = (formData.madeFor || initialType || (formData as any).printType || (formData as any).category || '').toString().trim();
+    return getPrintFolderId(rawPrintType, { driveFolders });
+  };
+
+  const handleDirectSlotUpload = async (file: File, slotType: string, slotTitle: string) => {
+    if (!file) return;
+
+    const actualType = slotType;
+    const actualLabel = slotTitle || (slotType === 'inspiration' ? 'Reference Photo' : slotType === 'design' ? '3D Mock-Up' : slotType === 'finished' ? 'Finished Product' : 'Photo');
+
+    const imageId = uuidv4();
+    const localPreviewUrl = URL.createObjectURL(file);
+
+    // 1. Immediately place preview image into the EXACT slot in formData.images
+    const tempImage: MiniFurnitureImage = {
+      id: imageId,
+      url: localPreviewUrl,
+      type: actualType,
+      label: actualLabel,
+      status: 'uploading',
+      source: 'local'
+    };
+
+    setFormData(prev => {
+      const existingIdx = prev.images.findIndex(img => img.type === actualType && (!actualLabel || img.label === actualLabel || actualType.startsWith('extra-')));
+      if (existingIdx >= 0) {
+        const updated = [...prev.images];
+        updated[existingIdx] = tempImage;
+        return { ...prev, images: updated };
+      }
+      return { ...prev, images: [...prev.images, tempImage] };
+    });
+
+    // 2. Track upload progress state for this slot
+    setSlotUploadProgress(prev => ({
+      ...prev,
+      [imageId]: {
+        status: 'uploading',
+        progress: 10,
+        file,
+        slotType: actualType,
+        slotTitle: actualLabel
+      }
+    }));
+
+    // 3. Perform background compression & upload to Google Drive
+    try {
+      // Step A: Compress and resize image preserving quality and aspect ratio
+      const processed = await processAndCompressImage(file);
+
+      setSlotUploadProgress(prev => ({
+        ...prev,
+        [imageId]: { ...(prev[imageId] || { status: 'uploading' as const, file, slotType: actualType, slotTitle: actualLabel }), progress: 30 }
+      }));
+
+      // Step B: Resolve target Google Drive folder
+      const targetDriveFolderId = await resolveFolderForUpload(actualType);
+
+      // Step C: Upload to Google Drive and Storage
+      const currentUserId = user?.uid || 'guest';
+      const printId = formData.id || uuidv4();
+
+      const uploadRes = await uploadImageToService({
+        file: processed.optimizedFile,
+        thumbnailFile: processed.thumbnailFile,
+        userId: currentUserId,
+        section: 'prints',
+        recordId: printId,
+        filename: processed.filename,
+        width: processed.width,
+        height: processed.height,
+        driveFolderId: targetDriveFolderId,
+        onProgress: (percent) => {
+          setSlotUploadProgress(prev => ({
+            ...prev,
+            [imageId]: {
+              ...(prev[imageId] || { file, slotType: actualType, slotTitle: actualLabel }),
+              status: 'uploading',
+              progress: 30 + Math.round(percent * 0.65)
+            }
+          }));
+        }
+      });
+
+      // Step D: Update formData.images with permanent Drive metadata
+      const permanentImage: MiniFurnitureImage = {
+        id: imageId,
+        url: uploadRes.downloadURL,
+        storagePath: uploadRes.storagePath,
+        driveFileId: uploadRes.driveFileId || undefined,
+        driveFolderId: targetDriveFolderId,
+        thumbDriveFileId: uploadRes.thumbDriveFileId || undefined,
+        thumbStoragePath: uploadRes.thumbStoragePath || undefined,
+        mimeType: uploadRes.mimeType,
+        width: processed.width,
+        height: processed.height,
+        filename: processed.filename,
+        type: actualType,
+        label: actualLabel,
+        status: 'ready',
+        source: 'google-drive'
+      };
+
+      setFormData(prev => {
+        return {
+          ...prev,
+          driveFileId: (actualType === 'finished' || actualType === 'design' || !prev.driveFileId) ? (permanentImage.driveFileId || prev.driveFileId) : prev.driveFileId,
+          driveFolderId: targetDriveFolderId || prev.driveFolderId,
+          images: prev.images.map(img => img.id === imageId ? permanentImage : img)
+        };
+      });
+
+      // Step E: If editing existing item in Firestore, also sync directly to Firestore
+      if (item && item.id && currentUserId !== 'guest') {
+        try {
+          const itemRef = doc(db, `users/${currentUserId}/miniFurniture`, item.id);
+          const currentDoc = await safeGetDoc(itemRef);
+          if (currentDoc.exists()) {
+            const docData = currentDoc.data();
+            let docImages = Array.isArray(docData.images) ? docData.images : [];
+            const idx = docImages.findIndex((img: any) => img.id === imageId || (img.type === actualType && (!actualLabel || img.label === actualLabel)));
+            if (idx >= 0) {
+              docImages[idx] = sanitizeFirestorePayload(permanentImage);
+            } else {
+              docImages.push(sanitizeFirestorePayload(permanentImage));
+            }
+            await setDoc(itemRef, {
+              images: docImages,
+              ...(permanentImage.driveFileId ? { driveFileId: permanentImage.driveFileId } : {}),
+              ...(targetDriveFolderId ? { driveFolderId: targetDriveFolderId } : {})
+            }, { merge: true });
+          }
+        } catch (dbErr) {
+          console.warn('[DirectUpload] Firestore background sync warning:', dbErr);
+        }
+      }
+
+      // Step F: Mark upload as completed
+      setSlotUploadProgress(prev => ({
+        ...prev,
+        [imageId]: {
+          status: 'ready',
+          progress: 100,
+          slotType: actualType,
+          slotTitle: actualLabel
+        }
+      }));
+
+    } catch (err: any) {
+      console.error('[DirectUpload] Upload to Google Drive failed:', err);
+      setSlotUploadProgress(prev => ({
+        ...prev,
+        [imageId]: {
+          status: 'error',
+          progress: 0,
+          error: err?.message || 'Google Drive upload failed. Tap retry.',
+          file,
+          slotType: actualType,
+          slotTitle: actualLabel
+        }
+      }));
+    }
+  };
+
+  const handleRetrySlotUpload = (imageId: string) => {
+    const slotInfo = slotUploadProgress[imageId];
+    if (slotInfo && slotInfo.file) {
+      handleDirectSlotUpload(slotInfo.file, slotInfo.slotType, slotInfo.slotTitle);
+    }
+  };
+
   const handleFileSelect = (files: FileList | File[] | null, type: string) => {
     if (!files || files.length === 0) return;
     const fileList = Array.from(files);
-    
-    // Create instant local preview object URLs
-    const newPending: PendingUpload[] = fileList.map(file => ({
-      id: uuidv4(),
-      file,
-      previewUrl: URL.createObjectURL(file),
-      type,
-      label: formData.images.find(img => img.type === type)?.label,
-      progress: 0,
-      status: 'idle'
-    }));
+    const firstFile = fileList[0];
+    const defaultTitle = {
+      'inspiration': 'Reference Photo',
+      'design': '3D Mock-Up',
+      'finished': 'Finished Print',
+    }[type] || 'Photo';
 
-    if (isMiniCharmItem(formData)) {
-      // Mini Charm: keep only one pending or replace
-      setPendingUploads([newPending[0]]);
-      setFormData(prev => ({ ...prev, images: prev.images.filter(img => img.type !== 'finished') }));
-    } else {
-      setPendingUploads(prev => [...prev, ...newPending]);
-    }
+    handleDirectSlotUpload(firstFile, type, defaultTitle);
   };
 
   const removePendingUpload = (id: string) => {
@@ -1898,6 +2705,13 @@ const FurnitureFormModal = ({ item, categories, printSets, items, onClose, onSav
       return;
     }
 
+    if (formData.printLink && formData.printLink.trim() && !isValidPrintUrl(formData.printLink)) {
+      alert("Please enter a valid URL starting with http:// or https:// for the Print Link");
+      setActiveTab('details');
+      setLinkValidationMsg('Please enter a valid link starting with http:// or https://');
+      return;
+    }
+
     if (isSaving) return;
 
     setIsSaving(true);
@@ -1907,36 +2721,60 @@ const FurnitureFormModal = ({ item, categories, printSets, items, onClose, onSav
     try {
       const printId = formData.id || uuidv4();
       const currentUserId = user?.uid || 'guest';
-      const isMiniCharm = isMiniCharmItem(formData);
+      const isNailCharm = isNailCharmItem(formData);
 
       // Collect existing clean images that are already saved
       const cleanExistingImages: MiniFurnitureImage[] = (formData.images || [])
-        .filter(img => img && img.url && !img.url.startsWith('blob:') && !img.url.startsWith('data:'))
+        .filter(img => img && (
+          (img.driveFileId && img.driveFileId.trim() !== '') || 
+          (img.storagePath && img.storagePath.trim() !== '') || 
+          (img.url && img.url.trim() !== '' && !img.url.startsWith('blob:') && !img.url.startsWith('data:'))
+        ))
         .map(img => {
           const meta: MiniFurnitureImage = {
             id: img.id || uuidv4(),
-            url: img.url,
+            url: (img.url && !img.url.startsWith('blob:') && !img.url.startsWith('data:')) ? img.url : '',
             type: img.type || 'design'
           };
+          if (img.driveFileId) meta.driveFileId = img.driveFileId;
+          if (img.driveFolderId) meta.driveFolderId = img.driveFolderId;
+          if (img.thumbDriveFileId) meta.thumbDriveFileId = img.thumbDriveFileId;
           if (img.storagePath) meta.storagePath = img.storagePath;
+          if (img.thumbStoragePath) meta.thumbStoragePath = img.thumbStoragePath;
+          if (img.filename) meta.filename = img.filename;
+          if (img.mimeType) meta.mimeType = img.mimeType;
           if (img.label) meta.label = img.label;
+          if (img.source) meta.source = img.source;
+          if (img.status) meta.status = img.status;
+          if (img.crop) meta.crop = img.crop;
           return meta;
         });
 
       let finalExisting = cleanExistingImages;
-      if (isMiniCharm && finalExisting.length > 0) {
-        const finishedImg = finalExisting.find(img => img.type === 'finished');
-        finalExisting = finishedImg ? [finishedImg] : [finalExisting[0]];
+      let charmFolderId: string | undefined = undefined;
+
+      if (isNailCharm) {
+        try {
+          charmFolderId = driveFolders?.charmsFolderId || driveFolders?.miniCharmsFolderId || CHARMS_FOLDER_ID;
+        } catch (e) {
+          console.warn("Could not resolve nail charms folder ID during save:", e);
+        }
       }
 
       const hasPendingNewUploads = pendingUploads.length > 0;
       const initialUploadStatus = hasPendingNewUploads ? 'processing' : 'ready';
+      const cleanPrintLink = formData.printLink ? formData.printLink.trim() : undefined;
 
       const initialPrintPayload: MiniFurniture = {
         ...formData,
         id: printId,
         images: finalExisting,
-        uploadStatus: initialUploadStatus
+        uploadStatus: initialUploadStatus,
+        printLink: cleanPrintLink,
+        ...(charmFolderId ? { driveFolderId: charmFolderId, miniCharmsFolderId: charmFolderId } : {}),
+        ...(finalExisting.find(img => img.type === 'finished' || img.type === 'design')?.driveFileId
+          ? { driveFileId: finalExisting.find(img => img.type === 'finished' || img.type === 'design')?.driveFileId }
+          : (finalExisting[0]?.driveFileId ? { driveFileId: finalExisting[0].driveFileId } : {}))
       };
 
       const cleanPrintPayload = sanitizeFirestorePayload(initialPrintPayload);
@@ -1964,11 +2802,12 @@ const FurnitureFormModal = ({ item, categories, printSets, items, onClose, onSav
           previewUrl: p.previewUrl,
           type: p.type,
           label: p.label,
-          status: 'preparing',
+          crop: p.crop,
+          status: 'compressing',
           progress: 0
         }));
 
-        printUploadQueue.enqueuePrintUpload(currentUserId, printId, isMiniCharm, tasks);
+        printUploadQueue.enqueuePrintUpload(currentUserId, printId, formData.madeFor || "Mini Furniture", tasks);
       }
 
       setSaveSuccess(true);
@@ -2037,25 +2876,126 @@ const FurnitureFormModal = ({ item, categories, printSets, items, onClose, onSav
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-on-surface mb-1">Type</label>
-                <select value={formData.madeFor || 'Mini Furniture'} onChange={e => setFormData({...formData, madeFor: e.target.value})} className="w-full px-4 py-2.5 bg-white border border-outline-variant/50 rounded-xl focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all">
-                  <option value="Mini Furniture">Mini Furniture</option>
-                  <option value="Object">Object</option>
-                  <option value="Charm">Charm</option>
-                  <option value="Mini Charm">Mini Charm</option>
-                </select>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-sm font-medium text-on-surface flex items-center gap-1.5">
+                    <LinkIcon className="w-4 h-4 text-primary" />
+                    <span>Print Link</span>
+                    <span className="text-xs text-on-surface-variant font-normal">(MakerWorld, Bambu Studio, or model URL)</span>
+                  </label>
+                  {formData.printLink && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, printLink: '' });
+                        setLinkValidationMsg('');
+                      }}
+                      className="text-xs text-error hover:underline flex items-center gap-1 font-medium"
+                    >
+                      <X className="w-3.5 h-3.5" /> Clear Link
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <input
+                    type="url"
+                    value={formData.printLink || ''}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setFormData({ ...formData, printLink: val });
+                      if (val.trim() && !isValidPrintUrl(val)) {
+                        setLinkValidationMsg('Please enter a valid link starting with http:// or https://');
+                      } else {
+                        setLinkValidationMsg('');
+                      }
+                    }}
+                    placeholder="https://makerworld.com/en/models/... or https://..."
+                    className={`w-full px-4 py-2.5 bg-white border ${linkValidationMsg ? 'border-error focus:ring-error' : 'border-outline-variant/50 focus:ring-primary'} rounded-xl focus:outline-none focus:border-primary focus:ring-1 transition-all text-sm ${formData.printLink && isValidPrintUrl(formData.printLink) ? 'pr-20' : ''}`}
+                  />
+                  {formData.printLink && isValidPrintUrl(formData.printLink) && (
+                    <a
+                      href={formData.printLink.trim()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold rounded-lg transition-colors flex items-center gap-1"
+                      title="Test Link"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Test</span>
+                    </a>
+                  )}
+                </div>
+                {linkValidationMsg ? (
+                  <p className="text-xs text-error mt-1.5 flex items-center gap-1 font-medium">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{linkValidationMsg}</span>
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-on-surface-variant/70 mt-1">Optional. Save a direct MakerWorld or Bambu Studio link for this print.</p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-surface-variant/30 rounded-xl border border-outline-variant/30 mb-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-on-surface-variant">Type:</span>
+                  <span className="text-sm font-bold text-on-surface">{formData.madeFor || "Mini Furniture"}</span>
+                </div>
+                {onChangeType && (
+                  <button type="button" onClick={() => onChangeType(formData)} className="text-xs font-bold text-primary hover:text-primary/80 transition-colors px-2 py-1 bg-primary/5 rounded-lg">
+                    Change
+                  </button>
+                )}
               </div>
             </div>
           )}
 
           {activeTab === 'images' && (
             <div className="space-y-8">
+              {drivePickerError && (
+                <div className="p-4 bg-error-container text-on-error-container rounded-2xl flex items-center justify-between gap-3 text-sm font-medium border border-error/20 shadow-sm">
+                  <div className="flex items-center gap-2.5">
+                    <AlertCircle className="w-5 h-5 shrink-0 text-error" />
+                    <span>{drivePickerError}</span>
+                  </div>
+                  {drivePickerError.includes('authorization') || drivePickerError.includes('connect') || drivePickerError.includes('missing') ? (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const newToken = await requestFreshDriveToken(true);
+                        if (newToken) {
+                          setDrivePickerError(null);
+                        }
+                      }}
+                      className="px-4 py-1.5 bg-primary text-white text-xs font-bold rounded-full hover:bg-primary/90 transition-colors shrink-0"
+                    >
+                      Reconnect Google Drive
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setDrivePickerError(null)}
+                      className="p-1 hover:bg-black/10 rounded-full transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              )}
+
               {(() => {
-                 const isMiniCharm = isMiniCharmItem(formData);
-                 const baseTypes = isMiniCharm ? ['finished'] : ['inspiration', 'design'];
-                 const existingTypes = isMiniCharm ? formData.images.map(img => img.type).filter(t => t === 'finished') : formData.images.map(img => img.type);
+                 const isNailCharm = isNailCharmItem(formData);
+                 const isFigureItem = (formData.madeFor || '').toLowerCase().trim() === 'figure' || (formData.madeFor || '').toLowerCase().trim() === 'figures';
+                 const useFigureLayout = isNailCharm || isFigureItem;
+                 const objectFit = useFigureLayout ? 'object-contain bg-surface-variant/20 p-2' : 'object-cover';
+                 const hasInspiration = formData.images.some(img => img.type === 'inspiration') || pendingUploads.some(p => p.type === 'inspiration');
+                 const baseTypes = isNailCharm 
+                    ? ['finished'] 
+                    : [
+                        ...(hasInspiration || showInspirationSlot ? ['inspiration'] : []),
+                        'design'
+                      ];
+                 const existingTypes = isNailCharm ? formData.images.map(img => img.type).filter(t => t === 'finished') : formData.images.map(img => img.type);
                  const pendingTypes = pendingUploads.map(p => p.type);
-                 const extraSlotsToRender = isMiniCharm ? [] : extraSlots.map(s => s.id);
+                 const extraSlotsToRender = isNailCharm ? [] : extraSlots.map(s => s.id);
                  const allTypes = Array.from(new Set([...baseTypes, ...existingTypes, ...pendingTypes, ...extraSlotsToRender]));
                  
                  return allTypes.map(type => {
@@ -2064,7 +3004,7 @@ const FurnitureFormModal = ({ item, categories, printSets, items, onClose, onSav
                     
                     const isExtra = type.startsWith('extra-');
                     const defaultTitle = isExtra ? (extraSlots.find(s => s.id === type)?.label || 'Extra Photo') : (
-                      isMiniCharm && type === 'finished' ? 'Mini Charm Photo' :
+                      isNailCharm && type === 'finished' ? 'Nail Charm Photo' :
                       {
                         'inspiration': 'Reference Photo',
                         'design': '3D Mock-Up',
@@ -2106,108 +3046,374 @@ const FurnitureFormModal = ({ item, categories, printSets, items, onClose, onSav
                                              
                         {sectionImages.length === 0 && sectionPending.length === 0 ? (
                           <ImageUploaderArea 
-                            onUpload={(files) => handleFileSelect(files, type)}
+                            onUpload={(files) => {
+                              if (files && files.length > 0) {
+                                handleDirectSlotUpload(files[0], type, title);
+                              }
+                            }}
                             className="w-full touch-pan-y"
                           >
-                            <div className="text-center p-8 bg-surface-variant/10 rounded-2xl border-2 border-dashed border-outline-variant/50 text-on-surface-variant flex flex-col items-center gap-3">
-                              <ImageIcon className="w-8 h-8 opacity-40" />
-                              <p className="font-medium text-sm">Drag and drop {title.toLowerCase()} here or click to browse.</p>
-                              <label className="mt-2 cursor-pointer bg-primary text-white text-sm font-bold flex items-center justify-center gap-2 hover:bg-primary/90 px-4 py-2 rounded-full transition-colors shadow-sm">
-                                <Plus className="w-4 h-4" /> Browse Files
-                                <input type="file" multiple={!isMiniCharm} accept="image/*" className="hidden" onChange={e => handleFileSelect(e.target.files, type)} disabled={isSaving} />
-                              </label>
+                            <div className="text-center p-6 sm:p-8 bg-surface-variant/10 rounded-2xl border-2 border-dashed border-outline-variant/50 text-on-surface-variant flex flex-col items-center gap-3">
+                              <ImageIcon className="w-10 h-10 opacity-40 text-primary" />
+                              <div>
+                                <p className="font-bold text-sm sm:text-base text-on-surface">No photo assigned to {title}</p>
+                                <p className="text-xs text-on-surface-variant mt-1">Choose from your Google Drive or upload from your device:</p>
+                              </div>
+                              <div className="flex flex-wrap items-center justify-center gap-3 mt-3 w-full">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    handleChooseFromDrive(type, title);
+                                  }}
+                                  className="px-5 py-2.5 bg-primary text-white hover:bg-primary/90 active:scale-95 text-sm font-bold rounded-full flex items-center justify-center gap-2 shadow-sm transition-all min-h-[44px]"
+                                >
+                                  <FolderOpen className="w-4 h-4" />
+                                  <span>Choose from Drive</span>
+                                </button>
+                                
+                                <button 
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    const input = document.getElementById(`slot-file-input-${type}`) as HTMLInputElement;
+                                    if (input) {
+                                      input.value = '';
+                                      input.click();
+                                    }
+                                  }}
+                                  className="px-5 py-2.5 bg-white text-on-surface hover:bg-surface-variant/50 active:scale-95 border border-outline-variant/60 text-sm font-bold rounded-full flex items-center justify-center gap-2 shadow-sm transition-all min-h-[44px]"
+                                >
+                                  <Upload className="w-4 h-4 text-primary" />
+                                  <span>Upload Photo</span>
+                                </button>
+                                <input 
+                                  id={`slot-file-input-${type}`}
+                                  type="file" 
+                                  accept="image/*" 
+                                  className="hidden" 
+                                  onChange={e => {
+                                    if (e.target.files && e.target.files.length > 0) {
+                                      handleDirectSlotUpload(e.target.files[0], type, title);
+                                    }
+                                  }} 
+                                  disabled={isSaving} 
+                                />
+                              </div>
                             </div>
                           </ImageUploaderArea>
                         ) : (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                            {/* Saved Images */}
-                            {sectionImages.map(img => (
-                              <div key={img.id} className="relative aspect-square rounded-2xl overflow-hidden group bg-surface-variant/30 border border-outline-variant/20 shadow-sm touch-pan-y">
-                                <SmartImage src={img.url} storagePath={img.storagePath} driveFileId={img.driveFileId} alt="Uploaded" className="w-full h-full object-cover touch-pan-y" />
-                                <button 
-                                  type="button" 
-                                  onClick={(e) => { e.stopPropagation(); removeImage(img.id); }} 
-                                  className="absolute top-3 right-3 bg-white/90 hover:bg-error hover:text-white text-on-surface p-2 rounded-full shadow-md transition-colors backdrop-blur-sm z-10"
-                                  title="Remove image"
-                                  disabled={isSaving}
-                                >
-                                  <X className="w-4 h-4" />
-                                </button>
-                              </div>
-                            ))}
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                              {/* Saved / Active Images */}
+                              {sectionImages.map(img => {
+                                const uploadInfo = slotUploadProgress[img.id];
+                                const isUploading = img.status === 'uploading' || uploadInfo?.status === 'uploading';
+                                const isUploadError = uploadInfo?.status === 'error';
+                                const uploadProgress = uploadInfo?.progress || 30;
 
-                            {/* Pending Instant Previews */}
-                            {sectionPending.map(p => {
-                              const queueState = printUploadQueue.getPrintUploadState(formData.id);
-                              const queueTask = queueState?.tasks.find(t => t.id === p.id);
-                              const status = queueTask?.status || p.status || 'preparing';
-                              const progress = queueTask?.progress ?? p.progress ?? 0;
-                              const errorMsg = queueTask?.error || p.error;
+                                return (
+                                  <div key={img.id} className="relative aspect-square rounded-2xl overflow-hidden group bg-surface-variant/30 border border-outline-variant/20 shadow-sm touch-pan-y flex flex-col justify-end">
+                                    <SmartImage 
+                                      src={img.url} 
+                                      storagePath={img.thumbStoragePath || img.storagePath} 
+                                      driveFileId={img.thumbDriveFileId || img.driveFileId} 
+                                      fallbackDriveFileId={img.driveFileId}
+                                      alt={title} 
+                                      className={`absolute inset-0 w-full h-full touch-pan-y ${objectFit}`} 
+                                      crop={img.crop}
+                                    />
 
-                              return (
-                                <div key={p.id} className="relative aspect-square rounded-2xl overflow-hidden group bg-surface-variant/30 border border-outline-variant/20 shadow-sm touch-pan-y">
-                                  <img src={p.previewUrl} alt="Preview" className="w-full h-full object-cover opacity-90" />
-                                  
-                                  <button 
-                                    type="button" 
-                                    onClick={() => {
-                                      printUploadQueue.removePendingTask(formData.id, p.id);
-                                      removePendingUpload(p.id);
-                                    }} 
-                                    className="absolute top-3 right-3 bg-white/90 hover:bg-error hover:text-white text-on-surface p-2 rounded-full shadow-md transition-colors backdrop-blur-sm z-10"
-                                    title="Remove preview"
-                                    disabled={isSaving}
-                                  >
-                                    <X className="w-4 h-4" />
-                                  </button>
-
-                                  {status === 'preparing' && (
-                                    <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex flex-col items-center justify-center p-3 text-white text-center">
-                                      <Loader2 className="w-5 h-5 animate-spin mb-1" />
-                                      <span className="text-xs font-bold">Preparing...</span>
-                                    </div>
-                                  )}
-
-                                  {status === 'uploading' && (
-                                    <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] flex flex-col items-center justify-center p-4 text-white">
-                                      <div className="w-full bg-white/30 rounded-full h-2 mb-2 overflow-hidden">
-                                        <div className="bg-primary h-full transition-all duration-300" style={{ width: `${Math.max(10, progress)}%` }} />
+                                    {img.driveFileId && !isUploading && (
+                                      <div className="absolute top-3 left-3 z-10 bg-black/60 text-white text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm flex items-center gap-1 shadow-md">
+                                        <FolderOpen className="w-3 h-3 text-blue-400" />
+                                        <span>Google Drive</span>
                                       </div>
-                                      <span className="text-xs font-bold">{progress > 0 ? `${progress}% Uploading` : 'Uploading...'}</span>
-                                    </div>
-                                  )}
+                                    )}
 
-                                  {status === 'saved' && (
-                                    <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px] flex flex-col items-center justify-center p-2 text-white">
-                                      <span className="bg-[#2E7D32] text-white px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-md">
-                                        <CheckCircle2 className="w-3.5 h-3.5" /> Saved
-                                      </span>
-                                    </div>
-                                  )}
+                                    {/* Uploading Status Overlay */}
+                                    {isUploading && (
+                                      <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] z-20 flex flex-col items-center justify-center p-4 text-white text-center">
+                                        <Loader2 className="w-6 h-6 animate-spin mb-2 text-primary" />
+                                        <span className="text-xs font-bold mb-1">Uploading to Drive...</span>
+                                        <div className="w-full max-w-[140px] bg-white/20 rounded-full h-1.5 overflow-hidden">
+                                          <div className="bg-primary h-full transition-all duration-300" style={{ width: `${Math.max(15, uploadProgress)}%` }} />
+                                        </div>
+                                      </div>
+                                    )}
 
-                                  {status === 'failed' && (
-                                    <div className="absolute inset-0 bg-error/80 backdrop-blur-[2px] flex flex-col items-center justify-center p-3 text-white text-center">
-                                      <span className="text-xs font-bold mb-1">Upload Failed</span>
-                                      <span className="text-[10px] mb-2 line-clamp-2">{errorMsg || 'Network error'}</span>
-                                      <button 
-                                        type="button" 
-                                        onClick={() => printUploadQueue.retryFailedPhotos(formData.id)} 
-                                        className="px-3 py-1 bg-white text-error rounded-full text-xs font-bold hover:bg-white/90 shadow-sm"
+                                    {/* Upload Error Overlay */}
+                                    {isUploadError && (
+                                      <div className="absolute inset-0 bg-error/85 backdrop-blur-[2px] z-20 flex flex-col items-center justify-center p-3 text-white text-center">
+                                        <AlertCircle className="w-6 h-6 mb-1 text-white" />
+                                        <span className="text-xs font-bold mb-1">Upload Failed</span>
+                                        <span className="text-[10px] mb-2 line-clamp-2 px-2 opacity-90">{uploadInfo?.error || 'Could not sync to Drive.'}</span>
+                                        <button 
+                                          type="button" 
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            e.preventDefault();
+                                            handleRetrySlotUpload(img.id);
+                                          }} 
+                                          className="px-3 py-1.5 bg-white text-error rounded-full text-xs font-bold hover:bg-white/90 active:scale-95 shadow-md flex items-center gap-1"
+                                        >
+                                          <RefreshCw className="w-3 h-3" />
+                                          <span>Retry Upload</span>
+                                        </button>
+                                      </div>
+                                    )}
+
+                                    {/* Top-Right Download & Remove Buttons */}
+                                    <div className="absolute top-2.5 right-2.5 z-30 flex items-center gap-2 opacity-100 sm:opacity-90 sm:group-hover:opacity-100 transition-opacity">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); downloadSingleImage(img.url, title || 'Photo'); }}
+                                        className="w-9 h-9 flex items-center justify-center bg-black/70 hover:bg-black/90 text-white rounded-full backdrop-blur-sm shadow-md border border-white/20 transition-all hover:scale-110 active:scale-95 touch-manipulation"
+                                        title="Download Photo"
+                                        aria-label="Download Photo"
                                       >
-                                        Retry
+                                        <Download className="w-4 h-4" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleRemovePhoto(img.id); }}
+                                        className="w-9 h-9 flex items-center justify-center bg-black/70 hover:bg-error active:bg-error text-white rounded-full backdrop-blur-sm shadow-md border border-white/20 transition-all hover:scale-110 active:scale-95 touch-manipulation"
+                                        title="Delete photo from print"
+                                        aria-label="Delete photo from print"
+                                      >
+                                        <X className="w-5 h-5 stroke-[2.5]" />
                                       </button>
                                     </div>
-                                  )}
-                                </div>
-                              );
-                            })}
 
-                            {!isMiniCharm && (
-                              <label className="cursor-pointer border-2 border-dashed border-outline-variant/50 rounded-2xl aspect-square flex flex-col items-center justify-center text-on-surface-variant hover:border-primary hover:text-primary transition-colors bg-surface-variant/10">
-                                <Plus className="w-6 h-6 mb-1" />
-                                <span className="text-xs font-bold">Add Photo</span>
-                                <input type="file" multiple accept="image/*" className="hidden" onChange={e => handleFileSelect(e.target.files, type)} disabled={isSaving} />
-                              </label>
+                                    {/* Edit Crop Button */}
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        e.preventDefault();
+                                        setCropEditingPhoto({
+                                          id: img.id,
+                                          url: img.url,
+                                          storagePath: img.storagePath,
+                                          driveFileId: img.driveFileId,
+                                          thumbDriveFileId: img.thumbDriveFileId,
+                                          title: title,
+                                          crop: img.crop,
+                                          isPending: false
+                                        });
+                                      }}
+                                      className="absolute bottom-3 right-3 z-10 bg-black/70 hover:bg-black/90 text-white text-[11px] font-bold px-3 py-1.5 rounded-full backdrop-blur-sm flex items-center gap-1.5 shadow-md border border-white/20 transition-all hover:scale-105 active:scale-95"
+                                      title="Edit Crop Position & Zoom"
+                                    >
+                                      <Crop className="w-3.5 h-3.5 text-[#FF6B9E]" />
+                                      <span>{img.crop ? 'Crop Set' : 'Edit Crop'}</span>
+                                    </button>
+
+                                    {/* Desktop Hover Overlay */}
+                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-3 z-20 hidden sm:flex">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          e.preventDefault();
+                                          setCropEditingPhoto({
+                                            id: img.id,
+                                            url: img.url,
+                                            storagePath: img.storagePath,
+                                            driveFileId: img.driveFileId,
+                                            thumbDriveFileId: img.thumbDriveFileId,
+                                            title: title,
+                                            crop: img.crop,
+                                            isPending: false
+                                          });
+                                        }}
+                                        className="w-full max-w-[170px] py-1.5 px-3 bg-[#FF6B9E] text-white text-xs font-bold rounded-full shadow-md hover:bg-[#FF6B9E]/90 flex items-center justify-center gap-1.5 transition-colors"
+                                      >
+                                        <Crop className="w-3.5 h-3.5" />
+                                        <span>Edit Crop</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          e.preventDefault();
+                                          handleChooseFromDrive(type, title);
+                                        }}
+                                        className="w-full max-w-[170px] py-1.5 px-3 bg-white text-on-surface text-xs font-bold rounded-full shadow-md hover:bg-white/90 flex items-center justify-center gap-1.5 transition-colors"
+                                      >
+                                        <FolderOpen className="w-3.5 h-3.5 text-primary" />
+                                        <span>Choose from Drive</span>
+                                      </button>
+
+                                      <button 
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          e.preventDefault();
+                                          const input = document.getElementById(`slot-file-input-${type}`) as HTMLInputElement;
+                                          if (input) {
+                                            input.value = '';
+                                            input.click();
+                                          }
+                                        }}
+                                        className="w-full max-w-[170px] py-1.5 px-3 bg-white/90 text-on-surface text-xs font-bold rounded-full shadow-md hover:bg-white flex items-center justify-center gap-1.5 transition-colors"
+                                      >
+                                        <Upload className="w-3.5 h-3.5 text-primary" />
+                                        <span>Upload Photo</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {/* Mobile-Friendly Control Toolbar Below Image */}
+                            <div className="flex flex-wrap items-center gap-2 pt-1 sm:hidden">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  handleChooseFromDrive(type, title);
+                                }}
+                                className="px-4 py-2 bg-surface-variant/40 hover:bg-surface-variant text-on-surface active:scale-95 text-xs font-bold rounded-full flex items-center gap-1.5 border border-outline-variant/40 transition-all min-h-[38px]"
+                              >
+                                <FolderOpen className="w-3.5 h-3.5 text-primary" />
+                                <span>Choose from Drive</span>
+                              </button>
+
+                              <button 
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  const input = document.getElementById(`slot-file-input-${type}`) as HTMLInputElement;
+                                  if (input) {
+                                    input.value = '';
+                                    input.click();
+                                  }
+                                }}
+                                className="px-4 py-2 bg-white text-on-surface hover:bg-surface-variant/50 active:scale-95 border border-outline-variant/50 text-xs font-bold rounded-full flex items-center gap-1.5 shadow-sm transition-all min-h-[38px]"
+                              >
+                                <Upload className="w-3.5 h-3.5 text-primary" />
+                                <span>Upload Photo</span>
+                              </button>
+                              
+                              <input 
+                                id={`slot-file-input-${type}`}
+                                type="file" 
+                                accept="image/*" 
+                                className="hidden" 
+                                onChange={e => {
+                                  if (e.target.files && e.target.files.length > 0) {
+                                    handleDirectSlotUpload(e.target.files[0], type, title);
+                                  }
+                                }} 
+                                disabled={isSaving} 
+                              />
+                            </div>
+
+                            {/* Pending Instant Previews */}
+                            {sectionPending.length > 0 && (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 pt-2">
+                                {sectionPending.map(p => {
+                                  const queueState = printUploadQueue.getPrintUploadState(formData.id);
+                                  const queueTask = queueState?.tasks.find(t => t.id === p.id);
+                                  const status = queueTask?.status || p.status || 'preparing';
+                                  const progress = queueTask?.progress ?? p.progress ?? 0;
+                                  const errorMsg = queueTask?.error || p.error;
+
+                                  return (
+                                    <div key={p.id} className="relative aspect-square rounded-2xl overflow-hidden group bg-surface-variant/30 border border-outline-variant/20 shadow-sm touch-pan-y">
+                                      <SmartImage 
+                                        src={p.previewUrl} 
+                                        alt="Preview" 
+                                        className={`w-full h-full opacity-90 transition-transform duration-75 ${objectFit}`}
+                                        crop={p.crop}
+                                      />
+
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          e.preventDefault();
+                                          setCropEditingPhoto({
+                                            id: p.id,
+                                            url: p.previewUrl,
+                                            title: title,
+                                            crop: p.crop,
+                                            isPending: true
+                                          });
+                                        }}
+                                        className="absolute bottom-3 left-3 z-10 bg-black/70 hover:bg-black/90 text-white text-[11px] font-bold px-3 py-1.5 rounded-full backdrop-blur-sm flex items-center gap-1.5 shadow-md border border-white/20 transition-all hover:scale-105 active:scale-95"
+                                        title="Edit Crop Position & Zoom"
+                                      >
+                                        <Crop className="w-3.5 h-3.5 text-[#FF6B9E]" />
+                                        <span>{p.crop ? 'Crop Set' : 'Edit Crop'}</span>
+                                      </button>
+                                      
+                                      <div className="absolute top-2.5 right-2.5 z-30 flex items-center gap-2 opacity-100 sm:opacity-90 sm:group-hover:opacity-100 transition-opacity">
+                                        <button 
+                                          type="button" 
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            e.preventDefault();
+                                            printUploadQueue.removePendingTask(formData.id, p.id);
+                                            removePendingUpload(p.id);
+                                          }} 
+                                          className="w-9 h-9 flex items-center justify-center bg-black/70 hover:bg-error active:bg-error text-white rounded-full backdrop-blur-sm shadow-md border border-white/20 transition-all hover:scale-110 active:scale-95 touch-manipulation"
+                                          title="Remove Upload"
+                                          aria-label="Remove Upload"
+                                          disabled={isSaving}
+                                        >
+                                          <X className="w-5 h-5 stroke-[2.5]" />
+                                        </button>
+                                      </div>
+
+                                      {status === 'preparing' && (
+                                        <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex flex-col items-center justify-center p-3 text-white text-center">
+                                          <Loader2 className="w-5 h-5 animate-spin mb-1" />
+                                          <span className="text-xs font-bold">Preparing...</span>
+                                        </div>
+                                      )}
+
+                                      {status === 'uploading' && (
+                                        <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] flex flex-col items-center justify-center p-4 text-white">
+                                          <div className="w-full bg-white/30 rounded-full h-2 mb-2 overflow-hidden">
+                                            <div className="bg-primary h-full transition-all duration-300" style={{ width: `${Math.max(10, progress)}%` }} />
+                                          </div>
+                                          <span className="text-xs font-bold">{progress > 0 ? `${progress}% Uploading` : 'Uploading...'}</span>
+                                        </div>
+                                      )}
+
+                                      {status === 'saved' && (
+                                        <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px] flex flex-col items-center justify-center p-2 text-white">
+                                          <span className="bg-[#2E7D32] text-white px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-md">
+                                            <CheckCircle2 className="w-3.5 h-3.5" /> Saved
+                                          </span>
+                                        </div>
+                                      )}
+
+                                      {status === 'failed' && (
+                                        <div className="absolute inset-0 bg-error/80 backdrop-blur-[2px] flex flex-col items-center justify-center p-3 text-white text-center">
+                                          <span className="text-xs font-bold mb-1">Upload Failed</span>
+                                          <span className="text-[10px] mb-2 line-clamp-2">{errorMsg || 'Network error'}</span>
+                                          <button 
+                                            type="button" 
+                                            onClick={() => printUploadQueue.retryFailedPhotos(formData.id)} 
+                                            className="px-3 py-1 bg-white text-error rounded-full text-xs font-bold hover:bg-white/90 shadow-sm"
+                                          >
+                                            Retry
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             )}
                           </div>
                         )}
@@ -2216,8 +3422,13 @@ const FurnitureFormModal = ({ item, categories, printSets, items, onClose, onSav
                  });
               })()}
               
-              {!isMiniCharmItem(formData) && (
-                <div className="flex justify-center mt-6">
+              {!isNailCharmItem(formData) && (
+                <div className="flex justify-center mt-6 gap-3">
+                   {!(formData.images.some(img => img.type === 'inspiration') || pendingUploads.some(p => p.type === 'inspiration') || showInspirationSlot) && (
+                     <button type="button" onClick={() => setShowInspirationSlot(true)} className="px-6 py-3 rounded-full bg-surface-container-high hover:bg-surface-variant font-bold text-sm text-on-surface flex items-center gap-2 shadow-sm transition-colors">
+                        <Plus className="w-4 h-4" /> Add Reference Photo
+                     </button>
+                   )}
                    <button type="button" onClick={addExtraSlot} className="px-6 py-3 rounded-full bg-surface-container-high hover:bg-surface-variant font-bold text-sm text-on-surface flex items-center gap-2 shadow-sm transition-colors">
                       <Plus className="w-4 h-4" /> Add More Photos
                    </button>
@@ -2256,6 +3467,40 @@ const FurnitureFormModal = ({ item, categories, printSets, items, onClose, onSav
             {isSaving ? 'Saving...' : saveSuccess ? 'Saved' : (saveError ? 'Retry Save' : 'Save Print Design')}
           </button>
         </div>
+        {cropEditingPhoto && (
+          <ImageCropModal
+            isOpen={!!cropEditingPhoto}
+            onClose={() => setCropEditingPhoto(null)}
+            imageUrl={cropEditingPhoto.url}
+            storagePath={cropEditingPhoto.storagePath}
+            driveFileId={cropEditingPhoto.driveFileId}
+            thumbDriveFileId={cropEditingPhoto.thumbDriveFileId}
+            title={cropEditingPhoto.title || 'Photo Crop'}
+            initialCrop={cropEditingPhoto.crop}
+            onSaveCrop={(newCrop) => {
+              if (cropEditingPhoto.isPending) {
+                setPendingUploads(prev => prev.map(p => p.id === cropEditingPhoto.id ? { ...p, crop: newCrop } : p));
+              } else {
+                setFormData(prev => ({
+                  ...prev,
+                  images: prev.images.map(img => img.id === cropEditingPhoto.id ? { ...img, crop: newCrop } : img)
+                }));
+              }
+              setCropEditingPhoto(null);
+            }}
+          />
+        )}
+        
+        {sharedPickerConfig?.isOpen && (
+          <SharedDriveImagePicker
+            folderId={sharedPickerConfig.folderId}
+            title={sharedPickerConfig.title}
+            uploadSection={sharedPickerConfig.uploadSection}
+            onClose={() => setSharedPickerConfig(null)}
+            onSelect={sharedPickerConfig.onSelect}
+          />
+        )}
+        
       </div>
     </div>
   );
@@ -2302,7 +3547,7 @@ const CategoryManagerModal = ({ categories, onClose, onSave }: { categories: str
               <div key={cat} className="flex justify-between items-center px-4 py-2 bg-surface-variant/20 rounded-lg border border-outline-variant/20">
                 <span className="font-medium text-on-surface text-sm">{cat}</span>
                 <button onClick={() => handleRemove(cat)} className="text-on-surface-variant hover:text-error p-1 rounded-md transition-colors">
-                  <Trash2 className="w-4 h-4" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             ))}
