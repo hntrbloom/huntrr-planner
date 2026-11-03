@@ -80,7 +80,7 @@ Google Drive uploads, folder access, Sheets imports and OAuth require real user 
 
 ## Deploy the complete Express website
 
-Static-only hosting is insufficient: imports and Drive/Sheets proxies use Express API routes. `vercel.json` deploys `api/index.ts` as the Express handler and `dist` assets on the same origin. `api/index.ts` loads the built `dist/app.cjs` Express backend and never starts a listening port. The build resolves internal TypeScript imports and embeds the original public Firebase configuration into that backend bundle; private credentials remain runtime environment variables. Existing Vite/React/Firebase architecture is retained.
+Static-only hosting is insufficient: imports and Drive/Sheets proxies use Express API routes. `vercel.json` deploys `api/index.ts` as the Express handler and `dist` assets on the same origin. `api/index.ts` loads the built `dist/app.cjs` Express backend and never starts a listening port. The build resolves internal TypeScript imports, bundles Firebase Admin and its ESM dependencies for Vercel cold starts, and embeds the original public Firebase configuration into that backend bundle; private credentials remain runtime environment variables. Existing Vite/React/Firebase architecture is retained.
 
 1. Push this working branch to the GitHub repository.
 2. In Vercel, create/import **huntrr-organizer**, linked to this repository, using the intended account/team and Node 24. Use Framework **Other**, install `npm ci`, build `npm run build`, output `dist` (also declared in `vercel.json`). Deploy the working branch as a **preview**, not a promotion to the live production domain.
