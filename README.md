@@ -4,7 +4,7 @@ A pink stationery workspace for everyday planning and creative work. Built on th
 
 ## Start locally
 
-Use Node 22.12+ (Node 24 recommended) and npm. `package-lock.json` is the maintained lockfile; the older Bun lockfile is retained as history.
+Use Node 24 and npm. The Node engine is pinned to 24.x so the deployed function uses the same runtime. `package-lock.json` is the maintained lockfile; the older Bun lockfile is retained as history.
 
 ```sh
 npm ci
@@ -20,6 +20,7 @@ Choose **Continue on this device** for a real local workspace, or **Sign in with
 npm test       # isolated IndexedDB CRUD, queries, subscriptions, transactions, URL safety
 npm run lint  # existing TypeScript check (tsc --noEmit)
 npm run build # Vite frontend plus bundled Express production entry
+npm run verify:vercel # test the built Vercel function entry under plain Node 24
 npm start     # production Express server; no Vite development server
 ```
 
@@ -79,7 +80,7 @@ Google Drive uploads, folder access, Sheets imports and OAuth require real user 
 
 ## Deploy the complete Express website
 
-Static-only hosting is insufficient: imports and Drive/Sheets proxies use Express API routes. `vercel.json` deploys `api/index.ts` as the Express handler and `dist` assets on the same origin. `api/index.ts` never starts a listening port. Existing Vite/React/Firebase architecture is retained.
+Static-only hosting is insufficient: imports and Drive/Sheets proxies use Express API routes. `vercel.json` deploys `api/index.ts` as the Express handler and `dist` assets on the same origin. `api/index.ts` loads the built `dist/app.cjs` Express backend and never starts a listening port. The build resolves internal TypeScript imports and embeds the original public Firebase configuration into that backend bundle; private credentials remain runtime environment variables. Existing Vite/React/Firebase architecture is retained.
 
 1. Push this working branch to the GitHub repository.
 2. In Vercel, create/import **huntrr-organizer**, linked to this repository, using the intended account/team and Node 24. Use Framework **Other**, install `npm ci`, build `npm run build`, output `dist` (also declared in `vercel.json`). Deploy the working branch as a **preview**, not a promotion to the live production domain.

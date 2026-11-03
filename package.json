@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx server.dev.ts",
-    "build": "vite build && esbuild server.main.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "build": "vite build && esbuild server.main.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --outfile=dist/app.cjs",
     "start": "node --env-file-if-exists=.env --env-file-if-exists=.env.local dist/server.cjs",
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
     "lint": "tsc --noEmit",
     "test": "tsx --test tests/workspace.test.ts",
-    "verify:production": "node scripts/verify-production.mjs"
+    "verify:production": "node scripts/verify-production.mjs",
+    "verify:vercel": "esbuild api/index.ts --platform=node --format=esm --packages=external --outfile=work/vercel-entry.mjs && node scripts/verify-vercel-entry.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -68,6 +69,6 @@
     "puppeteer": "^25.11.0"
   },
   "engines": {
-    "node": ">=22.12.0"
+    "node": "24.x"
   }
 }
