@@ -1,8 +1,8 @@
 import { DialogAccessibility } from './components/DialogAccessibility';
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Heart, House, NotebookPen, Settings, ChevronRight } from 'lucide-react';
-import { PlannerBow } from './components/PlannerDecor';
-import { BottomNav, Sidebar } from './components/Navigation';
+import { CatPlannerHeader } from './components/CatPlannerHeader';
+import { Sidebar } from './components/Navigation';
 import { ViewState } from './types';
 import { db } from './lib/firebase';
 import { doc, onSnapshot } from './lib/workspaceStore';
@@ -141,12 +141,15 @@ export default function App() {
 
   return (
     <div data-local-workspace={user?.isAnonymous || isLocalUser(user) ? 'true' : undefined} className="app-container planner-world text-on-surface font-body-md antialiased selection:bg-primary-container selection:text-on-primary-container">
-      {(user?.isAnonymous || isLocalUser(user)) && (
-        <div className="workspace-ribbon">
-          <span>{isLocalUser(user) ? 'Local workspace · saved on this device' : 'Guest preview · temporary changes'}</span>
-          <button onClick={logOut} className="underline underline-offset-4">Switch workspace</button>
-        </div>
-      )}
+      <CatPlannerHeader
+        currentView={currentView}
+        onChangeView={handleViewChange}
+        menuOpen={isSidebarOpen}
+        onOpenMenu={() => setIsSidebarOpen(true)}
+        workspaceLabel={isLocalUser(user) ? 'Saved on this device' : user?.isAnonymous ? 'Guest preview · temporary changes' : 'Your private workspace'}
+        canSwitchWorkspace={Boolean(user?.isAnonymous || isLocalUser(user))}
+        onSwitchWorkspace={logOut}
+      />
       <StorageNotice />
       <DialogAccessibility />
       <FocusTimer />
@@ -161,13 +164,7 @@ export default function App() {
       
       <a className="planner-skip-link" href="#planner-content" onClick={event => { event.preventDefault(); document.getElementById('planner-content')?.focus(); }}>Skip to planner page</a>
       <div className="planner-device">
-        <header className="device-top">
-          <button className="device-brand" onClick={() => handleViewChange('agenda')} aria-label="huntrr.organizer home"><Heart size={18} aria-hidden="true" /><span>huntrr.organizer</span></button>
-          <span className="device-edition">POCKET PLANNER <span aria-hidden="true">✦</span> EVERYDAY EDITION</span>
-          <PlannerBow className="device-bow" />
-        </header>
         <div className="planner-screen">
-          <BottomNav currentView={currentView} onChangeView={handleViewChange} isOpen={isSidebarOpen} onOpen={() => setIsSidebarOpen(true)} />
           <div id="planner-content" tabIndex={-1} data-page={currentView} className="planner-page">
         <ErrorBoundary key={currentView}>
           <Suspense fallback={<div role="status" className="p-10 text-on-surface-variant">Loading your space…</div>}>{renderView()}</Suspense>
