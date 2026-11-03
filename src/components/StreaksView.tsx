@@ -11,7 +11,7 @@ import { Habit, calculateStreaks } from './HabitsView';
 import { GUEST_SAMPLE_MOODS } from '../lib/guestSampleData';
 import { calculateTotalHours } from './MonthlyView';
 
-const MED_COLORS = ['#FF6B9E', '#6B9EFF', '#6BFF9E', '#FFB36B', '#A86BFF', '#FF6B6B'];
+const MED_COLORS = ['var(--pink-deep)', 'var(--pink-medium)', 'var(--black-charcoal)', 'var(--pink-berry)', 'var(--black-near)', 'var(--black-dark-gray)'];
 
 export function StreaksView({ embedded = false }: { embedded?: boolean } = {}) {
   const { user } = useAuth();
@@ -163,7 +163,7 @@ export function StreaksView({ embedded = false }: { embedded?: boolean } = {}) {
               time: 12, // Plot in middle of day with special shape
               timeStr: 'Missed',
               habitName: habit.name,
-              color: '#d1d5db',
+              color: 'var(--black-dark-gray)',
               isMissed: true
            });
         }
@@ -276,12 +276,12 @@ export function StreaksView({ embedded = false }: { embedded?: boolean } = {}) {
     if (isMissed) {
        return (
          <g transform={`translate(${cx},${cy})`}>
-           <line x1="-5" y1="-5" x2="5" y2="5" stroke="#ef4444" strokeWidth="2" />
-           <line x1="-5" y1="5" x2="5" y2="-5" stroke="#ef4444" strokeWidth="2" />
+           <line x1="-5" y1="-5" x2="5" y2="5" stroke="var(--pink-deep)" strokeWidth="2" />
+           <line x1="-5" y1="5" x2="5" y2="-5" stroke="var(--pink-deep)" strokeWidth="2" />
          </g>
        );
     }
-    return <circle cx={cx} cy={cy} r={6} fill={fill} stroke="#fff" strokeWidth={2} />;
+    return <circle cx={cx} cy={cy} r={6} fill={fill} stroke="var(--white)" strokeWidth={2} />;
   };
 
   const CustomTooltip = ({ active, payload }: any) => {
@@ -403,7 +403,7 @@ export function StreaksView({ embedded = false }: { embedded?: boolean } = {}) {
                 formatter={(value: any) => [`${value} hrs`, 'Work']}
                 labelFormatter={(label) => workChartData.find(d => d.dayName === label)?.dateStr || label}
               />
-              <Bar dataKey="hours" fill="#FFB36B" radius={[4, 4, 0, 0]} maxBarSize={40} />
+              <Bar dataKey="hours" fill="var(--pink-medium)" radius={[4, 4, 0, 0]} maxBarSize={40} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -454,8 +454,8 @@ export function StreaksView({ embedded = false }: { embedded?: boolean } = {}) {
             ))}
             <div className="flex items-center gap-2 ml-auto">
                <div className="w-3 h-3 relative">
-                 <line x1="0" y1="0" x2="12" y2="12" stroke="#ef4444" strokeWidth="2" />
-                 <line x1="0" y1="12" x2="12" y2="0" stroke="#ef4444" strokeWidth="2" />
+                 <line x1="0" y1="0" x2="12" y2="12" stroke="var(--pink-deep)" strokeWidth="2" />
+                 <line x1="0" y1="12" x2="12" y2="0" stroke="var(--pink-deep)" strokeWidth="2" />
                </div>
                <span className="text-[13px] font-bold text-black/70">Missed</span>
             </div>

@@ -166,7 +166,7 @@ export function ColorSampler({ initialImageUrl, onSave, onCancel }: { initialIma
             onMouseMove={(e) => { if (e.buttons === 1) handleInteract(e); }}
             onTouchStart={handleInteract}
             onTouchMove={handleInteract}
-            style={{ maxHeight: '340px', display: 'flex', justifyContent: 'center', backgroundColor: '#f8f8f8' }}
+            style={{ maxHeight: '340px', display: 'flex', justifyContent: 'center', backgroundColor: "var(--pink-pale)" }}
           >
             <img ref={imageRef} src={photoUrl} alt="Eyedropper reference" className="max-h-[340px] object-contain pointer-events-none" />
             <canvas ref={canvasRef} className="hidden" />

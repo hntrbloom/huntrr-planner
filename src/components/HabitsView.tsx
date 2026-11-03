@@ -115,7 +115,7 @@ function CategoryNotepad({ category, isSelected, onClick, onEdit, bgColor, textC
       onClick={onClick} role="button" tabIndex={0} aria-pressed={isSelected}
       onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onClick(); } }}
       style={{ backgroundColor: bgColor }}
-      className={`group relative shrink-0 min-w-[130px] sm:min-w-[148px] max-w-[200px] h-16 sm:h-16 px-2.5 py-1.5 rounded-sm shadow-sm border-[2px] border-gray-400 flex items-center justify-center cursor-pointer transition-transform hover:-translate-y-1 ${isSelected ? 'ring-2 ring-[#666666] ring-offset-2 scale-105' : ''}`}
+      className={`planner-category-tab group relative shrink-0 min-w-[130px] sm:min-w-[148px] max-w-[200px] h-16 sm:h-16 px-2.5 py-1.5 rounded-sm shadow-sm border-[2px] border-gray-400 flex items-center justify-center cursor-pointer transition-transform hover:-translate-y-1 ${isSelected ? 'ring-2 ring-[#666666] ring-offset-2 scale-105' : ''}`}
     >
       <div className="absolute -top-3 right-4 w-3 h-7 border-[2px] border-gray-400 rounded-full bg-transparent rotate-[15deg] shadow-[1px_1px_1px_rgba(0,0,0,0.1)] z-10 pointer-events-none"></div>
       <div className="absolute top-1 left-1.5 w-1.5 h-1.5 rounded-full bg-black/15 shadow-inner pointer-events-none"></div>
@@ -268,7 +268,7 @@ function SortableHabitItem({ habit, todayStr, viewMode, last7Days, toggleHabit, 
       <div className="absolute -top-3 right-4 w-3 h-7 border-[2px] border-gray-400 rounded-full bg-transparent rotate-[15deg] shadow-[1px_1px_1px_rgba(0,0,0,0.1)] z-10 pointer-events-none"></div>
       
       {/* Header */}
-      <div className="px-4 py-4 border-b-[2px] border-black/5 flex items-start gap-3 transition-colors" style={{ backgroundColor: isCompletedToday ? '#f3f4f6' : (categoryColor?.bg || '#FFF0F4') }}>
+      <div className="px-4 py-4 border-b-[2px] border-black/5 flex items-start gap-3 transition-colors" style={{ backgroundColor: isCompletedToday ? 'var(--pink-blush)' : (categoryColor?.bg || 'var(--pink-pale)') }}>
         <div {...attributes} {...listeners} className="cursor-grab pt-1 text-black/30 hover:text-black/60 touch-none">
            <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M4 6h2v2H4zm0 6h2v-2H4zm6-8H8v2h2zm0 6H8v-2h2z"/></svg>
         </div>

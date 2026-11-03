@@ -18,12 +18,11 @@ interface Note {
 }
 
 const NOTE_COLORS = [
-  { id: 'default', value: 'bg-surface' },
-  { id: 'yellow', value: 'bg-[#fef3c7]' },
-  { id: 'green', value: 'bg-[#dcfce7]' },
-  { id: 'blue', value: 'bg-[#dbeafe]' },
-  { id: 'pink', value: 'bg-[#fce7f3]' },
-  { id: 'purple', value: 'bg-[#f3e8ff]' },
+  { id: 'blush', value: 'bg-surface' },
+  { id: 'white', value: 'bg-white' },
+  { id: 'pale pink', value: 'bg-primary-container' },
+  { id: 'soft pink', value: 'bg-pink-200' },
+  { id: 'light gray', value: 'bg-gray-200' },
 ];
 
 export function NotesView() {
@@ -236,7 +235,7 @@ export function NotesView() {
               <div 
                 className="flex-1 w-full pt-8 pb-12 pr-3 sm:pr-8 flex flex-col relative"
                 style={{
-                  backgroundImage: 'repeating-linear-gradient(transparent, transparent 31px, rgba(185, 165, 215, 0.25) 31px, rgba(185, 165, 215, 0.25) 32px)',
+                  backgroundImage: 'repeating-linear-gradient(transparent, transparent 31px, color-mix(in srgb, var(--pink-soft) 40%, transparent) 31px, color-mix(in srgb, var(--pink-soft) 40%, transparent) 32px)',
                   backgroundSize: '100% 32px',
                   backgroundPosition: '0 0'
                 }}

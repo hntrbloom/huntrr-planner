@@ -33,7 +33,7 @@ interface TaskItem {
 }
 
 
-const PAD_COLORS = ['#fef3c7', '#dcfce7', '#dbeafe', '#fce7f3', '#f3e8ff'];
+const PAD_COLORS = ['#FCE4EF', '#FFF5F9', '#FFFFFF', '#F4A7C7', '#E8E3E7'];
 
 interface TaskNotepadProps {
   categoryId: string;
@@ -114,7 +114,7 @@ function FullCategoryNotepad({ categoryId, categoryName, color, activeItems, don
           <div className="mt-2 flex items-center h-[48px] w-full">
             <div
               className="inline-flex items-center h-full gap-2 px-3 rounded-xl transition-colors w-full"
-              style={{ backgroundColor: 'rgba(255, 240, 244, 0.35)', border: '1px solid rgba(255, 184, 205, 0.35)', boxShadow: '0 3px 10px rgba(255, 184, 205, 0.25)' }}
+              style={{ backgroundColor: 'var(--pink-blush)', border: '1px solid var(--black-light-gray)', boxShadow: '0 3px 10px color-mix(in srgb, var(--black-near) 5%, transparent)' }}
             >
               <button
                 type="button"
@@ -161,11 +161,12 @@ function SortableCategoryNotepad({ id, categoryName, isSelected, onClick, bgColo
   return (
     <div
       ref={setNodeRef} style={{ ...style, backgroundColor: bgColor }} {...attributes} {...listeners} onClick={onClick}
+      aria-pressed={isSelected}
       onKeyDown={event => {
         if (event.key === 'Enter' && !isDragging) { event.preventDefault(); onClick(); }
         else listeners?.onKeyDown?.(event);
       }}
-      className={`group relative shrink-0 min-w-[130px] sm:min-w-[148px] max-w-[200px] h-16 sm:h-16 px-2.5 py-1.5 rounded-sm shadow-sm border-[2px] border-gray-400 flex items-center justify-center cursor-pointer transition-transform hover:-translate-y-1 ${isSelected ? 'ring-2 ring-[#666666] ring-offset-2 scale-105' : ''}`}
+      className={`planner-category-tab group relative shrink-0 min-w-[130px] sm:min-w-[148px] max-w-[200px] h-16 sm:h-16 px-2.5 py-1.5 rounded-sm shadow-sm border-[2px] border-gray-400 flex items-center justify-center cursor-pointer transition-transform hover:-translate-y-1 ${isSelected ? 'ring-2 ring-[#666666] ring-offset-2 scale-105' : ''}`}
     >
       <div className="absolute -top-3 right-4 w-3 h-7 border-[2px] border-gray-400 rounded-full bg-transparent rotate-[15deg] shadow-[1px_1px_1px_rgba(0,0,0,0.1)] z-10 pointer-events-none"></div>
       <div className="absolute top-1 left-1.5 w-1.5 h-1.5 rounded-full bg-black/15 shadow-inner pointer-events-none"></div>

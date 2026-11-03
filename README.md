@@ -10,6 +10,12 @@ Home shows read-only summaries of existing daily task records, scheduled habits 
 
 The reusable visual tokens are in `src/planner.css` (`--planner-pink`, `--planner-blush`, `--planner-paper`, `--planner-lavender`, `--planner-ink`, `--planner-border`). The bow and pocket friend are original inline SVG decorations in `PlannerDecor.tsx`, hidden from screen readers. No decorative dependency or character artwork was added. Focus rings, keyboard navigation, touch controls and reduced-motion preferences are supported. At desktop widths the page scrolls inside the device; on phones it uses normal document scrolling with sticky planner tabs.
 
+### Pink and black colour system
+
+The 12 requested shades are defined once as CSS variables in `src/index.css` (`--pink-deep` through `--pink-blush`, `--black-near` through `--black-light-gray`, and `--white`). Existing Tailwind semantic roles and colour utility scales reference those tokens. `src/planner.css` assigns device, navigation, card, progress, focus and selected-control roles without changing their layout.
+
+`src/theme-utilities.css` maps older arbitrary colour utility classes to these same tokens. Their class names remain valid because existing notes may store them. New UI should use semantic utilities such as `bg-primary`, `bg-surface`, `text-on-surface`, and `border-outline-variant`; avoid new hardcoded colours. Saved artwork, sampled colours, and custom content colour values are retained. Theme changes do not rewrite records. Normal supporting labels use dark gray for contrast; mid gray is reserved for outlines and disabled details.
+
 ## Start locally
 
 Use Node 24 and npm. The Node engine is pinned to 24.x so the deployed function uses the same runtime. `package-lock.json` is the maintained lockfile; the older Bun lockfile is retained as history.

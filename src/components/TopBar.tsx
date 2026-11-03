@@ -16,8 +16,8 @@ export function TopBar({ title = "My Planner", showSearch = false }: TopBarProps
   const { user } = useAuth();
   const [isBgModalOpen, setIsBgModalOpen] = useState(false);
   const [isMedModalOpen, setIsMedModalOpen] = useState(false);
-  const [hexColor, setHexColor] = useState('#FFF0F4');
-  const [pickerColor, setPickerColor] = useState('#FFF0F4');
+  const [hexColor, setHexColor] = useState('#FFF5F9');
+  const [pickerColor, setPickerColor] = useState('#FFF5F9');
   const [hexError, setHexError] = useState('');
 
   useEffect(() => {
@@ -29,8 +29,8 @@ export function TopBar({ title = "My Planner", showSearch = false }: TopBarProps
           setHexColor(bg);
           setPickerColor(bg);
         } else {
-          setHexColor('#FFF0F4');
-          setPickerColor('#FFF0F4');
+          setHexColor('#FFF5F9');
+          setPickerColor('#FFF5F9');
         }
       });
     }
@@ -70,12 +70,12 @@ export function TopBar({ title = "My Planner", showSearch = false }: TopBarProps
   };
 
   const resetColor = async () => {
-    setHexColor('#FFF0F4');
-    setPickerColor('#FFF0F4');
+    setHexColor('#FFF5F9');
+    setPickerColor('#FFF5F9');
     setHexError('');
-    document.body.style.backgroundColor = '#FFF0F4';
+    document.body.style.backgroundColor = '#FFF5F9';
     if (user) {
-      await setDoc(doc(db, `users/${user.uid}/preferences`, 'global'), { backgroundColor: '#FFF0F4' }, { merge: true });
+      await setDoc(doc(db, `users/${user.uid}/preferences`, 'global'), { backgroundColor: '#FFF5F9' }, { merge: true });
     }
     setIsBgModalOpen(false);
   };

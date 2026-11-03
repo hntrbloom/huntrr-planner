@@ -214,8 +214,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   if (isStillLoading) {
     return (
-      <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-[#FFF0F4]">
-        <div className="w-12 h-12 border-4 border-[#FFB8CD] border-t-transparent rounded-full animate-spin mb-4"></div>
+      <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-[#FFF5F9]">
+        <div className="w-12 h-12 border-4 border-[#F4A7C7] border-t-transparent rounded-full animate-spin mb-4"></div>
         <p className="text-[14px] font-bold text-black/50">Loading your space...</p>
       </div>
     );

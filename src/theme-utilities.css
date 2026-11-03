@@ -1,0 +1,214 @@
+@source inline("bg-[#fef3c7] bg-[#dcfce7] bg-[#dbeafe] bg-[#fce7f3] bg-[#f3e8ff]");
+/* Compatibility mappings for the app's existing arbitrary Tailwind colour
+   utilities. Class names are retained because some saved notes contain them.
+   These utilities use the same theme tokens; content images, colour swatches,
+   and persisted custom colour values are never rewritten. */
+@layer utilities {
+  .focus\:ring-\[\#FFB8CD\]\/20:focus,
+  .ring-\[\#FFB8CD\]\/20 { --tw-ring-color: color-mix(in srgb, var(--pink-deep) 20%, transparent); }
+  .ring-\[\#FFB8CD\]\/40 { --tw-ring-color: color-mix(in srgb, var(--pink-deep) 40%, transparent); }
+  .ring-\[\#FFB8CD\]\/50 { --tw-ring-color: color-mix(in srgb, var(--pink-deep) 50%, transparent); }
+  .ring-\[\#666666\] { --tw-ring-color: var(--pink-deep); }
+  .bg-\[\#FF6B9E\]\/20 { background-color: color-mix(in srgb, var(--pink-deep) 20%, transparent); }
+  .bg-\[\#FFB8CD\]\/20 { background-color: color-mix(in srgb, var(--pink-pale) 20%, transparent); }
+  .bg-\[\#FFB8CD\]\/25 { background-color: color-mix(in srgb, var(--pink-pale) 25%, transparent); }
+  .bg-\[\#FFB8CD\]\/30 { background-color: color-mix(in srgb, var(--pink-pale) 30%, transparent); }
+  .bg-\[\#FFF0F4\]\/40 { background-color: color-mix(in srgb, var(--pink-pale) 40%, transparent); }
+  .bg-\[\#FFB8CD\]\/50,
+  .bg-\[\#FFF0F4\]\/50 { background-color: color-mix(in srgb, var(--pink-pale) 50%, transparent); }
+  .bg-\[\#FFF0F4\]\/60 { background-color: color-mix(in srgb, var(--pink-pale) 60%, transparent); }
+  .bg-\[\#FFF0F6\]\/85 { background-color: color-mix(in srgb, var(--pink-pale) 85%, transparent); }
+  .bg-\[\#444444\] { background-color: var(--black-charcoal); }
+  .bg-\[\#1C1B1F\],
+  .bg-\[\#222222\],
+  .bg-\[\#252429\] { background-color: var(--black-near); }
+  .bg-\[\#F2F8FF\],
+  .bg-\[\#FFF5F9\],
+  .bg-\[\#fbf9fb\] { background-color: var(--pink-blush); }
+  .bg-\[\#2E7D32\],
+  .bg-\[\#7e5265\],
+  .bg-\[\#FF6B9E\] { background-color: var(--pink-deep); }
+  .bg-\[\#C7FFF5\],
+  .bg-\[\#DCEEFF\],
+  .bg-\[\#E7F3F4\],
+  .bg-\[\#E8F5E9\],
+  .bg-\[\#F3E5F5\],
+  .bg-\[\#F5F5F5\],
+  .bg-\[\#F6E7EF\],
+  .bg-\[\#FF85A2\],
+  .bg-\[\#FFB8CD\],
+  .bg-\[\#FFE4ED\],
+  .bg-\[\#FFF0F4\],
+  .bg-\[\#FFF0F6\],
+  .bg-\[\#FFF2F6\],
+  .bg-\[\#dbeafe\],
+  .bg-\[\#dcfce7\],
+  .bg-\[\#ece4eb\],
+  .bg-\[\#f1edf0\],
+  .bg-\[\#f3e8ff\],
+  .bg-\[\#f4a2b8\],
+  .bg-\[\#f5f5f5\],
+  .bg-\[\#f8f4f7\],
+  .bg-\[\#faf2f7\],
+  .bg-\[\#fbcfe8\],
+  .bg-\[\#fce7f3\],
+  .bg-\[\#fef3c7\] { background-color: var(--pink-pale); }
+  .bg-\[\#fdfbfd\] { background-color: var(--white); }
+  .border-\[\#FF85A2\]\/20,
+  .border-\[\#FFB8CD\]\/20 { border-color: color-mix(in srgb, var(--black-light-gray) 20%, transparent); }
+  .border-\[\#FF85A2\]\/30,
+  .border-\[\#FFB8CD\]\/30 { border-color: color-mix(in srgb, var(--black-light-gray) 30%, transparent); }
+  .border-\[\#A5D6A7\]\/40,
+  .border-\[\#FFB8CD\]\/40 { border-color: color-mix(in srgb, var(--black-light-gray) 40%, transparent); }
+  .border-\[\#A5D6A7\]\/50,
+  .border-\[\#FFB8CD\]\/50,
+  .border-\[\#fbcfe8\]\/50 { border-color: color-mix(in srgb, var(--black-light-gray) 50%, transparent); }
+  .border-\[\#A5D6A7\]\/60,
+  .border-\[\#FFB8CD\]\/60,
+  .border-\[\#fbcfe8\]\/60 { border-color: color-mix(in srgb, var(--black-light-gray) 60%, transparent); }
+  .border-\[\#7e5265\],
+  .border-\[\#93C5FD\],
+  .border-\[\#B9DCFE\],
+  .border-\[\#C7FFF5\],
+  .border-\[\#C8E6C9\],
+  .border-\[\#D1C4E9\],
+  .border-\[\#F4A7C7\],
+  .border-\[\#FBCFE8\],
+  .border-\[\#FF6B9E\],
+  .border-\[\#FFB8CD\],
+  .border-\[\#FFCDDC\],
+  .border-\[\#ded5db\],
+  .border-\[\#e5e1e4\],
+  .border-\[\#e7e1e5\],
+  .border-\[\#e8e2e6\],
+  .border-\[\#ece4eb\],
+  .border-\[\#f0e2ec\],
+  .border-\[\#f2edf1\],
+  .border-\[\#fbcfe8\],
+  .focus\:border-\[\#6f5482\]:focus,
+  .focus\:border-\[\#7e5265\]:focus,
+  .focus\:border-\[\#FFB8CD\]:focus { border-color: var(--black-light-gray); }
+  .text-\[\#034A75\],
+  .text-\[\#1B5E20\],
+  .text-\[\#245A56\],
+  .text-\[\#2E7D32\],
+  .text-\[\#4285F4\],
+  .text-\[\#444444\],
+  .text-\[\#555555\],
+  .text-\[\#666666\],
+  .text-\[\#6f5482\],
+  .text-\[\#777777\],
+  .text-\[\#7D6190\],
+  .text-\[\#888888\],
+  .text-\[\#999999\],
+  .text-\[\#F8DA78\],
+  .text-\[\#cccccc\] { color: var(--black-dark-gray); }
+  .text-\[\#111111\],
+  .text-\[\#1c1b1d\],
+  .text-\[\#222222\],
+  .text-\[\#333333\] { color: var(--black-near); }
+  .text-\[\#4b2335\],
+  .text-\[\#4b3440\],
+  .text-\[\#5A3540\],
+  .text-\[\#7e5265\],
+  .text-\[\#831843\],
+  .text-\[\#8a3f5d\],
+  .text-\[\#B8860B\],
+  .text-\[\#FF6B9E\],
+  .text-\[\#FF85A2\],
+  .text-\[\#FFB8CD\],
+  .text-\[\#FFB8CD\]\/50 { color: var(--pink-deep); }
+  @media (hover: hover) {
+  .hover\:bg-\[\#FF6B9E\]\/90:hover { background-color: color-mix(in srgb, var(--pink-deep) 90%, transparent); }
+  }
+  @media (hover: hover) {
+  .hover\:bg-\[\#FFB8CD\]\/20:hover { background-color: color-mix(in srgb, var(--pink-pale) 20%, transparent); }
+  }
+  @media (hover: hover) {
+  .hover\:bg-\[\#FFB8CD\]\/30:hover,
+  .hover\:bg-\[\#FFF0F4\]\/30:hover { background-color: color-mix(in srgb, var(--pink-pale) 30%, transparent); }
+  }
+  @media (hover: hover) {
+  .hover\:bg-\[\#FFF0F6\]\/80:hover { background-color: color-mix(in srgb, var(--pink-pale) 80%, transparent); }
+  }
+  @media (hover: hover) {
+  .hover\:bg-\[\#FFB8CD\]\/90:hover { background-color: color-mix(in srgb, var(--pink-pale) 90%, transparent); }
+  }
+  @media (hover: hover) {
+  .hover\:bg-\[\#333333\]:hover,
+  .hover\:bg-\[\#604b5b\]:hover { background-color: var(--black-charcoal); }
+  }
+  @media (hover: hover) {
+  .hover\:bg-\[\#6c4355\]:hover,
+  .hover\:bg-\[\#FF7396\]:hover { background-color: var(--pink-deep); }
+  }
+  @media (hover: hover) {
+  .disabled\:hover\:bg-\[\#FFB8CD\]:disabled:hover,
+  .disabled\:hover\:bg-\[\#FFF0F4\]:disabled:hover,
+  .hover\:bg-\[\#C8E6C9\]:hover,
+  .hover\:bg-\[\#E1BEE7\]:hover,
+  .hover\:bg-\[\#FF85A2\]:hover,
+  .hover\:bg-\[\#FFF0F4\]:hover,
+  .hover\:bg-\[\#FFF0F6\]:hover,
+  .hover\:bg-\[\#f8f4f7\]:hover { background-color: var(--pink-pale); }
+  }
+  @media (hover: hover) {
+  .hover\:border-\[\#FFB8CD\]\/30:hover { border-color: color-mix(in srgb, var(--black-light-gray) 30%, transparent); }
+  }
+  @media (hover: hover) {
+  .hover\:border-\[\#FFB8CD\]\/50:hover { border-color: color-mix(in srgb, var(--black-light-gray) 50%, transparent); }
+  }
+  @media (hover: hover) {
+  .hover\:border-\[\#60A5FA\]:hover,
+  .hover\:border-\[\#7e5265\]:hover,
+  .hover\:border-\[\#F472B6\]:hover { border-color: var(--black-light-gray); }
+  }
+  @media (hover: hover) {
+  .disabled\:hover\:text-\[\#7D6190\]:disabled:hover,
+  .hover\:text-\[\#444444\]:hover,
+  .hover\:text-\[\#563c68\]:hover { color: var(--black-dark-gray); }
+  }
+  @media (hover: hover) {
+  .hover\:text-\[\#111111\]:hover,
+  .hover\:text-\[\#222222\]:hover { color: var(--black-near); }
+  }
+  @media (hover: hover) {
+  .hover\:text-\[\#523e4d\]:hover,
+  .hover\:text-\[\#7e5265\]:hover,
+  .hover\:text-\[\#8a3f5d\]\/80:hover,
+  .hover\:text-\[\#FF6B9E\]:hover { color: var(--pink-deep); }
+  }
+  .text-black\/10,
+  .text-black\/20,
+  .text-black\/30,
+  .text-black\/40,
+  .text-black\/50,
+  .text-black\/60,
+  .text-black\/70,
+  .text-on-surface-variant\/30,
+  .text-on-surface-variant\/40,
+  .text-on-surface-variant\/50,
+  .text-on-surface-variant\/60,
+  .text-on-surface-variant\/70 { color: var(--black-dark-gray); }
+  .text-amber-200,
+  .text-amber-400,
+  .text-amber-500,
+  .text-blue-400,
+  .text-cyan-300,
+  .text-cyan-400,
+  .text-emerald-300,
+  .text-emerald-400,
+  .text-emerald-500,
+  .text-green-500,
+  .text-indigo-300,
+  .text-indigo-400,
+  .text-indigo-500,
+  .text-pink-300,
+  .text-pink-400,
+  .text-pink-500,
+  .text-red-400,
+  .text-red-500,
+  .text-rose-300,
+  .text-rose-400,
+  .text-rose-500 { color: var(--pink-deep); }
+}

@@ -61,14 +61,14 @@ export const ReceiptCard: React.FC<ReceiptCardProps> = ({
       ref={receiptRef as any}
       className="receipt-print-content receipt-card w-[430px] min-w-[430px] max-w-[430px] bg-white rounded-[18px] p-2.5 sm:p-3 shadow-none relative mx-auto text-[#1c1b1d]"
       style={{
-        backgroundColor: '#ffffff',
-        color: '#1c1b1d',
+        backgroundColor: "var(--white)",
+        color: "var(--black-near)",
         fontFamily: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
       }}
     >
       <div 
         className="rounded-2xl relative bg-white"
-        style={{ border: '1.5px solid #e5e5e5', borderRadius: '15px', position: 'relative', backgroundColor: '#ffffff' }}
+        style={{ border: "1.5px solid var(--black-light-gray)", borderRadius: '15px', position: 'relative', backgroundColor: "var(--white)" }}
       >
         <div 
           className="absolute inset-0 pointer-events-none z-0"
@@ -210,7 +210,7 @@ export const ReceiptCard: React.FC<ReceiptCardProps> = ({
               {numDiscount > 0 && (
                 <div className="flex justify-between items-center">
                   <span className="text-[#444444] bg-[#F6E7EF] px-1.5 py-0.5 rounded-md font-bold text-[12px]">Discount:</span>
-                  <span className="font-bold text-[14px]" style={{ color: '#db2777' }}>-{formatUSD(numDiscount)}</span>
+                  <span className="font-bold text-[14px]" style={{ color: "var(--pink-deep)" }}>-{formatUSD(numDiscount)}</span>
                 </div>
               )}
               <div className="flex justify-between items-center pt-1">

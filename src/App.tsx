@@ -42,7 +42,7 @@ export default function App() {
       if (snap.exists() && snap.data().backgroundColor) {
         document.body.style.backgroundColor = snap.data().backgroundColor;
       } else {
-        document.body.style.backgroundColor = '#FFF0F4';
+        document.body.style.backgroundColor = '#FFF5F9';
       }
     }, (err) => console.error("Global pref fetch error:", err));
     return () => unsub();

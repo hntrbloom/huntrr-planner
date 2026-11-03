@@ -150,14 +150,14 @@ export function AppointmentFormModal({ initialData, defaultDate, onSave, onCance
                 return (
                   <button
                     key={preset.name}
-                    type="button"
+                    type="button" aria-pressed={isSelected}
                     onClick={() => {
                       setIsCustomCategory(false);
                       setFormData({ ...formData, category: preset.name });
                     }}
                     className={`px-3 py-1.5 rounded-full text-[12px] font-bold transition-all border ${
                       isSelected
-                        ? `${preset.bg} ${preset.text} ${preset.border} ring-2 ring-primary/40 scale-105 shadow-sm`
+                        ? 'bg-primary text-on-primary border-primary ring-2 ring-primary/40 scale-105 shadow-sm'
                         : 'bg-surface-container-low text-on-surface-variant border-transparent hover:bg-surface-container'
                     }`}
                   >
