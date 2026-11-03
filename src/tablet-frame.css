@@ -90,6 +90,7 @@
   .device-meta { grid-column: 1 / -1; grid-row: 2; justify-content: space-between; }
 }
 @media print {
+  .app-container.planner-world { padding: 0; }
   .planner-world .planner-device, .planner-bezel, .planner-screen, .planner-page {
     height: auto; min-height: 0; max-height: none; padding: 0; border: 0; border-radius: 0;
     box-shadow: none; background: white; overflow: visible;
