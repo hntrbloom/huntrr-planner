@@ -1,5 +1,6 @@
+import { LOCAL_USER_ID } from './workspaceMode';
 import { db } from './firebase';
-import { doc, runTransaction, updateDoc } from 'firebase/firestore';
+import { doc, runTransaction, runLocalTransaction, updateDoc } from './workspaceStore';
 import { uploadImageToService } from './imageService';
 import { processAndCompressImage } from './imageProcessor';
 import { sanitizeFirestorePayload } from './firestoreUtils';
@@ -236,7 +237,7 @@ class PrintUploadQueueManager {
       // Step 3: Update Firestore record with permanent metadata (never temporary blob URLs!)
       if (userId && userId !== 'guest') {
         try {
-          await runTransaction(db, async (transaction) => {
+          await (userId === LOCAL_USER_ID ? runLocalTransaction : runTransaction)(db, async (transaction) => {
             const docRef = doc(db, `users/${userId}/miniFurniture`, printId);
             const sfDoc = await transaction.get(docRef);
             if (!sfDoc.exists()) return;

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2, Pencil, Check, RefreshCw } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { getGrayscalePalette } from '../lib/colors';
-import { doc, setDoc, collection, query, orderBy } from 'firebase/firestore';
+import { doc, setDoc, collection, query, orderBy } from '../lib/workspaceStore';
 import { useAuth } from '../lib/AuthContext';
 import { SyncStatus } from './SyncStatus';
 import { FocusSession } from './FocusTimer';
@@ -540,86 +540,11 @@ export function HabitsView() {
 
         if (hasData) {
           
-          // 1. Deduplicate existing categories by name
-          let uniqueCats: {id: string, name: string}[] = [];
-          const catMap: Record<string, string> = {};
-          
-          loadedCategories.forEach((cat: any) => {
-             const nameLower = (cat.name || '').toLowerCase().trim();
-             const existing = uniqueCats.find(c => (c.name || '').toLowerCase().trim() === nameLower);
-             if (existing) {
-                catMap[cat.id] = existing.id;
-             } else {
-                uniqueCats.push(cat);
-                catMap[cat.id] = cat.id;
-             }
-          });
-          
-          // 2. Ensure all habits have a valid category ID, creating new categories if they only had a string name
-          let changed = false;
-          loadedHabits = loadedHabits.map((h: any) => {
-             let newCat = h.category;
-             
-             // If this habit's category matches an old duplicate ID, update it
-             if (catMap[h.category] && catMap[h.category] !== h.category) {
-                newCat = catMap[h.category];
-                changed = true;
-             } 
-             // If the category is not found by ID in uniqueCats, it might be a raw string name
-             else if (!uniqueCats.find(c => c.id === h.category)) {
-                // Check if a category with this name exists
-                const nameLower = (h.category || 'Uncategorized').toLowerCase().trim();
-                const existingByName = uniqueCats.find(c => (c.name || '').toLowerCase().trim() === nameLower);
-                if (existingByName) {
-                   newCat = existingByName.id;
-                } else {
-                   // Create a new category for this string
-                   const newId = Date.now().toString() + Math.random().toString(36).substring(2, 6);
-                   const newCategory = { id: newId, name: h.category || 'Uncategorized' };
-                   uniqueCats.push(newCategory);
-                   newCat = newId;
-                }
-                changed = true;
-             }
-             return { ...h, category: newCat };
-          });
-          
-          // 3. Filter out any categories that have NO habits, to satisfy "only categories I've added, with habits in each category"
-          // We will only do this if it actually cleans up empty duplicates or orphaned categories.
-          const catsWithHabits = uniqueCats.filter(c => loadedHabits.some((h: any) => h.category === c.id));
-          if (catsWithHabits.length !== uniqueCats.length) {
-             uniqueCats = catsWithHabits;
-             changed = true;
-          }
-
           setHabits(loadedHabits);
-          setCategories(uniqueCats);
-          
-          setCategories((prevCats) => {
-             // Use functional state update to safely access the current selectedCategoryId
-             // Or actually we can't do that here since we need to update selectedCategoryId, not categories again.
-             // We'll just leave categories as uniqueCats.
-             return uniqueCats;
-          });
-          
-          setSelectedCategoryId((prev) => {
-             const stillExists = uniqueCats.find(c => c.id === prev);
-             if (stillExists) return prev;
-             // If the old selected ID was a duplicate that got removed, try to find the new mapped ID
-             if (catMap[prev]) {
-                const mappedExists = uniqueCats.find(c => c.id === catMap[prev]);
-                if (mappedExists) return catMap[prev];
-             }
-             return uniqueCats.length > 0 ? uniqueCats[0].id : '';
-          });
-
-          // Auto-save the fixed data back if it was modified
-          if (changed || uniqueCats.length !== loadedCategories.length) {
-             setDoc(docRef, { habits: loadedHabits, categories: uniqueCats }, { merge: true }).catch(console.error);
-          }
+          setCategories(loadedCategories);
+          setSelectedCategoryId(previous => loadedCategories.some((c: any) => c.id === previous) ? previous : loadedCategories[0]?.id || '');
         } else {
           // Initialize
-          await setDoc(docRef, { habits: [], categories: [] });
           setHabits(defaultHabits);
         }
       } catch (err: any) { setLoadError(err.message || 'Failed to load data.'); 
@@ -1033,7 +958,7 @@ export function HabitsView() {
       </div>
 
       {showCategoryManager && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div role="dialog" aria-modal="true" aria-label="Habits dialog" tabIndex={-1} className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-surface-container-lowest rounded-2xl shadow-xl max-w-sm w-full p-6 flex flex-col gap-4 border border-outline-variant/20 max-h-[90vh]">
             <h3 className="text-xl font-bold text-on-surface">
               {editingCategory ? 'Edit Category' : 'Add Category'}

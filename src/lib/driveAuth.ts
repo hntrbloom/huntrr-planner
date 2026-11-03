@@ -1,3 +1,4 @@
+import { LOCAL_SESSION_KEY } from './workspaceMode';
 import { setAccessToken } from './AuthContext';
 
 export interface OAuthDiagnosticInfo {
@@ -44,6 +45,7 @@ export function getLastOAuthDiagnostic(): OAuthDiagnosticInfo {
  *                   If false, attempts silent token request ('prompt: none').
  */
 export function requestFreshDriveToken(promptUser: boolean = false): Promise<string | null> {
+  if (localStorage.getItem(LOCAL_SESSION_KEY) === 'true') return Promise.resolve(null);
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 

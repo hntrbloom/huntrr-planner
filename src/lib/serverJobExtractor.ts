@@ -1,3 +1,4 @@
+import { safeRemoteFetch } from './safeRemote';
 /**
  * Server-side Job Extraction Utilities for Indeed, LinkedIn, Career Portals, and Raw Text
  * Features:
@@ -44,7 +45,7 @@ export interface ExtractedJobData {
 let genAIClient: GoogleGenAI | null = null;
 function getGeminiClient(): GoogleGenAI | null {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey || !process.env.GEMINI_MODEL) return null;
   if (!genAIClient) {
     genAIClient = new GoogleGenAI({
       apiKey,
@@ -167,7 +168,7 @@ ${cleanedText.slice(0, 15000)}
 """`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.7-flash',
+        model: process.env.GEMINI_MODEL!,
         contents: prompt,
         config: {
           responseMimeType: 'application/json',
@@ -376,7 +377,7 @@ async function fetchPageHtmlWithFallbacks(rawTargetUrl: string): Promise<{ html:
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 8000);
 
-      const response = await fetch(targetUrl, {
+      const response = await safeRemoteFetch(targetUrl, {
         headers: headerStrategies[i],
         signal: controller.signal,
         redirect: 'follow',
@@ -400,7 +401,7 @@ async function fetchPageHtmlWithFallbacks(rawTargetUrl: string): Promise<{ html:
           try {
             const redController = new AbortController();
             const redTimeout = setTimeout(() => redController.abort(), 6000);
-            const redRes = await fetch(redirectUrl, {
+            const redRes = await safeRemoteFetch(redirectUrl, {
               headers: headerStrategies[0],
               signal: redController.signal,
               redirect: 'follow'
@@ -433,7 +434,7 @@ async function fetchPageHtmlWithFallbacks(rawTargetUrl: string): Promise<{ html:
 /**
  * Main URL Extraction function
  */
-export async function extractJobDataFromUrl(rawUrl: string): Promise<ExtractedJobData> {
+export async function extractJobDataFromUrl(rawUrl: string, allowAI = false): Promise<ExtractedJobData> {
   const norm = normalizeJobUrl(rawUrl);
   const targetUrl = norm.normalizedUrl || cleanRawUrl(rawUrl);
   const canonicalLink = norm.cleanCanonicalUrl || cleanTrackingParams(targetUrl);
@@ -668,7 +669,7 @@ export async function extractJobDataFromUrl(rawUrl: string): Promise<ExtractedJo
 
   // 3. AI Enrichment with Gemini if key fields are missing or for deep extraction
   const strippedBody = stripHtml(html).slice(0, 12000);
-  const ai = getGeminiClient();
+  const ai = allowAI ? getGeminiClient() : null;
 
   if (ai && (!extractedJob.position || !extractedJob.company || !extractedJob.shortSummary || !extractedJob.salaryMin)) {
     try {

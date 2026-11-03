@@ -8,7 +8,7 @@ import { useGoogleDrivePicker } from '../hooks/useGoogleDrivePicker';
 import { requestFreshDriveToken } from '../lib/driveAuth';
 import { searchOrResolveHuntrrSpaceFolders, getWikiFolderId } from '../lib/driveFolderUtils';
 import { db } from '../lib/firebase';
-import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot } from '../lib/workspaceStore';
 import { useAuth } from '../lib/AuthContext';
 import { SyncStatus } from './SyncStatus';
 import { SmartImage } from './SmartImage';
@@ -94,7 +94,7 @@ export function extractMainColorFromImageDataUrl(dataUrl: string): Promise<strin
 
           // 3. Ignore near-black outlines and deep shadows
           if (r <= 45 && g <= 45 && b <= 45) continue;
-          
+
           // 4. Ignore light grayscale (often used in drop shadows or backgrounds)
           const max = Math.max(r, g, b);
           const min = Math.min(r, g, b);
@@ -159,16 +159,16 @@ export function extractMainColorFromImageDataUrl(dataUrl: string): Promise<strin
                 ctx.save(); ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.drawImage(fallbackImg, 0, 0, canvas.width, canvas.height); ctx.restore();
                 const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
                 URL.revokeObjectURL(blobUrl);
-                
+
                 const buckets: Record<string, { count: number; rawR: number; rawG: number; rawB: number }> = {};
                 for (let i = 0; i < imgData.length; i += 4) {
                   const r = imgData[i], g = imgData[i + 1], b = imgData[i + 2], a = imgData[i + 3];
                   if (a < 180) continue;
-                  if (r >= 230 && g >= 230 && b >= 230) continue; 
+                  if (r >= 230 && g >= 230 && b >= 230) continue;
                   if (r <= 45 && g <= 45 && b <= 45) continue;
                   const max = Math.max(r, g, b);
                   const min = Math.min(r, g, b);
-                  if (max - min < 15 && max > 200) continue; 
+                  if (max - min < 15 && max > 200) continue;
                   const qR = r & 0xf0; const qG = g & 0xf0; const qB = b & 0xf0;
                   const key = `${qR},${qG},${qB}`;
                   if (!buckets[key]) buckets[key] = { count: 0, rawR: r, rawG: g, rawB: b };
@@ -216,27 +216,27 @@ export async function extractPaletteFromImageDataUrl(url: string, numColors = 5)
         if (!ctx) return resolve(null);
         ctx.save(); ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.drawImage(img, 0, 0, canvas.width, canvas.height); ctx.restore();
         const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-        
+
         const buckets: Record<string, { count: number; rawR: number; rawG: number; rawB: number }> = {};
         for (let i = 0; i < imgData.length; i += 4) {
           const r = imgData[i], g = imgData[i + 1], b = imgData[i + 2], a = imgData[i + 3];
           if (a < 180) continue;
-          if (r >= 230 && g >= 230 && b >= 230) continue; 
-          if (r <= 45 && g <= 45 && b <= 45) continue; 
-          
+          if (r >= 230 && g >= 230 && b >= 230) continue;
+          if (r <= 45 && g <= 45 && b <= 45) continue;
+
           const max = Math.max(r, g, b);
           const min = Math.min(r, g, b);
-          if (max - min < 15 && max > 200) continue; 
-          
+          if (max - min < 15 && max > 200) continue;
+
           const qR = Math.floor(r / 32) * 32;
           const qG = Math.floor(g / 32) * 32;
           const qB = Math.floor(b / 32) * 32;
           const key = `${qR},${qG},${qB}`;
-          
+
           if (!buckets[key]) buckets[key] = { count: 0, rawR: r, rawG: g, rawB: b };
           buckets[key].count++;
         }
-        
+
         const sortedBuckets = Object.values(buckets).sort((a, b) => b.count - a.count);
         const selectedColors: typeof sortedBuckets = [];
         for (const bucket of sortedBuckets) {
@@ -248,11 +248,11 @@ export async function extractPaletteFromImageDataUrl(url: string, numColors = 5)
            }
            if (!tooSimilar) selectedColors.push(bucket);
         }
-        
+
         const hexColors = selectedColors.map(c => {
           return '#' + [c.rawR, c.rawG, c.rawB].map(x => x.toString(16).padStart(2, '0')).join('').toUpperCase();
         });
-        
+
         resolve(hexColors.length > 0 ? hexColors : null);
       } catch (e) {
         reject(e);
@@ -281,27 +281,27 @@ export async function extractPaletteFromImageDataUrl(url: string, numColors = 5)
                 ctx.save(); ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.drawImage(fallbackImg, 0, 0, canvas.width, canvas.height); ctx.restore();
                 const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
                 URL.revokeObjectURL(blobUrl);
-                
+
                 const buckets: Record<string, { count: number; rawR: number; rawG: number; rawB: number }> = {};
                 for (let i = 0; i < imgData.length; i += 4) {
                   const r = imgData[i], g = imgData[i + 1], b = imgData[i + 2], a = imgData[i + 3];
                   if (a < 180) continue;
-                  if (r >= 230 && g >= 230 && b >= 230) continue; 
+                  if (r >= 230 && g >= 230 && b >= 230) continue;
                   if (r <= 45 && g <= 45 && b <= 45) continue;
-                  
+
                   const max = Math.max(r, g, b);
                   const min = Math.min(r, g, b);
-                  if (max - min < 15 && max > 200) continue; 
-                  
+                  if (max - min < 15 && max > 200) continue;
+
                   const qR = Math.floor(r / 32) * 32;
                   const qG = Math.floor(g / 32) * 32;
                   const qB = Math.floor(b / 32) * 32;
                   const key = `${qR},${qG},${qB}`;
-                  
+
                   if (!buckets[key]) buckets[key] = { count: 0, rawR: r, rawG: g, rawB: b };
                   buckets[key].count++;
                 }
-                
+
                 const sortedBuckets = Object.values(buckets).sort((a, b) => b.count - a.count);
                 const selectedColors: typeof sortedBuckets = [];
                 for (const bucket of sortedBuckets) {
@@ -313,7 +313,7 @@ export async function extractPaletteFromImageDataUrl(url: string, numColors = 5)
                    }
                    if (!tooSimilar) selectedColors.push(bucket);
                 }
-                
+
                 const hexColors = selectedColors.map(c => {
                   return '#' + [c.rawR, c.rawG, c.rawB].map(x => x.toString(16).padStart(2, '0')).join('').toUpperCase();
                 });
@@ -541,7 +541,7 @@ export function WikiImage({ url, storagePath, alt, className, onRemove }: { url?
         className="w-full h-full object-contain bg-white"
       />
       {onRemove && (
-        <button 
+        <button
           type="button"
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRemove(); }}
           className="absolute top-2 right-2 p-1.5 bg-white/90 text-red-500 rounded-full shadow-sm hover:bg-red-50 z-10 cursor-pointer"
@@ -589,7 +589,7 @@ export function CharacterWikiView() {
 
     setIsGeneratingMissingColors(true);
     setGenerationProgress({ total: charsToProcess.length, current: 0, failed: 0 });
-    
+
     const newlyFailedIds: string[] = [];
     let currentChars = [...characters];
 
@@ -630,7 +630,7 @@ export function CharacterWikiView() {
     // Final save in case the last few didn't hit the mod 5 or were all failures
     await saveToFirebase(currentChars);
     setCharacters(currentChars);
-    
+
     // If we were retrying, we merge the new failures with the ones we didn't retry.
     // If we were not retrying, we just set the new failures.
     if (retryIds) {
@@ -639,7 +639,7 @@ export function CharacterWikiView() {
     } else {
        setFailedMainColorGenerations(newlyFailedIds);
     }
-    
+
     setIsGeneratingMissingColors(false);
   };
 
@@ -657,21 +657,7 @@ export function CharacterWikiView() {
       if (docSnap.exists()) {
         const data = docSnap.data();
         let chars = data.characters || [];
-        if (chars.length > 0) {
-          const cherries = chars.filter((c: any) => c.name?.toLowerCase().trim() === 'cherry');
-          if (cherries.length > 1) {
-             cherries.sort((a: any, b: any) => Number(a.id) - Number(b.id));
-             const original = cherries[0];
-             const duplicate = cherries[1];
-             const merged = { ...original, ...duplicate, id: original.id };
-             chars = chars.filter((c: any) => c.id !== duplicate.id);
-             chars = chars.map((c: any) => c.id === original.id ? merged : c);
-             
-             // Update database to fix the duplicates
-             await setDoc(doc(db, `users/${user.uid}/preferences`, 'characterWiki'), { characters: chars }, { merge: true });
-          }
-          setCharacters(chars);
-        }
+        setCharacters(chars);
         const mergedSeries = mergeWikiEntities(data.seriesList || GUEST_SAMPLE_SERIES, chars, 'series');
         const mergedFranchises = mergeWikiEntities(data.franchiseList || GUEST_SAMPLE_FRANCHISES, chars, 'franchise');
         setSeriesList(mergedSeries);
@@ -688,7 +674,7 @@ export function CharacterWikiView() {
               const mergedFranchises = mergeWikiEntities(GUEST_SAMPLE_FRANCHISES, parsed, 'franchise');
               setSeriesList(mergedSeries);
               setFranchiseList(mergedFranchises);
-              localStorage.removeItem('characterWikiData');
+// Retain the legacy source as a recoverable backup.
             }
           } catch(e) {}
         }
@@ -716,8 +702,8 @@ export function CharacterWikiView() {
     setSyncStatus('saving');
     try {
       const payload: any = { characters: newCharacters };
-      if (curSeries && curSeries.length > 0) payload.seriesList = curSeries;
-      if (curFranchise && curFranchise.length > 0) payload.franchiseList = curFranchise;
+      payload.seriesList = curSeries;
+      payload.franchiseList = curFranchise;
       await setDoc(doc(db, `users/${user.uid}/preferences`, 'characterWiki'), payload, { merge: true });
       setSyncStatus('saved');
       setTimeout(() => setSyncStatus('idle'), 2000);
@@ -731,7 +717,7 @@ export function CharacterWikiView() {
 
   const handleSave = async (char: any) => {
     const finalChar = char.id ? char : { ...char, id: Date.now().toString() };
-    
+
     let updatedSeriesList = [...seriesList];
     let updatedFranchiseList = [...franchiseList];
 
@@ -779,21 +765,21 @@ export function CharacterWikiView() {
       }
       return obj;
     };
-    
+
     const scrubbedChar = scrubUndefined(finalChar);
-    
+
     let newChars;
     if (characters.find((c: any) => c.id === scrubbedChar.id)) {
       newChars = characters.map((c: any) => c.id === scrubbedChar.id ? scrubbedChar : c);
     } else {
       newChars = [...characters, scrubbedChar];
     }
-    
+
     setSeriesList(updatedSeriesList);
     setFranchiseList(updatedFranchiseList);
 
     await saveToFirebase(newChars, updatedSeriesList, updatedFranchiseList);
-    
+
     if (user && !user.isAnonymous) {
       const docSnap = await getDoc(doc(db, `users/${user.uid}/preferences`, 'characterWiki'));
       if (docSnap.exists()) {
@@ -817,14 +803,14 @@ export function CharacterWikiView() {
       setCharacters(newChars);
       setSelectedCharacter(scrubbedChar);
     }
-    
+
     setIsEditing(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     const newChars = characters.filter(c => c.id !== id);
+    await saveToFirebase(newChars);
     setCharacters(newChars);
-    saveToFirebase(newChars);
     setSelectedCharacter(null);
     setIsEditing(false);
   };
@@ -844,7 +830,7 @@ export function CharacterWikiView() {
     const groups: Record<string, any[]> = {};
     const filtered = characters.filter(char => {
       const sq = (searchQuery || '').toLowerCase();
-      const matchesSearch = (char.name || '').toLowerCase().includes(sq) || 
+      const matchesSearch = (char.name || '').toLowerCase().includes(sq) ||
                             (char.series || '').toLowerCase().includes(sq) ||
                             (char.tags || []).some(t => (t || '').toLowerCase().includes(sq));
       if (!matchesSearch) return false;
@@ -863,10 +849,10 @@ export function CharacterWikiView() {
 
   const filteredCharacters = characters.filter(char => {
     const sq = (searchQuery || '').toLowerCase();
-    const matchesSearch = (char.name || '').toLowerCase().includes(sq) || 
+    const matchesSearch = (char.name || '').toLowerCase().includes(sq) ||
                           (char.series || '').toLowerCase().includes(sq) ||
                           (char.tags || []).some(t => (t || '').toLowerCase().includes(sq));
-    
+
     if (!matchesSearch) return false;
 
     if (activeFilter === 'All') return true;
@@ -877,8 +863,8 @@ export function CharacterWikiView() {
     <div className="flex-1 md:overflow-y-auto px-margin-mobile md:px-margin-desktop pb-safe-nav relative bg-transparent">
       <SyncStatus status={syncStatus} />
       {selectedCharacter ? (
-        <CharacterDetail 
-          character={selectedCharacter} 
+        <CharacterDetail
+          character={selectedCharacter}
           user={user}
           onClose={() => setSelectedCharacter(null)}
           onEdit={() => setIsEditing(true)}
@@ -891,18 +877,18 @@ export function CharacterWikiView() {
             <h2 className="text-[32px] leading-[1.2] font-bold font-headline-lg-mobile text-black m-0">Character Wiki</h2>
             <div className="flex gap-2">
               {characters.some(c => !c.mainColor && c.imageUrl) && (
-                <button 
+                <button
                   onClick={() => generateMissingColors()}
                   disabled={isGeneratingMissingColors}
-                  className="p-2 bg-white border border-[#FFB8CD]/50 text-[#FFB8CD] rounded-full shadow-sm disabled:opacity-50"
+                  className="p-2 bg-white border border-[#FFB8CD]/50 text-[#8a3f5d] rounded-full shadow-sm disabled:opacity-50"
                   title="Generate Missing Colors"
                 >
                   <Wand2 className="w-6 h-6" />
                 </button>
               )}
-              <button 
+              <button
                 onClick={() => { setSelectedCharacter(null); setIsEditing(true); }}
-                className="p-2 bg-[#FFB8CD] text-white rounded-full shadow-sm"
+                className="p-2 bg-[#FFB8CD] text-[#4b2335] rounded-full shadow-sm"
               >
                 <Plus className="w-6 h-6" />
               </button>
@@ -912,15 +898,15 @@ export function CharacterWikiView() {
             <h2 className="text-[40px] leading-[1.2] font-bold font-headline-lg text-black m-0 tracking-tight">Character Wiki</h2>
             <div className="flex gap-3">
               {characters.some(c => !c.mainColor && c.imageUrl) && (
-                <button 
+                <button
                   onClick={() => generateMissingColors()}
                   disabled={isGeneratingMissingColors}
                   className="px-6 py-2.5 bg-white text-black font-bold font-label-md rounded-full shadow-[0_4px_14px_rgba(255,184,205,0.4)] hover:bg-[#FFF0F4] transition-colors flex items-center gap-2 border border-[#FFB8CD]/30 disabled:opacity-50"
                 >
-                  <Wand2 className="w-5 h-5 text-[#FFB8CD]" /> Generate Missing Colors
+                  <Wand2 className="w-5 h-5 text-[#8a3f5d]" /> Generate Missing Colors
                 </button>
               )}
-              <button 
+              <button
                 onClick={() => { setSelectedCharacter(null); setIsEditing(true); }}
                 className="px-6 py-2.5 bg-white text-black font-bold font-label-md rounded-full shadow-[0_4px_14px_rgba(255,184,205,0.4)] hover:bg-[#FFF0F4] transition-colors flex items-center gap-2 border border-[#FFB8CD]/30"
               >
@@ -932,7 +918,7 @@ export function CharacterWikiView() {
           {isGeneratingMissingColors && generationProgress && (
             <div className="bg-[#FFF0F4] border border-[#FFB8CD]/50 rounded-2xl p-4 mb-6 flex flex-col md:flex-row items-center justify-between gap-4 animate-in fade-in zoom-in-95">
               <div className="flex items-center gap-3 text-black">
-                <Loader2 className="w-5 h-5 animate-spin text-[#FFB8CD]" />
+                <Loader2 className="w-5 h-5 animate-spin text-[#8a3f5d]" />
                 <span className="font-semibold">Processing characters... ({generationProgress.current} / {generationProgress.total})</span>
               </div>
               {generationProgress.failed > 0 && (
@@ -951,7 +937,7 @@ export function CharacterWikiView() {
                   {characters.filter(c => failedMainColorGenerations.includes(c.id)).map(c => c.name).join(', ')}
                 </span>
               </div>
-              <button 
+              <button
                 onClick={() => generateMissingColors(failedMainColorGenerations)}
                 className="px-4 py-2 bg-red-100 text-red-600 font-bold rounded-xl hover:bg-red-200 transition-colors shrink-0"
               >
@@ -964,20 +950,20 @@ export function CharacterWikiView() {
                       <div className="flex gap-4 mb-8 items-center overflow-x-auto pb-2 scrollbar-hide w-full" style={{ WebkitOverflowScrolling: 'touch' }}>
             <div className="relative w-64 md:w-80 shrink-0">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-black/40" />
-              <input 
+              <input
                 placeholder="Search characters, series, tags..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 className="w-full bg-white border border-[#FFB8CD]/50 rounded-full py-2.5 pl-11 pr-4 text-black focus:outline-none focus:border-[#FFB8CD] shadow-sm font-body-md text-[14px]"
               />
             </div>
-            
+
             <div className="flex gap-2 shrink-0 items-center">
               <button
                 onClick={() => setActiveFilter('All')}
                 className={`shrink-0 px-4 py-2 rounded-full whitespace-nowrap text-[14px] font-semibold transition-colors ${
-                  activeFilter === 'All' 
-                    ? 'bg-[#FFB8CD] text-white shadow-sm' 
+                  activeFilter === 'All'
+                    ? 'bg-[#FFB8CD] text-white shadow-sm'
                     : 'bg-white text-black hover:bg-[#FFF0F4] border border-[#FFB8CD]/30'
                 }`}
               >
@@ -987,8 +973,8 @@ export function CharacterWikiView() {
               <button
                 onClick={() => setIsGrouped(!isGrouped)}
                 className={`shrink-0 px-4 py-2 rounded-full whitespace-nowrap text-[14px] font-semibold transition-colors ${
-                  isGrouped 
-                    ? 'bg-[#FFB8CD] text-white shadow-sm' 
+                  isGrouped
+                    ? 'bg-[#FFB8CD] text-white shadow-sm'
                     : 'bg-white text-black hover:bg-[#FFF0F4] border border-[#FFB8CD]/30'
                 }`}
               >
@@ -1002,8 +988,8 @@ export function CharacterWikiView() {
                   key={filter}
                   onClick={() => setActiveFilter(activeFilter === filter ? 'All' : filter)}
                   className={`shrink-0 px-4 py-2 rounded-full whitespace-nowrap text-[14px] font-semibold transition-colors ${
-                    activeFilter === filter 
-                      ? 'bg-[#FF6B9E] text-white shadow-sm border border-[#FF6B9E]' 
+                    activeFilter === filter
+                      ? 'bg-[#FF6B9E] text-white shadow-sm border border-[#FF6B9E]'
                       : 'bg-white text-black hover:bg-[#FFF0F4] border border-[#FFB8CD]/30'
                   }`}
                 >
@@ -1055,8 +1041,8 @@ export function CharacterWikiView() {
       )}
 
       {isEditing && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-5 md:p-6 bg-black/40 backdrop-blur-sm pointer-events-auto overflow-hidden wiki-edit-overlay">
-          <CharacterForm 
+        <div role="dialog" aria-modal="true" aria-label="CharacterWiki dialog" tabIndex={-1} className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-5 md:p-6 bg-black/40 backdrop-blur-sm pointer-events-auto overflow-hidden wiki-edit-overlay">
+          <CharacterForm
             initialData={selectedCharacter}
             existingCharacters={characters}
             seriesList={seriesList}
@@ -1140,6 +1126,9 @@ function CharacterDetail({ character, onClose, onEdit, onDelete, onUpdate, user 
     onUpdate({ ...character, myDesigns: newDesigns });
   };
 
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const [viewingImage, setViewingImage] = useState<{ url: string, storagePath?: string, title?: string, allImages?: ImageToView[], zipTitle?: string } | null>(null);
 
   // Determine saved main color and palette (check both colors and additionalPalette for backward compatibility)
@@ -1150,13 +1139,28 @@ function CharacterDetail({ character, onClose, onEdit, onDelete, onUpdate, user 
 
   return (
     <div className="bg-white rounded-[2rem] shadow-[0_8px_32px_rgba(255,184,205,0.3)] border border-[#FFB8CD]/30 overflow-hidden flex flex-col md:flex-row min-h-[600px] animate-in fade-in zoom-in-95 duration-200">
+      {confirmDelete && <div role="dialog" aria-modal="true" aria-label="Delete character confirmation" tabIndex={-1} className="fixed inset-0 z-[1000] bg-black/40 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+          <h2 className="font-bold text-xl mb-2">Delete this character?</h2>
+          <p className="text-sm mb-4">This removes {character.name} from your Wiki. Saved Series and Franchise options will be kept.</p>
+          {deleteError && <p role="alert" className="text-red-800 mb-3">{deleteError}</p>}
+          <div className="flex gap-3 justify-end">
+            <button disabled={deleting} onClick={() => setConfirmDelete(false)} className="px-4 py-2 border rounded-lg">Cancel</button>
+            <button disabled={deleting} className="px-4 py-2 bg-red-800 text-white rounded-lg" onClick={async () => {
+              setDeleting(true); setDeleteError('');
+              try { await onDelete(); } catch { setDeleteError('The character could not be deleted. Please try again.'); }
+              finally { setDeleting(false); }
+            }}>{deleting ? 'Deleting…' : 'Confirm delete'}</button>
+          </div>
+        </div>
+      </div>}
       {/* Left sidebar / Image area */}
       <div className="w-full md:w-1/3 bg-white flex flex-col relative shrink-0 border-b md:border-b-0 md:border-r border-[#FFB8CD]/30">
         <button onClick={onClose} className="absolute top-4 left-4 p-2 rounded-full bg-white/80 backdrop-blur-sm shadow-sm hover:bg-white transition-colors z-10 md:hidden">
           <ChevronLeft className="w-5 h-5 text-black" />
         </button>
-        
-        <div 
+
+        <div
           className="aspect-square md:aspect-auto md:flex-1 relative flex items-center justify-center p-8 bg-white wiki-character-image-container cursor-pointer"
           onClick={() => {
             if (character.imageUrl || character.imageStoragePath) {
@@ -1175,11 +1179,11 @@ function CharacterDetail({ character, onClose, onEdit, onDelete, onUpdate, user 
           }}
         >
           {character.imageUrl || character.imageStoragePath ? (
-            <WikiImage 
-              url={character.imageUrl} 
-              storagePath={character.imageStoragePath} 
-              alt={character.name} 
-              className="w-full h-full object-contain drop-shadow-md max-h-[400px]" 
+            <WikiImage
+              url={character.imageUrl}
+              storagePath={character.imageStoragePath}
+              alt={character.name}
+              className="w-full h-full object-contain drop-shadow-md max-h-[400px]"
             />
           ) : (
             <div className="flex flex-col items-center gap-3 text-black/30">
@@ -1188,10 +1192,10 @@ function CharacterDetail({ character, onClose, onEdit, onDelete, onUpdate, user 
             </div>
           )}
         </div>
-        
+
         <div className="p-6 bg-white/50 backdrop-blur-sm border-t border-[#FFB8CD]/20">
           <h2 className="text-[28px] font-bold font-headline-md text-black leading-tight mb-1">{character.name}</h2>
-          
+
           {character.description && (
             <div className="mb-4 text-[14px] leading-relaxed text-black/80 whitespace-pre-wrap">
               {character.description}
@@ -1202,7 +1206,7 @@ function CharacterDetail({ character, onClose, onEdit, onDelete, onUpdate, user 
             <button onClick={onEdit} className="flex-1 py-2.5 bg-white border border-[#FFB8CD]/50 rounded-xl text-black font-semibold text-[14px] flex items-center justify-center gap-2 hover:bg-[#FFF0F4] transition-colors">
               <Edit className="w-4 h-4" /> Edit
             </button>
-            <button onClick={() => { if(window.confirm('Delete this character?')) onDelete() }} className="p-2.5 bg-white border border-red-200 text-red-500 rounded-xl hover:bg-red-50 transition-colors">
+            <button aria-label="Delete character" onClick={() => setConfirmDelete(true)} className="p-2.5 bg-white border border-red-200 text-red-500 rounded-xl hover:bg-red-50 transition-colors">
               <Trash2 className="w-4 h-4" />
             </button>
           </div>
@@ -1220,7 +1224,7 @@ function CharacterDetail({ character, onClose, onEdit, onDelete, onUpdate, user 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
           <div className="space-y-6">
             <h3 className="text-[18px] font-bold text-black border-b border-[#FFB8CD]/30 pb-2">Details</h3>
-            
+
             <div className="space-y-4">
               <InfoRow label="Franchise" value={character.company} />
               <InfoRow label="Series" value={character.series} />
@@ -1230,7 +1234,7 @@ function CharacterDetail({ character, onClose, onEdit, onDelete, onUpdate, user 
 
           <div className="space-y-6">
             <h3 className="text-[18px] font-bold text-black border-b border-[#FFB8CD]/30 pb-2">Design Palette</h3>
-            
+
             {mainColorHex && (
               <div className="mb-6">
                 <h4 className="text-[12px] font-bold uppercase tracking-wider text-black/50 mb-3">Main Color</h4>
@@ -1240,7 +1244,7 @@ function CharacterDetail({ character, onClose, onEdit, onDelete, onUpdate, user 
                 </div>
               </div>
             )}
-            
+
             <div>
               <h4 className="text-[12px] font-bold uppercase tracking-wider text-black/50 mb-3">Additional Palette</h4>
               <div className="flex flex-wrap gap-3 items-center">
@@ -1260,10 +1264,10 @@ function CharacterDetail({ character, onClose, onEdit, onDelete, onUpdate, user 
                             <div className="relative w-full h-24 bg-surface rounded-lg overflow-hidden flex items-center justify-center">
                               <img src={color.photoUrl} className="max-h-full object-contain" />
                               {color.point && (
-                                <div 
+                                <div
                                   className="absolute w-3 h-3 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.5)]"
-                                  style={{ 
-                                    left: `${color.point.x}%`, 
+                                  style={{
+                                    left: `${color.point.x}%`,
                                     top: `${color.point.y}%`,
                                     transform: 'translate(-50%, -50%)',
                                     backgroundColor: hex
@@ -1293,16 +1297,16 @@ function CharacterDetail({ character, onClose, onEdit, onDelete, onUpdate, user 
           <div>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-[18px] font-bold text-black border-b border-[#FFB8CD]/30 pb-2 flex-1 mr-4">My Designs</h3>
-              <label className="cursor-pointer px-4 py-2 bg-[#FFB8CD] hover:bg-[#FFB8CD]/90 text-white text-[13px] font-bold rounded-full transition-colors flex items-center gap-2 shadow-sm">
+              <label className="cursor-pointer px-4 py-2 bg-[#FFB8CD] hover:bg-[#FFB8CD]/90 text-[#4b2335] text-[13px] font-bold rounded-full transition-colors flex items-center gap-2 shadow-sm">
                 <Upload className="w-4 h-4" /> Upload
                 <input type="file" multiple accept="image/*" onChange={handleImageUpload} className="hidden" />
               </label>
             </div>
-            
+
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
               {(character.myDesigns || []).map((designUrl, i) => (
-                <div 
-                  key={i} 
+                <div
+                  key={i}
                   className="aspect-square relative rounded-xl overflow-hidden border border-[#FFB8CD]/30 shadow-sm group bg-[#FFF0F4] cursor-pointer"
                   onClick={() => {
                     const u = typeof designUrl === "string" ? designUrl : designUrl.url;
@@ -1325,7 +1329,7 @@ function CharacterDetail({ character, onClose, onEdit, onDelete, onUpdate, user 
               ))}
               {(!character.myDesigns || character.myDesigns.length === 0) && (
                 <div className="col-span-full py-8 text-center bg-white border border-dashed border-[#FFB8CD] rounded-xl flex flex-col items-center gap-2">
-                  <ImageIcon className="w-8 h-8 text-[#FFB8CD]" />
+                  <ImageIcon className="w-8 h-8 text-[#8a3f5d]" />
                   <p className="text-[14px] text-black/50 font-medium">No designs uploaded yet.</p>
                   <p className="text-[12px] text-black/40">Upload your nail art or keychains here!</p>
                 </div>
@@ -1362,16 +1366,16 @@ function InfoRow({ label, value }: { label: string, value: string | undefined })
   );
 }
 
-function CharacterForm({ initialData, existingCharacters, seriesList, franchiseList, onSave, onSaveEntity, onRenameEntity, onDeleteEntity, onCancel }: { 
-  initialData: Character | null, 
-  existingCharacters: Character[], 
-  seriesList: WikiEntity[], 
-  franchiseList: WikiEntity[], 
-  onSave: (data: Omit<Character, 'id'>) => Promise<void> | void, 
+function CharacterForm({ initialData, existingCharacters, seriesList, franchiseList, onSave, onSaveEntity, onRenameEntity, onDeleteEntity, onCancel }: {
+  initialData: Character | null,
+  existingCharacters: Character[],
+  seriesList: WikiEntity[],
+  franchiseList: WikiEntity[],
+  onSave: (data: Omit<Character, 'id'>) => Promise<void> | void,
   onSaveEntity: (type: 'series'|'franchise', entities: WikiEntity[]) => Promise<void>,
   onDeleteEntity: (type: 'series'|'franchise', id: string) => Promise<void>,
   onRenameEntity: (type: 'series'|'franchise', id: string, newName: string) => Promise<void>,
-  onCancel: () => void 
+  onCancel: () => void
 }) {
   const { openDrivePicker } = useGoogleDrivePicker();
   const [isSaving, setIsSaving] = useState(false);
@@ -1489,7 +1493,7 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
 
   const generateColorsFromImage = async (url: string) => {
     if (!url) return;
-    
+
     if (formData.colors && formData.colors.length > 0) {
       const confirm = window.confirm("You already have colors in your palette. Do you want to overwrite them with a newly generated color scheme?");
       if (!confirm) return;
@@ -1588,9 +1592,9 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
   };
 
   const removeColor = (color: string | SampledColor) => {
-    setFormData(prev => ({ 
-      ...prev, 
-      colors: prev.colors.filter(c => c !== color) 
+    setFormData(prev => ({
+      ...prev,
+      colors: prev.colors.filter(c => c !== color)
     }));
   };
 
@@ -1686,8 +1690,8 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
         <div className="w-full md:w-[185px] shrink-0 space-y-2">
           <div className="box-border max-w-full">
             <label className="block text-[11px] font-bold text-black/60 uppercase tracking-wider mb-1">Main Image</label>
-            
-            <input 
+
+            <input
               type="file"
               ref={fileInputRef}
               accept="image/*,image/png,image/jpeg,image/jpg,image/webp,image/heic,image/heif,.heic,.heif,.png,.jpg,.jpeg,.webp"
@@ -1696,24 +1700,24 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
               disabled={isUploadingPhoto}
             />
 
-            <div 
+            <div
               className="w-full aspect-square max-w-[185px] mx-auto md:mx-0 bg-white rounded-xl border-2 border-dashed border-[#FFB8CD] flex flex-col items-center justify-center relative overflow-hidden group shadow-sm wiki-character-image-container"
             >
               {isUploadingPhoto ? (
                 <div className="flex flex-col items-center justify-center p-3 text-center bg-white/95 absolute inset-0 z-20">
-                  <Loader2 className="w-8 h-8 animate-spin text-[#FF6B9E] mb-2" />
-                  <span className="text-[11px] font-bold text-[#FF6B9E] leading-tight px-1">
+                  <Loader2 className="w-8 h-8 animate-spin text-[#8a3f5d] mb-2" />
+                  <span className="text-[11px] font-bold text-[#8a3f5d] leading-tight px-1">
                     {uploadStatusText || 'Uploading to Drive...'}
                   </span>
                 </div>
               ) : (formData.imageUrl || formData.imageStoragePath) ? (
                 <>
                   <div className="w-full h-full flex items-center justify-center p-2 bg-white">
-                    <WikiImage 
-                      url={formData.imageUrl} 
-                      storagePath={formData.imageStoragePath} 
-                      alt="Preview" 
-                      className="w-full h-full object-contain bg-white" 
+                    <WikiImage
+                      url={formData.imageUrl}
+                      storagePath={formData.imageStoragePath}
+                      alt="Preview"
+                      className="w-full h-full object-contain bg-white"
                     />
                   </div>
                   <button
@@ -1736,8 +1740,8 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
                 </>
               ) : (
                 <div className="text-center p-3 flex flex-col items-center justify-center">
-                  <ImageIcon className="w-8 h-8 text-[#FFB8CD] mb-1.5" />
-                  <span className="text-[#FF6B9E] font-bold text-[12px] leading-tight">No Photo Added</span>
+                  <ImageIcon className="w-8 h-8 text-[#8a3f5d] mb-1.5" />
+                  <span className="text-[#8a3f5d] font-bold text-[12px] leading-tight">No Photo Added</span>
                   <span className="text-[10px] text-black/40 mt-0.5">Upload or select photo</span>
                 </div>
               )}
@@ -1752,7 +1756,7 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploadingPhoto}
-                className="w-full px-2.5 py-1.5 bg-[#FF6B9E] hover:bg-[#FF6B9E]/90 disabled:opacity-50 text-white rounded-lg text-[12px] font-bold flex items-center justify-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                className="w-full px-2.5 py-1.5 bg-[#FF6B9E] hover:bg-[#FF6B9E]/90 disabled:opacity-50 text-[#4b2335] rounded-lg text-[12px] font-bold flex items-center justify-center gap-1.5 shadow-sm transition-colors cursor-pointer"
               >
                 <Upload className="w-3.5 h-3.5" />
                 {isUploadingPhoto ? 'Uploading...' : 'Upload Photo'}
@@ -1765,7 +1769,7 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
                   handleSelectFromDrive();
                 }}
                 disabled={isUploadingPhoto}
-                className="w-full px-2.5 py-1.5 bg-[#FFF0F4] hover:bg-[#FFB8CD]/20 text-[#FF6B9E] border border-[#FFB8CD]/50 rounded-lg text-[12px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                className="w-full px-2.5 py-1.5 bg-[#FFF0F4] hover:bg-[#FFB8CD]/20 text-[#8a3f5d] border border-[#FFB8CD]/50 rounded-lg text-[12px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
               >
                 <ImageIcon className="w-3.5 h-3.5" />
                 Select from Drive
@@ -1778,11 +1782,11 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start box-border max-w-full">
             <FormInput label="Name *" name="name" value={formData.name} onChange={handleChange} placeholder="e.g. Hello Kitty" required />
             <FormInput label="Species / Type" name="species" value={formData.species} onChange={handleChange} placeholder="e.g. White cat, Bear" />
-            
+
             <div className="relative z-20">
-              <EntitySelector 
-                label="Franchise" 
-                entities={franchiseList} 
+              <EntitySelector
+                label="Franchise"
+                entities={franchiseList}
                 valueId={formData.companyId}
                 fallbackName={formData.company}
                 placeholder="e.g. Sanrio, Nintendo"
@@ -1809,9 +1813,9 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
             </div>
 
             <div className="relative z-10">
-              <EntitySelector 
-                label="Series" 
-                entities={seriesList} 
+              <EntitySelector
+                label="Series"
+                entities={seriesList}
                 valueId={formData.seriesId}
                 fallbackName={formData.series}
                 placeholder="e.g. Rilakkuma, Mario"
@@ -1836,16 +1840,16 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
                 }}
               />
             </div>
-            
+
             <div className="sm:col-span-2 relative z-0 box-border max-w-full">
               <div className="flex flex-wrap justify-between items-center mb-1 gap-2">
                 <label className="block text-[11px] font-bold text-black/60 uppercase tracking-wider m-0 leading-tight">Main Color</label>
                 {formData.imageUrl && (
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => generateMainColorFromImage(formData.imageUrl)}
                     disabled={isGeneratingMainColor}
-                    className="text-[#FFB8CD] hover:text-[#FFB8CD]/80 flex items-center gap-1 text-[11px] font-bold cursor-pointer"
+                    className="text-[#8a3f5d] hover:text-[#8a3f5d]/80 flex items-center gap-1 text-[11px] font-bold cursor-pointer"
                     title="Auto detect dominant main color from image"
                   >
                     {isGeneratingMainColor ? <Loader2 className="w-3 h-3 animate-spin shrink-0" /> : <Wand2 className="w-3 h-3 shrink-0" />}
@@ -1856,8 +1860,8 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
               <div className="flex flex-wrap items-center gap-2 mb-1">
                 {/* Visual color swatch button tied to hidden color input */}
                 <div className="relative w-8 h-8 shrink-0">
-                  <input 
-                    type="color" 
+                  <input
+                    type="color"
                     name="mainColor"
                     value={formatHex(formData.mainColor || '') || '#FFB8CD'}
                     onChange={(e) => {
@@ -1866,15 +1870,15 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
                     }}
                     className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
                   />
-                  <div 
+                  <div
                     className="w-8 h-8 rounded-lg border border-[#FFB8CD]/50 shadow-sm transition-transform hover:scale-105 pointer-events-none"
                     style={{ backgroundColor: formatHex(formData.mainColor || '') || '#FFB8CD' }}
                   />
                 </div>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   name="mainColor"
-                  value={formData.mainColor || ''} 
+                  value={formData.mainColor || ''}
                   onChange={(e) => {
                     const val = e.target.value;
                     setFormData(prev => ({ ...prev, mainColor: val }));
@@ -1882,10 +1886,10 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
                   placeholder="#FFB8CD"
                   className="flex-1 min-w-[90px] bg-white border border-[#FFB8CD]/50 rounded-lg px-2.5 py-1.5 text-[13px] text-black focus:outline-none focus:border-[#FFB8CD] shadow-sm font-medium font-mono uppercase box-border"
                 />
-                <button 
-                  type="button" 
-                  onClick={() => setShowMainColorSampler(true)} 
-                  className="px-2.5 py-1.5 bg-[#FFF0F4] border border-[#FFB8CD]/50 text-[#FF6B9E] rounded-lg font-bold shadow-sm hover:bg-[#FFB8CD]/20 transition-colors flex items-center gap-1 shrink-0 cursor-pointer" 
+                <button
+                  type="button"
+                  onClick={() => setShowMainColorSampler(true)}
+                  className="px-2.5 py-1.5 bg-[#FFF0F4] border border-[#FFB8CD]/50 text-[#8a3f5d] rounded-lg font-bold shadow-sm hover:bg-[#FFB8CD]/20 transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
                   title="Pick color from image with Eyedropper"
                 >
                   <Droplet className="w-3.5 h-3.5 shrink-0" />
@@ -1893,7 +1897,7 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
                 </button>
               </div>
               {showMainColorSampler && (
-                <ColorSampler 
+                <ColorSampler
                   initialImageUrl={formData.imageUrl}
                   onSave={(colorData) => {
                     const hex = typeof colorData === 'string' ? colorData : colorData.hex;
@@ -1902,8 +1906,8 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
                       setFormData(prev => ({ ...prev, mainColor: formatted }));
                     }
                     setShowMainColorSampler(false);
-                  }} 
-                  onCancel={() => setShowMainColorSampler(false)} 
+                  }}
+                  onCancel={() => setShowMainColorSampler(false)}
                 />
               )}
             </div>
@@ -1915,11 +1919,11 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
               <div className="flex flex-wrap justify-between items-center mb-1 gap-2">
                 <label className="block text-[11px] font-bold text-black/60 uppercase tracking-wider m-0">Additional Palette</label>
                 {formData.imageUrl && (
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => generateColorsFromImage(formData.imageUrl)}
                     disabled={isGeneratingColors}
-                    className="text-[#FFB8CD] hover:text-[#FFB8CD]/80 flex items-center gap-1 text-[11px] font-bold cursor-pointer"
+                    className="text-[#8a3f5d] hover:text-[#8a3f5d]/80 flex items-center gap-1 text-[11px] font-bold cursor-pointer"
                     title="Auto generate palette from image"
                   >
                     {isGeneratingColors ? <Loader2 className="w-3 h-3 animate-spin shrink-0" /> : <Wand2 className="w-3 h-3 shrink-0" />}
@@ -1927,59 +1931,59 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
                   </button>
                 )}
               </div>
-              
+
               <div className="flex flex-wrap gap-2 mb-2 items-center">
                 {/* Visual Swatch for new palette color */}
                 <div className="relative w-8 h-8 shrink-0">
-                  <input 
-                    type="color" 
+                  <input
+                    type="color"
                     value={formatHex(colorInput) || '#FFB8CD'}
                     onChange={(e) => setColorInput(e.target.value.toUpperCase())}
                     className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
                   />
-                  <div 
+                  <div
                     className="w-8 h-8 rounded-lg border border-[#FFB8CD]/50 shadow-sm pointer-events-none"
                     style={{ backgroundColor: formatHex(colorInput) || '#FFB8CD' }}
                   />
                 </div>
 
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={colorInput}
                   onChange={e => setColorInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addColor())}
                   placeholder="#FFB8CD"
                   className="flex-1 min-w-[80px] bg-white border border-[#FFB8CD]/50 rounded-lg px-2.5 py-1.5 text-[13px] focus:outline-none focus:border-[#FFB8CD] font-mono uppercase box-border"
                 />
-                
-                <button type="button" onClick={addColor} className="px-3 py-1.5 bg-[#FFB8CD] text-white rounded-lg font-bold shadow-sm hover:bg-[#FFB8CD]/90 text-[12px] shrink-0 cursor-pointer">
+
+                <button type="button" onClick={addColor} className="px-3 py-1.5 bg-[#FFB8CD] text-[#4b2335] rounded-lg font-bold shadow-sm hover:bg-[#FFB8CD]/90 text-[12px] shrink-0 cursor-pointer">
                   Add
                 </button>
-                
-                <button 
-                  type="button" 
-                  onClick={() => setShowSampler(true)} 
-                  className="px-2.5 py-1.5 bg-[#FFF0F4] border border-[#FFB8CD]/50 text-[#FF6B9E] rounded-lg font-bold shadow-sm hover:bg-[#FFB8CD]/20 transition-colors flex items-center gap-1 shrink-0 cursor-pointer" 
+
+                <button
+                  type="button"
+                  onClick={() => setShowSampler(true)}
+                  className="px-2.5 py-1.5 bg-[#FFF0F4] border border-[#FFB8CD]/50 text-[#8a3f5d] rounded-lg font-bold shadow-sm hover:bg-[#FFB8CD]/20 transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
                   title="Pick color from image with Eyedropper"
                 >
                   <Droplet className="w-3.5 h-3.5 shrink-0" />
                   <span className="text-[11px] hidden sm:inline">Eyedropper</span>
                 </button>
                 {formData.imageUrl && (
-                  <button 
-                    type="button" 
-                    onClick={() => generateColorsFromImage(formData.imageUrl)} 
+                  <button
+                    type="button"
+                    onClick={() => generateColorsFromImage(formData.imageUrl)}
                     disabled={isGeneratingColors}
-                    className="px-2.5 py-1.5 bg-[#FFF0F4] border border-[#FFB8CD]/50 text-[#FF6B9E] rounded-lg font-bold shadow-sm hover:bg-[#FFB8CD]/20 transition-colors flex items-center gap-1 shrink-0 cursor-pointer" 
+                    className="px-2.5 py-1.5 bg-[#FFF0F4] border border-[#FFB8CD]/50 text-[#8a3f5d] rounded-lg font-bold shadow-sm hover:bg-[#FFB8CD]/20 transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
                     title="Generate palette from image"
                   >
                     <span className="text-[11px] hidden sm:inline">{isGeneratingColors ? 'Generating...' : 'Regenerate'}</span>
                   </button>
                 )}
               </div>
-              
+
               {showSampler && (
-                <ColorSampler 
+                <ColorSampler
                   initialImageUrl={formData.imageUrl}
                   onSave={(colorData) => {
                     const hex = typeof colorData === 'string' ? colorData : colorData.hex;
@@ -1991,8 +1995,8 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
                       }
                     }
                     setShowSampler(false);
-                  }} 
-                  onCancel={() => setShowSampler(false)} 
+                  }}
+                  onCancel={() => setShowSampler(false)}
                 />
               )}
 
@@ -2006,8 +2010,8 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
                     <div key={i} className="flex items-center gap-1.5 bg-[#FFF0F4] border border-[#FFB8CD]/50 rounded-full pl-1 pr-2 py-1 group relative shadow-sm box-border">
                       {/* Swatch color input for tweaking existing chip */}
                       <div className="relative w-5 h-5 shrink-0 rounded-full overflow-hidden border border-black/10">
-                        <input 
-                          type="color" 
+                        <input
+                          type="color"
                           value={formattedHex}
                           onChange={(e) => {
                             const newHex = e.target.value.toUpperCase();
@@ -2028,10 +2032,10 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
                       </div>
 
                       <span className="text-[11px] font-mono font-bold text-black/80 uppercase">{formattedHex}</span>
-                      
-                      <button 
-                        type="button" 
-                        onClick={() => removeColor(color as any)} 
+
+                      <button
+                        type="button"
+                        onClick={() => removeColor(color as any)}
                         className="text-black/40 hover:text-red-500 hover:bg-white rounded-full p-0.5 transition-colors shrink-0 cursor-pointer"
                         title="Remove color chip"
                       >
@@ -2046,7 +2050,7 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
             {/* Description */}
             <div className="box-border max-w-full">
               <label className="block text-[11px] font-bold text-black/60 uppercase tracking-wider mb-1">Description</label>
-              <textarea 
+              <textarea
                 name="description"
                 value={formData.description || ''}
                 onChange={handleChange}
@@ -2064,8 +2068,8 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
         <button type="button" onClick={onCancel} className="px-4 py-2 text-[13px] font-bold text-black/60 hover:text-black hover:bg-[#FFF0F4] rounded-lg transition-colors shrink-0 cursor-pointer">
           Cancel
         </button>
-        <button 
-          type="button" 
+        <button
+          type="button"
           disabled={isSaving}
           onClick={async () => {
             if (!formData.name) return alert('Name is required');
@@ -2103,7 +2107,7 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
                 finalCompanyId = newId;
               }
             }
-            
+
             let finalSeriesId = formData.seriesId;
             if (formData.series && !formData.seriesId) {
               const matched = seriesList.find(s => s.name.toLowerCase() === formData.series!.trim().toLowerCase());
@@ -2141,7 +2145,7 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
 
             setIsSaving(true);
             try {
-              console.log('Saving character payload:', payload);
+
               await onSave(payload);
             } catch (err: any) {
               console.error('Save error:', err);
@@ -2149,8 +2153,8 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
             } finally {
               setIsSaving(false);
             }
-          }} 
-          className="px-5 py-2 bg-[#FFB8CD] hover:bg-[#FFB8CD]/90 disabled:opacity-50 text-white text-[13px] font-bold rounded-lg shadow-[0_4px_14px_rgba(255,184,205,0.4)] transition-colors shrink-0 cursor-pointer"
+          }}
+          className="px-5 py-2 bg-[#FFB8CD] hover:bg-[#FFB8CD]/90 disabled:opacity-50 text-[#4b2335] text-[13px] font-bold rounded-lg shadow-[0_4px_14px_rgba(255,184,205,0.4)] transition-colors shrink-0 cursor-pointer"
         >
           {isSaving ? 'Saving...' : (user?.isAnonymous ? 'Test Save' : 'Save Character')}
         </button>
@@ -2165,10 +2169,10 @@ function FormInput({ label, name, value, onChange, placeholder, required }: any)
   return (
     <div className="box-border max-w-full">
       <label className="block text-[11px] font-bold text-black/60 uppercase tracking-wider mb-1 whitespace-normal leading-tight">{label}</label>
-      <input 
-        type="text" 
+      <input
+        type="text"
         name={name}
-        value={value || ''} 
+        value={value || ''}
         onChange={onChange}
         placeholder={placeholder}
         required={required}
@@ -2207,17 +2211,21 @@ function CharacterWikiCard({ char, onClick }: { char: any, onClick: () => void, 
   }
 
   return (
-    <div 
+    <div
       onClick={onClick}
+      role="button"
+      tabIndex={0}
+      aria-label={`Open ${char.name}`}
+      onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onClick(); } }}
       className="bg-white rounded-2xl overflow-hidden cursor-pointer group transition-all duration-300 hover:-translate-y-1 shadow-[0_4px_14px_rgba(255,184,205,0.25)] hover:shadow-[0_8px_24px_rgba(255,184,205,0.4)] border border-[#FFB8CD]/20 flex flex-col h-full"
     >
       <div className="aspect-square relative bg-white flex items-center justify-center overflow-hidden wiki-character-image-container">
         {char.imageUrl || char.imageStoragePath ? (
-          <WikiImage 
-            url={char.imageUrl} 
-            storagePath={char.imageStoragePath} 
-            alt={char.name} 
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+          <WikiImage
+            url={char.imageUrl}
+            storagePath={char.imageStoragePath}
+            alt={char.name}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
           />
         ) : (
           <ImageIcon className="w-10 h-10 text-black/10" />
@@ -2226,7 +2234,7 @@ function CharacterWikiCard({ char, onClick }: { char: any, onClick: () => void, 
       <div className="p-4 flex flex-col flex-1">
         <h3 className="font-bold text-[16px] text-black mb-1 leading-tight">{char.name}</h3>
         <p className="text-[12px] font-medium text-black/50 mb-3 line-clamp-1">{char.company} • {char.series}</p>
-        
+
         <div className="mt-auto flex items-center gap-1.5 flex-wrap">
           {colors.slice(0, 5).map((color, index) => (
             <span

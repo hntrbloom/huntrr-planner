@@ -7,7 +7,7 @@ import { SetGalleryModal } from './SetGalleryModal';
 import { useAuth, getAccessToken } from '../lib/AuthContext';
 import { requestFreshDriveToken } from '../lib/driveAuth';
 import { db, safeGetDoc } from '../lib/firebase';
-import { collection, doc, onSnapshot, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, setDoc, deleteDoc } from '../lib/workspaceStore';
 import { uploadFileToStorage, uploadDataUrlToStorage, deleteFileFromStorage } from '../lib/storage';
 import { uploadImageToService } from '../lib/imageService';
 import { processAndCompressImage } from '../lib/imageProcessor';
@@ -965,70 +965,6 @@ export const MiniFurnitureView = () => {
       unsubMini();
     };
   }, [user]);
-
-  // Safe migration effect
-  useEffect(() => {
-    if (!user || loading || items.length === 0) return;
-    
-    let setsModified = false;
-    let itemsModified = false;
-    const newSets = [...printSets];
-    const itemUpdates: MiniFurniture[] = [];
-
-    items.forEach(item => {
-      let currentItem = { ...item };
-      let itemChanged = false;
-
-      // Migrate madeFor to strictly unified internal values
-      const oldMadeFor = currentItem.madeFor || '';
-      const mfTrimmed = oldMadeFor.trim();
-      let newMadeFor = mfTrimmed;
-
-      const lower = mfTrimmed.toLowerCase();
-      if (lower === 'figure' || lower === 'figures') newMadeFor = 'Figures';
-      else if (lower === 'object' || lower === 'objects') newMadeFor = 'Objects';
-      else if (lower === 'charm' || lower === 'charms') newMadeFor = 'Charms';
-      else if (lower === 'nail charm' || lower === 'nail charms' || lower === 'nailcharm' || lower === 'nailcharms' || lower === 'mini charm' || lower === 'mini charms' || lower === 'minicharm' || lower === 'minicharms') newMadeFor = 'Nail Charms';
-      else if (lower === 'mini furniture' || lower === 'minifurniture' || !mfTrimmed) newMadeFor = 'Mini Furniture';
-
-      if (newMadeFor !== oldMadeFor) {
-         currentItem.madeFor = newMadeFor;
-         itemChanged = true;
-      }
-
-      if (currentItem.setName && currentItem.setName.trim() && !currentItem.setId) {
-         const typedName = currentItem.setName.trim();
-         let existingSet = newSets.find(s => s.name.toLowerCase() === typedName.toLowerCase());
-         if (!existingSet) {
-           existingSet = { id: uuidv4(), name: typedName };
-           newSets.push(existingSet);
-           setsModified = true;
-         }
-         currentItem.setId = existingSet.id;
-         currentItem.setName = existingSet.name;
-         itemChanged = true;
-      }
-
-      if (itemChanged) {
-         itemUpdates.push(currentItem);
-         itemsModified = true;
-      }
-    });
-
-    if (setsModified) {
-       setDoc(doc(db, `users/${user.uid}/preferences`, 'miniFurnitureSets'), sanitizeFirestorePayload({
-         sets: newSets
-       }), { merge: true });
-       setPrintSets(newSets);
-    }
-    
-    if (itemsModified) {
-       itemUpdates.forEach(updatedItem => {
-         setDoc(doc(db, `users/${user.uid}/miniFurniture`, updatedItem.id), sanitizeFirestorePayload(updatedItem), { merge: true });
-       });
-    }
-
-  }, [user, loading, items, printSets]);
 
   const savePrintSets = async (newSets: PrintSet[]) => {
     if (!user) return;
@@ -2027,7 +1963,7 @@ export const MiniFurnitureView = () => {
         />
       )}
       {isTypeSelectorOpen && (
-        <div className="fixed inset-0 z-[70] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6">
+        <div role="dialog" aria-modal="true" aria-label="MiniFurniture dialog" tabIndex={-1} className="fixed inset-0 z-[70] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6">
           <div className="bg-white rounded-[28px] shadow-2xl w-full max-w-md overflow-hidden flex flex-col animate-fade-in">
             <div className="px-6 py-5 border-b border-outline-variant/20 flex justify-between items-center bg-white">
               <h2 className="text-xl font-headline-md font-semibold text-on-surface">
@@ -2828,7 +2764,7 @@ const FurnitureFormModal = ({ item, draftItem, initialType, onChangeType, catego
   };
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 pb-[env(safe-area-inset-bottom,16px)]">
+    <div role="dialog" aria-modal="true" aria-label="MiniFurniture dialog" tabIndex={-1} className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 pb-[env(safe-area-inset-bottom,16px)]">
       <div className="bg-white rounded-[28px] shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col min-h-0 max-h-[calc(100dvh-16px)] sm:max-h-[90vh]">
         <div className="px-6 py-4 border-b border-outline-variant/20 flex justify-between items-center shrink-0 bg-white">
           <h2 className="text-xl font-headline-md font-semibold text-on-surface">
@@ -3522,7 +3458,7 @@ const CategoryManagerModal = ({ categories, onClose, onSave }: { categories: str
   };
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+    <div role="dialog" aria-modal="true" aria-label="MiniFurniture dialog" tabIndex={-1} className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-md overflow-hidden">
         <div className="p-5 border-b border-outline-variant/20 flex justify-between items-center">
           <h2 className="text-xl font-semibold text-on-surface">Categories</h2>

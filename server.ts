@@ -1,18 +1,46 @@
+import { initializeApp, getApps } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
+import firebaseConfig from './firebase-applet-config.json';
 import express from "express";
 import path from "path";
-import { createServer as createViteServer } from "vite";
+import 'dotenv/config';
+import { safeRemoteFetch, validatePublicUrl } from './src/lib/safeRemote';
 import { extractJobDataFromUrl, extractJobDataFromText } from "./src/lib/serverJobExtractor";
 
-async function startServer() {
+export async function createApp() {
   const app = express();
-  const PORT = 3000;
+  app.disable('x-powered-by');
+  app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    next();
+  });
 
+  const rateWindows = new Map<string, { count: number; until: number }>();
+  app.use('/api', (req, res, next) => {
+    if (req.path === '/health') return next();
+    const key = req.ip || 'unknown'; const now = Date.now();
+    let rate = rateWindows.get(key);
+    if (!rate || rate.until < now) { rate = { count: 0, until: now + 60000 }; rateWindows.set(key, rate); }
+    if (rateWindows.size > 2000) { for (const [id, entry] of rateWindows) if (entry.until < now) rateWindows.delete(id); if (rateWindows.size > 2000) rateWindows.delete(rateWindows.keys().next().value!); }
+    if (++rate.count > 60) { res.setHeader('Retry-After', '60'); return res.status(429).json({ error: 'Too many requests. Please try again in a minute.' }); }
+    next();
+  });
+  const verifyAccount = async (req: express.Request) => {
+    const token = req.headers.authorization?.replace(/^Bearer /, '');
+    if (!token) return false;
+    try {
+      const admin = getApps().find(app => app.name === 'organizer-verifier') || initializeApp({ projectId: process.env.FIREBASE_PROJECT_ID || firebaseConfig.projectId }, 'organizer-verifier');
+      const identity = await getAuth(admin).verifyIdToken(token);
+      return identity.firebase.sign_in_provider !== 'anonymous';
+    } catch { return false; }
+  };
   // API routes FIRST
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
   app.get("/api/health", (req, res) => {
-    res.json({ status: "ok" });
+    res.json({ status: "ok", product: "huntrr.organizer", integrations: { gemini: Boolean(process.env.GEMINI_API_KEY) } });
   });
 
   // Extract job details from Indeed, LinkedIn, or career listing links
@@ -26,7 +54,8 @@ async function startServer() {
         });
       }
 
-      const extracted = await extractJobDataFromUrl(url);
+      await validatePublicUrl(url.startsWith("http") ? url : `https://${url}`);
+      const extracted = await extractJobDataFromUrl(url, await verifyAccount(req));
       return res.json(extracted);
     } catch (err: any) {
       console.error("[/api/extract-job-url] Server Error:", err?.stack || err);
@@ -50,6 +79,9 @@ async function startServer() {
         });
       }
 
+      if (!process.env.GEMINI_API_KEY) return res.status(503).json({ success: false, error: 'AI import is not configured. Enter the job details manually, or configure GEMINI_API_KEY on the server.' });
+      if (!process.env.GEMINI_MODEL) return res.status(503).json({ success: false, error: 'Configure GEMINI_MODEL on the server to enable AI import.' });
+      if (!await verifyAccount(req)) return res.status(401).json({ success: false, error: 'Sign in with Google to use AI import. Manual job entry is available in the local workspace.' });
       const extracted = await extractJobDataFromText(text, originalUrl);
       return res.json(extracted);
     } catch (err: any) {
@@ -76,13 +108,15 @@ async function startServer() {
         targetUrl = "https://" + targetUrl;
       }
 
+      const pinterestHost = new URL(targetUrl).hostname;
+      if (!/(^|\.)pinterest\.com$/.test(pinterestHost)) return res.status(400).json({ error: 'Enter a public pinterest.com board URL.' });
       try {
         let rssUrl = targetUrl;
         if (!rssUrl.endsWith(".rss")) {
           rssUrl = rssUrl.replace(/\/$/, "") + ".rss";
         }
 
-        const response = await fetch(rssUrl, {
+        const response = await safeRemoteFetch(rssUrl, {
           headers: {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
           }
@@ -125,7 +159,7 @@ async function startServer() {
           }
         }
       } catch (e) {
-        console.warn("Pinterest RSS fetch failed, using smart pin extraction:", e);
+        console.warn("Pinterest RSS fetch failed:", e);
       }
 
       if (pins.length === 0) {
@@ -140,36 +174,7 @@ async function startServer() {
           }
         } catch (_) {}
 
-        pins = [
-          {
-            id: `pin-${Date.now()}-1`,
-            title: `${boardTitle} - Color & Stationery Display`,
-            description: "Curated aesthetic moodboard inspiration pin from Pinterest.",
-            imageUrl: `https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=600&auto=format&fit=crop&q=80`,
-            linkUrl: targetUrl
-          },
-          {
-            id: `pin-${Date.now()}-2`,
-            title: `${boardTitle} - Acrylic Shaker & Craft Design`,
-            description: "Craft layout overview and material details.",
-            imageUrl: `https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=600&auto=format&fit=crop&q=80`,
-            linkUrl: targetUrl
-          },
-          {
-            id: `pin-${Date.now()}-3`,
-            title: `${boardTitle} - Journal Spread & Layout`,
-            description: "Minimalist layout with pastel accents.",
-            imageUrl: `https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=600&auto=format&fit=crop&q=80`,
-            linkUrl: targetUrl
-          },
-          {
-            id: `pin-${Date.now()}-4`,
-            title: `${boardTitle} - Organizer Storage Display`,
-            description: "Desktop workspace storage arrangement.",
-            imageUrl: `https://images.unsplash.com/photo-1544816155-12df9643f363?w=600&auto=format&fit=crop&q=80`,
-            linkUrl: targetUrl
-          }
-        ];
+        return res.status(422).json({ success: false, error: 'No public pins could be read from this Pinterest board. Pinterest may require sign-in or block feed access. Add a board and upload reference images manually.' });
       }
 
       return res.json({
@@ -347,8 +352,25 @@ async function startServer() {
     }
   });
 
+  app.get('/api/makerworld-preview', async (req, res) => {
+    try {
+      const url = new URL(String(req.query.url || ''));
+      if (url.protocol !== 'https:' || !/(^|\.)makerworld\.com$/.test(url.hostname)) return res.status(400).json({ error: 'Enter an HTTPS MakerWorld model URL.' });
+      const response = await safeRemoteFetch(url.href);
+      if (!response.ok) return res.status(502).json({ error: 'MakerWorld blocked the preview. You can still enter the model manually.' });
+      const html = await response.text();
+      const meta = (name: string) => html.match(new RegExp(`<meta[^>]*(?:property|name)=["']${name}["'][^>]*content=["']([^"']+)["']`, 'i'))?.[1] || '';
+      return res.json({ title: meta('og:title'), imageUrl: meta('og:image'), description: meta('og:description') });
+    } catch { return res.status(400).json({ error: 'The model preview could not be loaded. Enter its details manually.' }); }
+  });
+  app.use('/api', (_req, res) => res.status(404).json({ error: 'API route not found.' }));
+  app.use((error: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    res.status(error.status === 413 ? 413 : 400).json({ error: error.status === 413 ? 'This upload is too large (maximum 10 MB).' : 'The request could not be read. Check the submitted fields.' });
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
@@ -366,9 +388,5 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  return app;
 }
-
-startServer();

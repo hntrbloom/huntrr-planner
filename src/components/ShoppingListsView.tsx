@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc } from '../lib/workspaceStore';
 import { useAuth } from '../lib/AuthContext';
 import { GUEST_SAMPLE_SHOPPING_LISTS } from '../lib/guestSampleData';
 import { ShoppingCart, Plus, Trash2, ChevronLeft, CheckCircle2, Circle } from 'lucide-react';
@@ -25,10 +25,12 @@ export interface ShoppingList {
 export function ShoppingListsView() {
   const { user } = useAuth();
   const [lists, setLists] = useState<ShoppingList[]>([]);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [listName, setListName] = useState('');
   const [activeListId, setActiveListId] = useState<string | null>(null);
   const [isAddingList, setIsAddingList] = useState(false);
   const [newListName, setNewListName] = useState('');
-  
+
   // Quick Add Item State
   const [newItemName, setNewItemName] = useState('');
   const [newItemQty, setNewItemQty] = useState('');
@@ -96,7 +98,7 @@ export function ShoppingListsView() {
 
   const deleteList = (listId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    
+
     saveLists(lists.filter(l => l.id !== listId));
     if (activeListId === listId) {
       setActiveListId(null);
@@ -196,9 +198,9 @@ export function ShoppingListsView() {
       <TopBar />
       <main className="flex-1 md:overflow-y-auto px-margin-mobile md:px-margin-desktop py-6 md:py-8 bg-transparent relative">
         <div className="w-full bg-surface-container-lowest border border-outline-variant/20 shadow-md rounded-xl min-h-[1200px] relative flex flex-col overflow-hidden mb-8">
-          <div className="absolute left-14 md:left-24 top-0 bottom-0 w-[2px] bg-primary/20 z-0"></div>
+          <div className="absolute left-6 sm:left-14 md:left-24 top-0 bottom-0 w-[2px] bg-primary/20 z-0"></div>
           <div className="flex-1 lined-paper relative z-10 px-4 md:px-8 pt-8 pb-safe-nav">
-            <div className="pl-16 md:pl-24 h-full flex flex-col">
+            <div className="pl-6 sm:pl-16 md:pl-24 h-full flex flex-col">
 
               {activeList ? (
                 /* Detail View */
@@ -212,7 +214,18 @@ export function ShoppingListsView() {
                         <ChevronLeft className="w-4 h-4 mr-1" />
                         Back to Lists
                       </button>
-                      <h1 className="text-3xl font-headline-md tracking-tight text-[#1c1b1d]">{activeList.name}</h1>
+                      {isRenaming ? <form onSubmit={event => {
+                        event.preventDefault(); if (!listName.trim()) return;
+                        void saveLists(lists.map(list => list.id === activeList.id ? { ...list, name: listName.trim(), updatedAt: Date.now() } : list));
+                        setIsRenaming(false);
+                      }} className="flex flex-wrap gap-2">
+                        <input aria-label="List name" value={listName} onChange={event => setListName(event.target.value)} autoFocus className="min-w-0 w-full border rounded-lg p-2" />
+                        <button type="submit" disabled={!listName.trim()} className="bg-primary text-on-primary rounded-lg px-3 py-2">Save name</button>
+                        <button type="button" onClick={() => setIsRenaming(false)}>Cancel</button>
+                      </form> : <>
+                        <h1 className="text-3xl font-headline-md tracking-tight text-[#1c1b1d] break-words">{activeList.name}</h1>
+                        <button className="text-primary text-sm underline text-left" onClick={() => { setListName(activeList.name); setIsRenaming(true); }}>Rename list</button>
+                      </>}
                     </div>
                     <button
                       onClick={() => deleteList(activeList.id)}
@@ -230,7 +243,7 @@ export function ShoppingListsView() {
                       placeholder="Add item..."
                       value={newItemName}
                       onChange={(e) => setNewItemName(e.target.value)}
-                      className="flex-1 bg-transparent px-3 py-2 text-base outline-none text-[#1c1b1d] placeholder:text-[#999999]"
+                      className="flex-1 min-w-0 bg-transparent px-3 py-2 text-base outline-none text-[#1c1b1d] placeholder:text-[#999999]"
                       autoFocus
                     />
                     <input
@@ -253,40 +266,46 @@ export function ShoppingListsView() {
                   <div className="space-y-1">
                     {/* Sort items inline: incomplete first, then by createdAt */}
                     {[...activeList.items].sort((a, b) => (a.completed === b.completed ? a.createdAt - b.createdAt : (a.completed ? 1 : -1))).map(item => (
-                      <div 
-                        key={item.id} 
+                      <div
+                        key={item.id}
                         className={`group flex items-center gap-3 py-2 border-b border-dashed border-primary/10 transition-all ${item.completed ? 'opacity-50' : 'opacity-100'}`}
                       >
                         {editingItemId === item.id ? (
-                          <form onSubmit={saveEditItem} className="flex-1 flex gap-2 items-center bg-white p-1 rounded-lg border border-primary/30">
+                          <form onSubmit={saveEditItem} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) saveEditItem(); }} className="flex-1 flex gap-2 items-center bg-white p-1 rounded-lg border border-primary/30">
                             <input
                               type="text"
+                              aria-label="Item name"
                               value={editItemName}
                               onChange={(e) => setEditItemName(e.target.value)}
-                              className="flex-1 bg-transparent px-2 py-1 text-base outline-none text-[#1c1b1d]"
+                              className="flex-1 min-w-0 bg-transparent px-2 py-1 text-base outline-none text-[#1c1b1d]"
                               autoFocus
-                              onBlur={saveEditItem}
+
                             />
                             <input
                               type="text"
                               value={editItemQty}
                               onChange={(e) => setEditItemQty(e.target.value)}
-                              className="w-20 bg-transparent px-2 py-1 text-sm outline-none text-[#555555] border-l border-primary/20"
+                              className="w-12 sm:w-20 bg-transparent px-2 py-1 text-sm outline-none text-[#555555] border-l border-primary/20"
+                              aria-label="Item quantity"
                               placeholder="Qty"
-                              onBlur={saveEditItem}
+
                             />
+                            <button type="submit" className="bg-primary text-on-primary rounded-lg p-2 text-sm">Save</button>
                           </form>
                         ) : (
                           <>
                             <button
+                              aria-label={`Mark ${item.name} ${item.completed ? 'incomplete' : 'complete'}`}
                               onClick={() => toggleItem(item.id)}
                               className={`shrink-0 transition-colors ${item.completed ? 'text-primary' : 'text-[#cccccc] hover:text-primary'}`}
                             >
                               {item.completed ? <CheckCircle2 className="w-6 h-6" /> : <Circle className="w-6 h-6" />}
                             </button>
-                            
-                            <div 
+
+                            <div
                               className="flex-1 flex items-baseline gap-2 overflow-hidden cursor-pointer"
+                              role="button" tabIndex={0} aria-label={`Edit ${item.name}`}
+                              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); startEditingItem(item); } }}
                               onClick={() => startEditingItem(item)}
                             >
                               <span className={`text-lg font-medium text-[#1c1b1d] truncate ${item.completed ? 'line-through text-[#666666]' : ''}`}>
@@ -301,7 +320,7 @@ export function ShoppingListsView() {
 
                             <button
                               onClick={() => deleteItem(item.id)}
-                              className="opacity-0 group-hover:opacity-100 p-2 text-rose-300 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-all shrink-0"
+                              className="opacity-100 md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 p-2 text-rose-700 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-all shrink-0"
                               aria-label="Delete item"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -391,7 +410,7 @@ export function ShoppingListsView() {
                           className="bg-white rounded-sm shadow-md border-[2px] border-gray-400 flex flex-col group relative cursor-pointer hover:-translate-y-1 transition-transform"
                         >
                           <div className="absolute -top-3 right-4 w-3 h-7 border-[2px] border-gray-400 rounded-full bg-transparent rotate-[15deg] shadow-[1px_1px_1px_rgba(0,0,0,0.1)] z-10 pointer-events-none"></div>
-                          
+
                           {/* Cute List Header */}
                           <div className="bg-[#FFF0F4]/40 px-5 py-4 border-b-[2px] border-black/5 flex items-start justify-between">
                             <div>
@@ -454,7 +473,7 @@ export function ShoppingListsView() {
 
                     {/* Empty State / Add Card */}
                     {!isAddingList && lists.length === 0 && (
-                      <div 
+                      <div
                         onClick={() => setIsAddingList(true)}
                         className="bg-white rounded-sm shadow-md border-[2px] border-dashed border-gray-400/50 flex flex-col items-center justify-center text-center p-8 cursor-pointer hover:bg-gray-50 transition-colors min-h-[200px]"
                       >

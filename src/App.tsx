@@ -1,39 +1,39 @@
-import React, { useState, useEffect } from 'react';
+import { DialogAccessibility } from './components/DialogAccessibility';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Menu, AlertTriangle } from 'lucide-react';
 import { BottomNav, Sidebar } from './components/Navigation';
-import { AgendaView } from './components/AgendaView';
-import { NotesView } from './components/NotesView';
-import { HabitsView } from './components/HabitsView';
-import { DailyLogView } from './components/DailyLogView';
-import { MonthlyView } from './components/MonthlyView';
-import { PrintingCatalogView } from './components/PrintingCatalogView';
-import { StreaksView } from './components/StreaksView';
-import { CharacterWikiView } from './components/CharacterWikiView';
-import { MiniFurnitureView } from './components/MiniFurnitureView';
-import { BlogView } from './components/BlogView';
-import { GoalsView } from './components/GoalsView';
-import { GoalsAndStreaksView } from './components/GoalsAndStreaksView';
-import { KeychainsView } from './components/KeychainsView';
-import { ClientReceiptsView } from './components/ClientReceiptsView';
-import { ShoppingListsView } from './components/ShoppingListsView';
-import { ModelViewerView } from './components/ModelViewerView';
 import { ViewState } from './types';
 import { db } from './lib/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot } from './lib/workspaceStore';
 import { useAuth } from './lib/AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { FocusTimer } from './components/FocusTimer';
-import { SettingsView } from './components/SettingsView';
 import { MedicationPopup } from './components/MedicationPopup';
-import { runGlobalBase64Migration } from './lib/globalMigration';
+import { isLocalUser } from './lib/workspaceMode';
+import { StorageNotice } from './components/StorageNotice';
+const JobApplicationsView = lazy(() => import('./components/JobApplicationsView').then(m => ({ default: m.JobApplicationsView })));
+const RemindersView = lazy(() => import('./components/RemindersView').then(m => ({ default: m.RemindersView })));
+const InspirationView = lazy(() => import('./components/InspirationView').then(m => ({ default: m.InspirationView })));
+const AgendaView = lazy(() => import('./components/AgendaView').then(m => ({ default: m.AgendaView })));
+const NotesView = lazy(() => import('./components/NotesView').then(m => ({ default: m.NotesView })));
+const HabitsView = lazy(() => import('./components/HabitsView').then(m => ({ default: m.HabitsView })));
+const DailyLogView = lazy(() => import('./components/DailyLogView').then(m => ({ default: m.DailyLogView })));
+const MonthlyView = lazy(() => import('./components/MonthlyView').then(m => ({ default: m.MonthlyView })));
+const PrintingCatalogView = lazy(() => import('./components/PrintingCatalogView').then(m => ({ default: m.PrintingCatalogView })));
+const StreaksView = lazy(() => import('./components/StreaksView').then(m => ({ default: m.StreaksView })));
+const CharacterWikiView = lazy(() => import('./components/CharacterWikiView').then(m => ({ default: m.CharacterWikiView })));
+const MiniFurnitureView = lazy(() => import('./components/MiniFurnitureView').then(m => ({ default: m.MiniFurnitureView })));
+const BlogView = lazy(() => import('./components/BlogView').then(m => ({ default: m.BlogView })));
+const GoalsView = lazy(() => import('./components/GoalsView').then(m => ({ default: m.GoalsView })));
+const GoalsAndStreaksView = lazy(() => import('./components/GoalsAndStreaksView').then(m => ({ default: m.GoalsAndStreaksView })));
+const KeychainsView = lazy(() => import('./components/KeychainsView').then(m => ({ default: m.KeychainsView })));
+const ClientReceiptsView = lazy(() => import('./components/ClientReceiptsView').then(m => ({ default: m.ClientReceiptsView })));
+const ShoppingListsView = lazy(() => import('./components/ShoppingListsView').then(m => ({ default: m.ShoppingListsView })));
+const ModelViewerView = lazy(() => import('./components/ModelViewerView').then(m => ({ default: m.ModelViewerView })));
+const SettingsView = lazy(() => import('./components/SettingsView').then(m => ({ default: m.SettingsView })));
 
 export default function App() {
   const { user, logOut } = useAuth();
-
-  useEffect(() => {
-    if (!user || user.isAnonymous) return;
-    runGlobalBase64Migration(user.uid);
-  }, [user]);
 
   useEffect(() => {
     if (!user || user.isAnonymous) return;
@@ -47,7 +47,15 @@ export default function App() {
     return () => unsub();
   }, [user]);
   
-  const [currentView, setCurrentView] = useState<ViewState>('agenda');
+  const [currentView, setCurrentView] = useState<ViewState>(() => { const view = window.location.hash.slice(1); return ['agenda','log','shopping','receipts','habits','minifurniture','models','wiki','goals_streaks','month','notes','blog','settings','jobs','reminders','pinterest','printing','keychains'].includes(view) ? view as ViewState : 'agenda'; });
+  useEffect(() => {
+    window.location.hash = currentView;
+    document.title = `huntrr.organizer · ${currentView.replaceAll('_', ' ')}`;
+  }, [currentView]);
+  useEffect(() => {
+    const change = () => { const view = window.location.hash.slice(1) as ViewState; if (view) setCurrentView(view); };
+    window.addEventListener('hashchange', change); return () => window.removeEventListener('hashchange', change);
+  }, []);
   const [goalsStreaksSection, setGoalsStreaksSection] = useState<'goals' | 'streaks' | undefined>(undefined);
 
   const handleViewChange = (v: ViewState) => {
@@ -63,6 +71,7 @@ export default function App() {
   };
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    if (window.innerWidth < 768) return false;
     try {
       const saved = localStorage.getItem('sidebar_open');
       if (saved !== null) {
@@ -71,7 +80,7 @@ export default function App() {
     } catch (e) {
       console.error('Error reading sidebar state:', e);
     }
-    return true; // Default open on desktop
+    return true;
   });
 
   useEffect(() => {
@@ -81,6 +90,13 @@ export default function App() {
       console.error('Error saving sidebar state:', e);
     }
   }, [isSidebarOpen]);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)');
+    const closeMobileMenu = () => { if (media.matches) setIsSidebarOpen(false); };
+    media.addEventListener('change', closeMobileMenu);
+    return () => media.removeEventListener('change', closeMobileMenu);
+  }, []);
 
   const renderView = () => {
     switch (currentView) {
@@ -109,7 +125,10 @@ export default function App() {
             onSectionChange={(sec) => setGoalsStreaksSection(sec)} 
           />
         );
-      case 'keychains':
+      case 'jobs': return <JobApplicationsView />;
+      case 'reminders': return <RemindersView />;
+      case 'pinterest': return <InspirationView />;
+      case 'keychains': return <KeychainsView />;
       case 'minifurniture':
         return <MiniFurnitureView />;
       case 'models':
@@ -132,30 +151,22 @@ export default function App() {
         return <BlogView />;
       case 'settings':
         return <SettingsView />;
-      case 'charts':
-        return (
-          <div className="flex-1 flex items-center justify-center p-8">
-            <div className="text-center">
-              <h2 className="text-[28px] font-headline-md text-primary mb-2">Coming Soon</h2>
-              <p className="text-[16px] font-body-md text-on-surface-variant">This section is being crafted.</p>
-            </div>
-          </div>
-        );
+      case 'charts': return <StreaksView />;
       default:
         return <AgendaView onNavigate={handleViewChange} />;
     }
   };
 
   return (
-    <div className={`app-container text-on-surface font-body-md antialiased min-h-[100dvh] flex flex-col md:flex-row md:overflow-hidden selection:bg-primary-container selection:text-on-primary-container ${user?.isAnonymous ? 'pt-[36px]' : ''}`}>
-      {user?.isAnonymous && (
-        <div className="fixed top-0 inset-x-0 z-[100] bg-secondary text-on-secondary px-4 py-2 text-center text-[14px] font-bold flex items-center justify-center gap-2 shadow-md">
-          <AlertTriangle className="w-4 h-4" />
-          Guest Preview — changes will not be saved.
-          <button onClick={logOut} className="ml-2 underline font-medium hover:text-white transition-colors">Sign in to save</button>
+    <div data-local-workspace={user?.isAnonymous || isLocalUser(user) ? 'true' : undefined} className={`app-container text-on-surface font-body-md antialiased min-h-[100dvh] flex flex-col md:flex-row md:overflow-hidden selection:bg-primary-container selection:text-on-primary-container ${user?.isAnonymous || isLocalUser(user) ? 'pt-[56px] md:pt-[44px]' : ''}`}>
+      {(user?.isAnonymous || isLocalUser(user)) && (
+        <div className="fixed top-0 inset-x-0 z-[100] bg-[#4b3440] text-white px-3 py-2 text-center text-xs font-medium flex flex-wrap items-center justify-center gap-x-3 gap-y-1 min-h-11">
+          <span>{isLocalUser(user) ? 'Local workspace · saved on this device' : 'Guest preview · temporary changes'}</span>
+          <button onClick={logOut} className="underline underline-offset-4">Switch workspace</button>
         </div>
       )}
-      
+      <StorageNotice />
+      <DialogAccessibility />
       <FocusTimer />
       <MedicationPopup />
       
@@ -163,7 +174,7 @@ export default function App() {
       {!isSidebarOpen && (
         <button
           onClick={() => setIsSidebarOpen(true)}
-          className="fixed bottom-[calc(env(safe-area-inset-bottom)+80px)] md:bottom-auto md:top-[20px] left-4 z-[60] p-2.5 bg-white/80 backdrop-blur-md hover:bg-white text-[#666666] hover:text-[#222222] rounded-full shadow-md transition-all border border-black/10 flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95"
+          className="fixed bottom-[calc(env(safe-area-inset-bottom)+80px)] md:bottom-auto md:top-[calc(var(--workspace-banner-height,0px)+20px)] left-4 z-[60] p-2.5 bg-white/80 backdrop-blur-md hover:bg-white text-[#666666] hover:text-[#222222] rounded-full shadow-md transition-all border border-black/10 flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95"
           aria-label="Open sidebar menu"
           title="Open menu"
         >
@@ -178,9 +189,9 @@ export default function App() {
         onClose={() => setIsSidebarOpen(false)}
       />
       
-      <div className="flex-1 flex flex-col relative w-full md:h-[100dvh] md:overflow-hidden min-w-0 transition-all duration-300 ease-in-out">
-        <ErrorBoundary>
-          {renderView()}
+      <div className="flex-1 flex flex-col relative w-full md:h-[calc(100dvh-var(--workspace-banner-height,0px))] md:overflow-hidden min-w-0 transition-all duration-300 ease-in-out">
+        <ErrorBoundary key={currentView}>
+          <Suspense fallback={<div role="status" className="p-10 text-on-surface-variant">Loading your space…</div>}>{renderView()}</Suspense>
         </ErrorBoundary>
       </div>
 

@@ -2,7 +2,7 @@ import { safeGetDoc as getDoc, safeGetDocs as getDocs, safeGetDoc } from '../lib
 import React, { useState, useEffect } from 'react';
 import { Bell, Plus, Trash2, Clock, Smartphone, Monitor, AlertCircle, RefreshCw } from 'lucide-react';
 import { db } from '../lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc } from '../lib/workspaceStore';
 import { useAuth } from '../lib/AuthContext';
 import { SyncStatus } from './SyncStatus';
 

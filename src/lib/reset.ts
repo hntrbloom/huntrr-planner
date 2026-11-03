@@ -1,5 +1,5 @@
 import { db } from './firebase';
-import { collection, getDocs, writeBatch, doc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, writeBatch, doc, deleteDoc } from './workspaceStore';
 import { clearKeychainsIDB, clearInspirationPhotosIDB } from './idb';
 
 export type TabId = 'prints' | 'goals' | 'habits' | 'jobs' | 'boards' | 'receipts' | 'shopping' | 'dailylogs' | 'notes' | 'reminders' | 'keychains' | 'wiki' | 'blog' | 'sets' | 'charms' | 'objects' | 'nail_charms' | 'mini_furniture';

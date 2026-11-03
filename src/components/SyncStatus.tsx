@@ -5,7 +5,7 @@ export function SyncStatus({ status }: { status: 'idle' | 'saving' | 'saved' | '
   if (status === 'idle') return null;
   
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 px-4 py-2 rounded-full shadow-lg bg-surface-container-highest text-on-surface text-sm font-medium animate-in slide-in-from-bottom-4 fade-in duration-300">
+    <div role={status === 'error' ? 'alert' : 'status'} className="fixed bottom-[calc(var(--bottom-nav-height,0px)+16px)] right-4 z-50 flex items-center gap-2 px-4 py-2 rounded-full shadow-lg bg-surface-container-highest text-on-surface text-sm font-medium animate-in slide-in-from-bottom-4 fade-in duration-300">
       {status === 'saving' && (
         <>
           <RefreshCw className="w-4 h-4 animate-spin text-primary" />

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { db } from './firebase';
-import { collection, onSnapshot, query, setDoc, doc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, setDoc, doc, deleteDoc } from './workspaceStore';
 import { useAuth } from './AuthContext';
 import { GUEST_SAMPLE_SHIFTS } from './guestSampleData';
 

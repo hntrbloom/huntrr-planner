@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, GoogleAuthProvider, signInWithPopup, getRedirectResult, signInAnonymously, onAuthStateChanged, signOut } from 'firebase/auth';
+import { LOCAL_USER_ID, LOCAL_SESSION_KEY, isLocalUser } from './workspaceMode';
 import { auth, setLocalGuest } from './firebase';
 import { LogIn, AlertCircle, UserCircle2, RefreshCw } from 'lucide-react';
 import { requestFreshDriveToken, getLastOAuthDiagnostic, OAuthDiagnosticInfo } from './driveAuth';
@@ -12,12 +13,13 @@ let cachedAccessToken: string | null = null;
 let cachedTokenTimestamp: number = 0;
 
 export const getAccessToken = (): string | null => {
+  try { if (localStorage.getItem(LOCAL_SESSION_KEY) === 'true') return null; } catch { return null; }
   if (cachedAccessToken && (Date.now() - cachedTokenTimestamp < TOKEN_EXPIRY_MS)) {
     return cachedAccessToken;
   }
   try {
-    const stored = sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY);
-    const timestampStr = sessionStorage.getItem(TIMESTAMP_KEY) || localStorage.getItem(TIMESTAMP_KEY);
+    const stored = sessionStorage.getItem(TOKEN_KEY);
+    const timestampStr = sessionStorage.getItem(TIMESTAMP_KEY);
     const timestamp = timestampStr ? parseInt(timestampStr, 10) : 0;
     
     if (stored && timestamp && (Date.now() - timestamp < TOKEN_EXPIRY_MS)) {
@@ -37,8 +39,8 @@ export const setAccessToken = (token: string | null) => {
     if (token) {
       sessionStorage.setItem(TOKEN_KEY, token);
       sessionStorage.setItem(TIMESTAMP_KEY, String(cachedTokenTimestamp));
-      localStorage.setItem(TOKEN_KEY, token);
-      localStorage.setItem(TIMESTAMP_KEY, String(cachedTokenTimestamp));
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(TIMESTAMP_KEY);
     } else {
       sessionStorage.removeItem(TOKEN_KEY);
       sessionStorage.removeItem(TIMESTAMP_KEY);
@@ -52,8 +54,16 @@ export const setAccessToken = (token: string | null) => {
   }
 };
 
+export interface LocalWorkspaceUser {
+  uid: typeof LOCAL_USER_ID;
+  isAnonymous: false;
+  isLocal: true;
+  displayName: string;
+  email: null;
+}
+const localUser: LocalWorkspaceUser = { uid: LOCAL_USER_ID, isAnonymous: false, isLocal: true, displayName: 'Local workspace', email: null };
 interface AuthContextType {
-  user: User | null;
+  user: User | LocalWorkspaceUser | null;
   loading: boolean;
   signIn: () => Promise<void>;
   signInAsGuest: () => Promise<void>;
@@ -63,7 +73,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | LocalWorkspaceUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [diagnosticInfo, setDiagnosticInfo] = useState<OAuthDiagnosticInfo | null>(null);
@@ -71,9 +81,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   useEffect(() => {
-    import('firebase/auth').then(({ getRedirectResult }) => {
+    Promise.resolve().then(() => {
       getRedirectResult(auth).then((result) => {
-        if (result?.user) {
+        if (result?.user && localStorage.getItem(LOCAL_SESSION_KEY) !== 'true') {
           setUser(result.user);
         }
       }).catch((err) => {
@@ -90,7 +100,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setLocalGuest(false);
           setError(null);
         }
-        setUser(u);
+        if (localStorage.getItem(LOCAL_SESSION_KEY) === 'true') {
+          setLocalGuest(true);
+          setUser(localUser);
+        } else setUser(u);
         setLoading(false);
       },
       (authErr) => {
@@ -108,7 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsAuthenticating(true);
     
     try {
-      if (user && !user.isAnonymous) {
+      if (user && !user.isAnonymous && !isLocalUser(user)) {
         const token = await requestFreshDriveToken(true);
         if (token) {
           setAccessToken(token);
@@ -140,6 +153,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const result = await signInWithPopup(auth, provider);
       
       if (result.user) {
+        localStorage.removeItem(LOCAL_SESSION_KEY);
+        const credential = GoogleAuthProvider.credentialFromResult(result);
+        if (credential?.accessToken) setAccessToken(credential.accessToken);
         setUser(result.user);
         setLocalGuest(false);
       }
@@ -169,26 +185,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInAsGuest = async () => {
     setError(null);
-    setDiagnosticInfo(null);
-    setLoading(true);
     try {
-      await signInAnonymously(auth);
-      setLoading(false);
-    } catch (error: any) {
-      console.warn('Firebase anonymous sign-in fallback to local guest session', error);
+      localStorage.setItem(LOCAL_SESSION_KEY, 'true');
       setLocalGuest(true);
-      setUser({
-        uid: 'guest-local-user',
-        isAnonymous: true,
-        displayName: 'Guest User',
-        email: null,
-      } as User);
-      setLoading(false);
+      setUser(localUser);
+    } catch {
+      setError('Browser storage is unavailable. Enable site storage or sign in with Google.');
     }
   };
 
   const logOut = async () => {
     try {
+      localStorage.removeItem(LOCAL_SESSION_KEY);
       setLocalGuest(false);
       await signOut(auth);
       setUser(null);
@@ -217,10 +225,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       <div className="min-h-screen flex items-center justify-center bg-surface">
         <div className="bg-surface-container-lowest p-8 rounded-2xl border border-outline-variant/30 shadow-md text-center max-w-md w-full mx-4">
           <h2 className="text-[28px] font-headline-md text-on-surface mb-2">
-            Welcome
+            huntrr.organizer
           </h2>
           <p className="text-[16px] font-body-md text-on-surface-variant mb-6">
-            Sign in to save your planner data and preferences.
+            Your plans, creative projects, and little everyday things. Sign in for private cloud storage, or keep a workspace on this device.
           </p>
           
           {error && (
@@ -278,11 +286,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               className="w-full flex items-center justify-center gap-2 bg-secondary-container text-on-secondary-container px-6 py-3 rounded-full font-label-md font-semibold hover:bg-secondary-container/90 transition-colors cursor-pointer"
             >
               <UserCircle2 className="w-5 h-5" />
-              Preview as Guest
+              Continue on this device
             </button>
             
             <p className="text-[12px] text-on-surface-variant text-center mt-4">
-              If sign-in is blocked in this preview, please click the "Open in new tab" icon at the top right of this panel.
+              Local workspaces save in this browser. Export a backup before clearing browser data. Google Drive features require a Google account.
             </p>
           </div>
         </div>

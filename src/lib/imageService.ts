@@ -1,6 +1,8 @@
+import { LOCAL_USER_ID } from './workspaceMode';
+import { savePhotoToIDB } from './idb';
 import { storage, db } from './firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { collection, doc, getDocs, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, getDoc, setDoc, updateDoc } from './workspaceStore';
 import { getAccessToken } from './AuthContext';
 import { requestFreshDriveToken } from './driveAuth';
 import { v4 as uuidv4 } from 'uuid';
@@ -209,6 +211,14 @@ export async function uploadImageToService({
     throw new Error('No valid image file provided for upload');
   }
 
+  if (userId === LOCAL_USER_ID) {
+    const key = `photo_${uuidv4()}`;
+    await savePhotoToIDB(key, targetBlob);
+    let thumbnail: string | undefined;
+    if (thumbnailFile) { const thumbKey = `${key}_thumb`; await savePhotoToIDB(thumbKey, thumbnailFile); thumbnail = `idb://${thumbKey}`; }
+    onProgress?.(100);
+    return { storagePath: `idb://${key}`, downloadURL: `idb://${key}`, thumbDownloadURL: thumbnail, thumbStoragePath: thumbnail, driveFileId: null, filename: targetFilename, mimeType: targetMimeType, status: 'ready', width, height };
+  }
   const cleanName = targetFilename.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_.-]/g, '_');
   const ext = targetMimeType === 'image/webp' ? 'webp' : 'jpg';
   const uniqueId = uuidv4().substring(0, 8);

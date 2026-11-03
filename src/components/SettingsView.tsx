@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { isLocalUser } from '../lib/workspaceMode';
+import React, { useState, useEffect, useRef } from 'react';
 import { Download, Upload, Save, AlertCircle, RefreshCw, Image as ImageIcon, Database, Folder, CheckCircle, ExternalLink, FolderOpen, Check, Loader2, RotateCcw } from 'lucide-react';
 import { useAuth, getAccessToken, setAccessToken } from '../lib/AuthContext';
 import { requestFreshDriveToken, getLastOAuthDiagnostic, OAuthDiagnosticInfo } from '../lib/driveAuth';
-import { gatherAllData } from '../lib/backup';
+import { gatherAllData, restoreData, validateBackup } from '../lib/backup';
 import { deleteAllData, deleteTabData, TabId } from '../lib/reset';
 import { uploadToDrive } from '../lib/drive';
 import { runPhotoMigration, MigrationReport } from '../lib/imageService';
@@ -10,7 +11,7 @@ import { getUserSettings, initializeDriveFolders, updateUserSettings } from '../
 import { SetDriveFoldersModal } from './SetDriveFoldersModal';
 import { getAllPrintTypes, getPrintFolderId, extractDriveFolderId, testDriveFolderAccess, DEFAULT_PRINT_TYPES, PrintTypeDefinition } from '../lib/driveFolderUtils';
 import { db, safeGetDoc } from '../lib/firebase';
-import { collection, getDocs, doc } from 'firebase/firestore';
+import { collection, getDocs, doc } from '../lib/workspaceStore';
 
 const TAB_RESETS: { id: TabId; label: string; confirmText: string; keyword: string }[] = [
   { id: 'sets', label: 'Reset All Sets', confirmText: 'This will permanently delete all Sets.', keyword: 'SETS' },
@@ -33,7 +34,8 @@ const TAB_RESETS: { id: TabId; label: string; confirmText: string; keyword: stri
 ];
 
 export function SettingsView() {
-  const { user } = useAuth();
+  const { user, signIn, logOut } = useAuth();
+  const restoreInput = useRef<HTMLInputElement>(null);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
   const [migrationReport, setMigrationReport] = useState<MigrationReport | null>(null);
@@ -54,6 +56,7 @@ export function SettingsView() {
   const [driveOAuthDiag, setDriveOAuthDiag] = useState<OAuthDiagnosticInfo | null>(null);
 
   const handleConnectDrive = async () => {
+    if (isLocalUser(user)) { await signIn(); return; }
     setIsConnectingDrive(true);
     setStatus(null);
     setDriveOAuthDiag(null);
@@ -315,8 +318,20 @@ export function SettingsView() {
     }
   };
 
-  const handleRestoreBackup = () => {
-    setStatus({ type: 'info', message: 'To restore a backup, please download the JSON file from your Google Drive (in "Hunter Planner Backups" folder) and contact support or manually import it if you have the tools.' });
+  const handleRestoreBackup = () => restoreInput.current?.click();
+  const importBackup = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]; event.target.value = '';
+    if (!file || !user) return;
+    setIsBackingUp(true);
+    try {
+      if (file.size > 100 * 1024 * 1024) throw new Error('Choose a backup smaller than 100 MB.');
+      const backup = JSON.parse(await file.text());
+      const { count } = validateBackup(backup);
+      if (!window.confirm(`Restore ${count} records into this ${isLocalUser(user) ? 'local' : 'cloud'} workspace? Matching record IDs will be merged with the backup values. Other records will be kept. Export a current backup first if needed.`)) return;
+      await restoreData(user.uid, backup);
+      setStatus({ type: 'success', message: 'Backup restored. Reopen a tab to see its records.' });
+    } catch (error: any) { setStatus({ type: 'error', message: `Restore failed: ${error.message}. Existing records were not cleared. If a large restore was interrupted, you can retry the same file.` }); }
+    finally { setIsBackingUp(false); }
   };
   
   const handleFactoryReset = async () => {
@@ -352,6 +367,12 @@ export function SettingsView() {
         <div className="max-w-3xl mx-auto w-full">
           <h1 className="text-[32px] md:text-[40px] font-bold font-headline-md text-on-surface mb-8 tracking-tight">Settings</h1>
 
+          <input ref={restoreInput} type="file" accept=".json,application/json" className="hidden" aria-label="Choose JSON backup" onChange={importBackup} />
+          <section className="bg-white rounded-2xl border border-outline-variant/30 p-6 mb-6">
+            <h2 className="text-xl font-bold mb-2">Your workspace</h2>
+            <p className="text-sm mb-4">{isLocalUser(user) ? 'Local storage on this browser. No Google account is connected, and these records are not synced to other devices. Export includes local photos and STL files.' : `Private Firebase workspace: ${user?.email || 'Google account'}. Cloud access is restricted to your user ID.`}</p>
+            <button onClick={logOut} className="underline font-semibold">Switch workspace / sign out</button>
+          </section>
           {status && (
             <div className={`p-4 mb-6 rounded-xl flex items-start gap-3 ${
               status.type === 'error' ? 'bg-red-50 text-red-800 border border-red-200' :
@@ -371,12 +392,12 @@ export function SettingsView() {
             </h2>
             <p className="text-sm text-on-surface-variant mb-4 leading-relaxed">
               Verify and repair all photo references across Prints, Boards, Wiki, Keychains, and Printing catalogs. 
-              Images are permanently hosted in Firebase Storage and automatically backed up to Google Drive under <span className="font-semibold text-on-surface">Huntrr Planner Photo Backup</span>.
+              Cloud photos use Firebase Storage; Drive backup requires a connected account. Local photos stay in this browser. The existing Drive backup folder is <span className="font-semibold text-on-surface">Huntrr Planner Photo Backup</span>.
             </p>
 
             <button 
               onClick={handleRunPhotoMigration}
-              disabled={isBackingUp}
+              disabled={isBackingUp || isLocalUser(user)}
               className="flex items-center justify-center gap-2 bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 px-5 py-3 rounded-full text-sm font-bold transition-colors disabled:opacity-50"
             >
               <Database className="w-4 h-4" /> Run Storage Audit & Backup Scan
@@ -410,38 +431,38 @@ export function SettingsView() {
             <div className="space-y-4 mb-6 text-sm text-on-surface">
               <div className="flex items-center justify-between py-2 border-b border-outline-variant/30">
                 <span className="font-medium">Connected Google account</span>
-                <span className="text-on-surface-variant">{user?.email || 'Not signed in'}</span>
+                <span className="text-on-surface-variant">{isLocalUser(user) ? 'Local workspace — sign in to use Drive' : user?.email || 'Not signed in'}</span>
               </div>
               <div className="flex items-center justify-between py-2 border-b border-outline-variant/30">
                 <span className="font-medium">Main folder ("huntrr daily images")</span>
                 <span className="flex items-center gap-2">
-                  {driveFolders?.mainFolderId ? <CheckCircle className="w-4 h-4 text-green-500" /> : <AlertCircle className="w-4 h-4 text-red-500" />}
-                  {driveFolders?.mainFolderId ? 'Connected' : 'Missing'}
+                  {driveFolders?.mainFolderId ? <CheckCircle className="w-4 h-4 text-on-surface-variant" /> : <AlertCircle className="w-4 h-4 text-red-500" />}
+                  {driveFolders?.mainFolderId ? 'Configured · access not verified' : 'Not configured'}
                 </span>
               </div>
               <div className="flex items-center justify-between py-2 border-b border-outline-variant/30">
                 <span className="font-medium">Prints folder status</span>
                 <span className="flex items-center gap-2">
-                  {driveFolders?.printsFolderId ? <CheckCircle className="w-4 h-4 text-green-500" /> : <AlertCircle className="w-4 h-4 text-red-500" />}
-                  {driveFolders?.printsFolderId ? 'Connected' : 'Missing'}
+                  {driveFolders?.printsFolderId ? <CheckCircle className="w-4 h-4 text-on-surface-variant" /> : <AlertCircle className="w-4 h-4 text-red-500" />}
+                  {driveFolders?.printsFolderId ? 'Configured · access not verified' : 'Not configured'}
                 </span>
               </div>
               <div className="flex items-center justify-between py-2 border-b border-outline-variant/30">
                 <span className="font-medium">Boards folder status</span>
                 <span className="flex items-center gap-2">
-                  {driveFolders?.boardsFolderId ? <CheckCircle className="w-4 h-4 text-green-500" /> : <AlertCircle className="w-4 h-4 text-red-500" />}
-                  {driveFolders?.boardsFolderId ? 'Connected' : 'Missing'}
+                  {driveFolders?.boardsFolderId ? <CheckCircle className="w-4 h-4 text-on-surface-variant" /> : <AlertCircle className="w-4 h-4 text-red-500" />}
+                  {driveFolders?.boardsFolderId ? 'Configured · access not verified' : 'Not configured'}
                 </span>
               </div>
               <div className="flex items-center justify-between py-2 border-b border-outline-variant/30">
                 <span className="font-medium">Wiki folder status</span>
                 <span className="flex items-center gap-2">
                   {(driveFolders?.wikiFolderId || printFolderMap['Wiki Characters'] || printFolderMap['Wiki']) ? (
-                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    <CheckCircle className="w-4 h-4 text-on-surface-variant" />
                   ) : (
                     <AlertCircle className="w-4 h-4 text-red-500" />
                   )}
-                  {(driveFolders?.wikiFolderId || printFolderMap['Wiki Characters'] || printFolderMap['Wiki']) ? 'Connected' : 'Missing'}
+                  {(driveFolders?.wikiFolderId || printFolderMap['Wiki Characters'] || printFolderMap['Wiki']) ? 'Configured · access not verified' : 'Not configured'}
                 </span>
               </div>
             </div>
@@ -634,7 +655,7 @@ export function SettingsView() {
             <div className="flex flex-col sm:flex-row gap-3">
               <button 
                 onClick={handleBackupNow}
-                disabled={isBackingUp}
+                disabled={isBackingUp || isLocalUser(user)}
                 className="flex items-center justify-center gap-2 bg-primary text-white px-5 py-3 rounded-full text-sm font-bold shadow-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
                 <Upload className="w-4 h-4" /> Back Up Now
@@ -706,7 +727,7 @@ export function SettingsView() {
         }}
       />
       {resetTab && (
-        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" aria-label="Settings dialog" tabIndex={-1} className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
             <h3 className="text-[20px] font-bold text-red-700 mb-2">Confirm Reset</h3>
             <p className="text-[14px] text-on-surface-variant mb-4">
