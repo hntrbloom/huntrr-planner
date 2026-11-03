@@ -1503,7 +1503,7 @@ export function InspirationView() {
       <div className="p-4 md:p-8 flex-1">
         
         {testLogs.length > 0 && (
-          <div className="mb-6 p-4 bg-slate-950 text-emerald-400 rounded-2xl text-xs font-mono border border-indigo-500/50 shadow-xl animate-in fade-in">
+          <div className="planner-dark-panel mb-6 p-4 bg-slate-950 text-emerald-400 rounded-2xl text-xs font-mono border border-indigo-500/50 shadow-xl animate-in fade-in">
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
               <span className="font-bold text-indigo-300 flex items-center gap-2 text-sm">
                 <TestTube className="w-4 h-4 text-indigo-400" />
@@ -1548,7 +1548,7 @@ export function InspirationView() {
         )}
 
         {debugLogs.length > 0 && (
-          <div className="mb-6 p-4 bg-slate-900 text-slate-100 rounded-2xl text-xs font-mono border border-slate-700 shadow-lg animate-in fade-in">
+          <div className="planner-dark-panel mb-6 p-4 bg-slate-900 text-slate-100 rounded-2xl text-xs font-mono border border-slate-700 shadow-lg animate-in fade-in">
             <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-700">
               <span className="font-bold text-slate-300 flex items-center gap-2">
                 <RefreshCw className={`w-3.5 h-3.5 ${isUploading ? 'animate-spin text-pink-400' : 'text-slate-400'}`} />

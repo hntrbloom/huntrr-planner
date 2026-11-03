@@ -157,7 +157,7 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
       onClick={onClose}
     >
       <div 
-        className="bg-[#1C1B1F] border border-white/10 text-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl flex flex-col my-auto max-h-[92vh]"
+        className="planner-dark-panel bg-[#1C1B1F] border border-white/10 text-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl flex flex-col my-auto max-h-[92vh]"
         onClick={e => e.stopPropagation()}
       >
         {/* Modal Header */}

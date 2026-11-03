@@ -354,3 +354,9 @@ button[class*='bg-[#FFB8CD]'] :is(span,svg), button[class*='bg-[#FF6B9E]'] :is(s
 .task-notepad .opacity-70, .planner-page .line-through.opacity-60, .planner-page .group\/item.opacity-50 { opacity: 1; }
 
 .planner-category-tab[aria-pressed='true'] :is(button,svg) { color: var(--white) !important; }
+
+/* Dark photo tools and activity panels retain readable, pale foregrounds. */
+.planner-dark-panel { color: var(--white); }
+.planner-dark-panel :is(h1,h2,h3,h4) { color: var(--white); }
+.planner-dark-panel :is([class*='text-slate-'],[class*='text-gray-'],[class*='text-red-'],[class*='text-emerald-'],[class*='text-indigo-'],[class*='text-cyan-'],[class*='text-pink-'],[class*='text-[#FF6B9E]']) { color: var(--pink-pale); }
+input[type='range'], input[type='radio'] { accent-color: var(--pink-deep); }

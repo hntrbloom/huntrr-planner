@@ -211,4 +211,7 @@
   .text-rose-300,
   .text-rose-400,
   .text-rose-500 { color: var(--pink-deep); }
+  .text-gray-300, .text-gray-400, .text-zinc-300, .text-zinc-400,
+  .text-neutral-300, .text-neutral-400, .text-stone-300, .text-stone-400 { color: var(--black-dark-gray); }
+  .text-primary\/60, .text-primary\/70, .text-primary\/80, .text-primary\/90 { color: var(--pink-deep); }
 }
