@@ -144,7 +144,7 @@ export function TopBar({ title = "My Planner", showSearch = false }: TopBarProps
 
       {isBgModalOpen && (
         <div role="dialog" aria-modal="true" aria-label="Background colour" tabIndex={-1}
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-pink-100/90 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsBgModalOpen(false);
           }}

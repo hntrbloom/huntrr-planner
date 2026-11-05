@@ -181,7 +181,7 @@ export function BlogView() {
                       className="w-full min-h-[120px] bg-[#FFF0F4] border border-[#FFB8CD]/50 rounded-[1.5rem] p-5 text-[16px] text-black focus:outline-none focus:border-[#FFB8CD] resize-y font-medium"
                     />
                     <div className="flex justify-end gap-3">
-                      <button onClick={handleCancelEdit} className="px-5 py-2.5 bg-white text-black/60 font-bold rounded-full border border-black/10 hover:bg-black/5 transition-colors">
+                      <button onClick={handleCancelEdit} className="px-5 py-2.5 bg-white text-black/60 font-bold rounded-full border border-black/10 hover:bg-pink-100/5 transition-colors">
                         Cancel
                       </button>
                       <button onClick={handleUpdate} className="px-5 py-2.5 bg-[#FFB8CD] text-white font-bold rounded-full shadow-sm hover:bg-[#FFB8CD]/90 transition-colors">
@@ -206,7 +206,7 @@ export function BlogView() {
                     </div>
 
                     <div className="mt-6 flex justify-end gap-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => handleEdit(post)} className="p-2 text-black/40 hover:text-black hover:bg-black/5 rounded-full transition-colors" title="Edit">
+                      <button onClick={() => handleEdit(post)} className="p-2 text-black/40 hover:text-black hover:bg-pink-100/5 rounded-full transition-colors" title="Edit">
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button onClick={() => handleDelete(post.id)} className="p-2 text-black/40 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors" title="Delete">

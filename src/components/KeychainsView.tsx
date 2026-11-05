@@ -12,6 +12,7 @@ import { compressImageIfNeeded, uploadFileToStorage } from '../lib/storage';
 import { ImageUploaderArea } from './ui/ImageUploaderArea';
 import { ImageViewerModal } from './ImageViewerModal';
 import { SmartImage } from './SmartImage';
+import { ACCOUNT_FILE_PREFIX, readAccountFile } from '../lib/accountFiles';
 import { GUEST_SAMPLE_KEYCHAINS } from '../lib/guestSampleData';
 
 interface Charm {
@@ -389,8 +390,7 @@ export function KeychainsView() {
         const addImage = async (url: string | undefined, suffix: string) => {
             if (!url) return;
             try {
-              const res = await fetch(url);
-              const blob = await res.blob();
+              const blob = url.startsWith(ACCOUNT_FILE_PREFIX) ? await readAccountFile(url) : await (await fetch(url)).blob();
               const ext = blob.type.split('/')[1] || 'png';
               const filename = charm.name ? `${charm.name}-${suffix}.${ext}` : `charm-${index + 1}-${suffix}.${ext}`;
               folder.file(filename, blob);
@@ -434,9 +434,9 @@ export function KeychainsView() {
         >
           {hasImage ? (
             <div className="relative group w-full aspect-square rounded-xl overflow-hidden border border-outline-variant/30">
-              <img src={charm[field] as string} className="w-full h-full object-cover" />
+              <SmartImage src={charm[field] as string} alt={label} className="w-full h-full object-cover" />
               {user?.isAnonymous && (charm[field] as string).startsWith('blob:') && (
-                <div className="absolute inset-x-0 bottom-0 bg-black/60 backdrop-blur-sm p-1.5 flex justify-center z-10">
+                <div className="absolute inset-x-0 bottom-0 bg-pink-100/90 backdrop-blur-sm p-1.5 flex justify-center z-10">
                    <span className="text-[10px] leading-tight text-white/90 text-center font-medium">Temporary preview<br/>(will not be saved)</span>
                 </div>
               )}
@@ -448,12 +448,12 @@ export function KeychainsView() {
                     setLocalCharms(prev => prev.map(c => c.id === charm.id ? { ...c, [field]: '' } : c));
                   }
                 }}
-                className="absolute top-1 right-1 p-1 bg-black/60 text-white hover:bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-all z-10"
+                className="absolute top-1 right-1 p-1 bg-pink-100/90 text-white hover:bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-all z-10"
                 title="Remove photo"
               >
                 <X className="w-4 h-4" />
               </button>
-              <label className="absolute inset-0 bg-black/50 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
+              <label className="absolute inset-0 bg-pink-100/90 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
                 <Upload className="w-5 h-5 mb-1" />
                 <span className="text-xs font-bold">Replace</span>
                 <input 
@@ -569,7 +569,7 @@ export function KeychainsView() {
                             <span className="text-[10px] uppercase font-bold tracking-wider text-center px-1 leading-tight">No photo</span>
                           </div>
                         )}
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 backdrop-blur-[2px]">
+                        <div className="absolute inset-0 bg-pink-100/90 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 backdrop-blur-[2px]">
                           {(charm.frontImage || charm.backImage || charm.leftImage || charm.rightImage) && (
                             <button 
                               onClick={() => setViewingCharm(charm)}
@@ -625,7 +625,7 @@ export function KeychainsView() {
 
       {/* Add / Edit Modal */}
       {isAdding && (
-        <div role="dialog" aria-modal="true" aria-label="Keychains dialog" tabIndex={-1} className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) setIsAdding(false); }}>
+        <div role="dialog" aria-modal="true" aria-label="Keychains dialog" tabIndex={-1} className="fixed inset-0 bg-pink-100/90 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) setIsAdding(false); }}>
           <div className="bg-surface-container-lowest w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl p-6 md:p-8 shadow-2xl relative">
             <div className="sticky top-0 bg-surface-container-lowest z-10 pb-4 border-b border-outline-variant/20 mb-6 flex justify-between items-center">
               <h3 className="text-[24px] font-bold font-headline-md text-on-surface">{editingIdea ? 'Edit Keychain' : 'New Keychain'}</h3>
@@ -789,7 +789,7 @@ export function KeychainsView() {
 
       {/* 4-View Pop-out Modal */}
       {viewingCharm && (
-        <div role="dialog" aria-modal="true" aria-label="Keychains dialog" tabIndex={-1} className="fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-4 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) setViewingCharm(null); }}>
+        <div role="dialog" aria-modal="true" aria-label="Keychains dialog" tabIndex={-1} className="fixed inset-0 bg-pink-100/90 z-[200] flex items-center justify-center p-4 backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) setViewingCharm(null); }}>
           <div className="bg-surface-container-lowest w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl p-6 md:p-10 shadow-2xl relative">
             <button onClick={() => setViewingCharm(null)} className="absolute top-4 right-4 md:top-6 md:right-6 p-2 bg-surface-container hover:bg-surface-container-high rounded-full transition-colors z-10">
               <X className="w-6 h-6 text-on-surface" />
@@ -817,8 +817,8 @@ export function KeychainsView() {
                     >
                       {imgUrl ? (
                         <>
-                           <img src={imgUrl} className="w-full h-full object-contain p-2" />
-                           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors"></div>
+                           <SmartImage src={imgUrl} alt="Charm view" className="w-full h-full object-contain p-2" />
+                           <div className="absolute inset-0 bg-pink-100/0 group-hover:bg-pink-100/10 transition-colors"></div>
                         </>
                       ) : (
                         <div className="text-on-surface-variant/50 flex flex-col items-center gap-2">

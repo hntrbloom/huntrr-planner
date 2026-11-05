@@ -3,7 +3,7 @@
   "framework": null,
   "buildCommand": "npm run build",
   "installCommand": "npm ci",
-  "outputDirectory": "dist",
+  "outputDirectory": "dist/public",
   "functions": {
     "api/index.ts": {
       "includeFiles": "dist/**",

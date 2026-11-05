@@ -75,7 +75,7 @@ export function ManageSavedAnswersModal({
 
   return (
     <div 
-      className="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-4 md:p-6 bg-black/50 backdrop-blur-xs pointer-events-auto"
+      className="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-4 md:p-6 bg-pink-100/90 backdrop-blur-xs pointer-events-auto"
       role="dialog"
       aria-modal="true"
       aria-labelledby="manage-saved-answers-title"

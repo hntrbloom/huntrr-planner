@@ -1,3 +1,4 @@
+import { scopedBrowserKey } from '../lib/scopedBrowserStorage';
 import { isLocalUser } from '../lib/workspaceMode';
 import React, { useState, useEffect, useRef } from 'react';
 import { Download, Upload, Save, AlertCircle, RefreshCw, Image as ImageIcon, Database, Folder, CheckCircle, ExternalLink, FolderOpen, Check, Loader2, RotateCcw } from 'lucide-react';
@@ -12,6 +13,11 @@ import { SetDriveFoldersModal } from './SetDriveFoldersModal';
 import { getAllPrintTypes, getPrintFolderId, extractDriveFolderId, testDriveFolderAccess, DEFAULT_PRINT_TYPES, PrintTypeDefinition } from '../lib/driveFolderUtils';
 import { db, safeGetDoc } from '../lib/firebase';
 import { collection, getDocs, doc } from '../lib/workspaceStore';
+import { getAccountOwner } from '../lib/accountStore';
+import { portableBackup } from '../lib/accountMigration';
+import { LegacyRecoveryPanel } from './LegacyRecoveryPanel';
+import { importIntoAccount } from '../lib/accountMigration';
+import { AccountSettings } from './AccountSettings';
 
 const TAB_RESETS: { id: TabId; label: string; confirmText: string; keyword: string }[] = [
   { id: 'sets', label: 'Reset All Sets', confirmText: 'This will permanently delete all Sets.', keyword: 'SETS' },
@@ -35,6 +41,7 @@ const TAB_RESETS: { id: TabId; label: string; confirmText: string; keyword: stri
 
 export function SettingsView() {
   const { user, signIn, logOut } = useAuth();
+  const emailAccount = Boolean(getAccountOwner());
   const restoreInput = useRef<HTMLInputElement>(null);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
@@ -144,7 +151,7 @@ export function SettingsView() {
       }
 
       // 1. Save to localStorage
-      localStorage.setItem('huntrr_print_folder_ids', JSON.stringify(sanitizedMap));
+      localStorage.setItem(scopedBrowserKey('huntrr_print_folder_ids'), JSON.stringify(sanitizedMap));
 
       // 2. Save to Firestore userSettings if signed in
       if (user && !user.isAnonymous) {
@@ -247,7 +254,7 @@ export function SettingsView() {
       return;
     }
     setIsBackingUp(true);
-    setStatus({ type: 'info', message: 'Scanning all Firestore records and backing up photos to Firebase Storage & Google Drive...' });
+    setStatus({ type: 'info', message: 'Scanning photos. Existing references are kept when recovery is unavailable...' });
     try {
       const report = await runPhotoMigration(user.uid);
       setMigrationReport(report);
@@ -277,7 +284,7 @@ export function SettingsView() {
     setIsBackingUp(true);
     setStatus({ type: 'info', message: 'Gathering data...' });
     try {
-      const data = await gatherAllData(user.uid);
+      const data = await portableBackup(user.uid);
       const json = JSON.stringify(data, null, 2);
       const file = new File([json], `planner_backup_${new Date().toISOString().replace(/[:.]/g, '-')}.json`, { type: 'application/json' });
       
@@ -292,7 +299,7 @@ export function SettingsView() {
     }
   };
 
-  const handleExportEverything = async () => {
+  const handleExportEverything = async (portable = false) => {
     if (!user || user.isAnonymous) {
       setStatus({ type: 'error', message: 'You must be signed in to export data.' });
       return;
@@ -300,7 +307,7 @@ export function SettingsView() {
     setIsBackingUp(true);
     setStatus({ type: 'info', message: 'Gathering data for export...' });
     try {
-      const data = await gatherAllData(user.uid);
+      const data = await ((portable || emailAccount) ? portableBackup(user.uid) : gatherAllData(user.uid));
       const json = JSON.stringify(data, null, 2);
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -327,7 +334,12 @@ export function SettingsView() {
       if (file.size > 100 * 1024 * 1024) throw new Error('Choose a backup smaller than 100 MB.');
       const backup = JSON.parse(await file.text());
       const { count } = validateBackup(backup);
-      if (!window.confirm(`Restore ${count} records into this ${isLocalUser(user) ? 'local' : 'cloud'} workspace? Matching record IDs will be merged with the backup values. Other records will be kept. Export a current backup first if needed.`)) return;
+      if (!window.confirm(`Restore ${count} records into this ${isLocalUser(user) ? 'local' : 'cloud'} workspace? For email accounts, conflicting cloud records are preserved. Local workspace restores merge matching IDs. Other records will be kept. Export a current backup first if needed.`)) return;
+      if (emailAccount) {
+        const result = await importIntoAccount(user.uid, backup);
+        setStatus({ type: 'success', message: `${result.imported} imported and verified, ${result.alreadyPresent} already present, ${result.skipped} conflicting records preserved. Keep your original backup.` });
+        return;
+      }
       await restoreData(user.uid, backup);
       setStatus({ type: 'success', message: 'Backup restored. Reopen a tab to see its records.' });
     } catch (error: any) { setStatus({ type: 'error', message: `Restore failed: ${error.message}. Existing records were not cleared. If a large restore was interrupted, you can retry the same file.` }); }
@@ -352,7 +364,7 @@ export function SettingsView() {
     }
     
     // Clear local storage
-    localStorage.clear();
+    if (!emailAccount) localStorage.clear();
     
     setStatus({ type: 'success', message: 'All data has been deleted. Reloading...' });
     setTimeout(() => {
@@ -368,11 +380,12 @@ export function SettingsView() {
           <h1 className="text-[32px] md:text-[40px] font-bold font-headline-md text-on-surface mb-8 tracking-tight">Settings</h1>
 
           <input ref={restoreInput} type="file" accept=".json,application/json" className="hidden" aria-label="Choose JSON backup" onChange={importBackup} />
-          <section className="bg-white rounded-2xl border border-outline-variant/30 p-6 mb-6">
+          {emailAccount ? <AccountSettings /> : <section className="bg-white rounded-2xl border border-outline-variant/30 p-6 mb-6">
             <h2 className="text-xl font-bold mb-2">Your workspace</h2>
             <p className="text-sm mb-4">{isLocalUser(user) ? 'Local storage on this browser. No Google account is connected, and these records are not synced to other devices. Export includes local photos and STL files.' : `Private Firebase workspace: ${user?.email || 'Google account'}. Cloud access is restricted to your user ID.`}</p>
             <button onClick={logOut} className="underline font-semibold">Switch workspace / sign out</button>
-          </section>
+          </section>}
+          <LegacyRecoveryPanel />
           {status && (
             <div className={`p-4 mb-6 rounded-xl flex items-start gap-3 ${
               status.type === 'error' ? 'bg-red-50 text-red-800 border border-red-200' :
@@ -392,7 +405,7 @@ export function SettingsView() {
             </h2>
             <p className="text-sm text-on-surface-variant mb-4 leading-relaxed">
               Verify and repair all photo references across Prints, Boards, Wiki, Keychains, and Printing catalogs. 
-              Cloud photos use Firebase Storage; Drive backup requires a connected account. Local photos stay in this browser. The existing Drive backup folder is <span className="font-semibold text-on-surface">Huntrr Planner Photo Backup</span>.
+              Email-account photos use private Supabase storage. Original Firebase and Drive files stay in their original storage. Drive backup requires a connected account. Local photos stay in this browser. The existing Drive backup folder is <span className="font-semibold text-on-surface">Huntrr Planner Photo Backup</span>.
             </p>
 
             <button 
@@ -425,13 +438,13 @@ export function SettingsView() {
               <Folder className="w-5 h-5 text-primary" /> Google Drive Connection
             </h2>
             <p className="text-sm text-on-surface-variant mb-6 leading-relaxed">
-              Manage your connection to Google Drive for storing Prints and Boards.
+              {emailAccount ? 'Connect Drive to use the optional Google Drive and Sheets tools.' : 'Manage your connection to Google Drive for storing Prints and Boards.'}
             </p>
 
             <div className="space-y-4 mb-6 text-sm text-on-surface">
               <div className="flex items-center justify-between py-2 border-b border-outline-variant/30">
                 <span className="font-medium">Connected Google account</span>
-                <span className="text-on-surface-variant">{isLocalUser(user) ? 'Local workspace — sign in to use Drive' : user?.email || 'Not signed in'}</span>
+                <span className="text-on-surface-variant">{getAccessToken() ? 'Connected' : 'Not connected'}</span>
               </div>
               <div className="flex items-center justify-between py-2 border-b border-outline-variant/30">
                 <span className="font-medium">Main folder ("huntrr daily images")</span>
@@ -668,12 +681,15 @@ export function SettingsView() {
                 <RefreshCw className="w-4 h-4" /> Restore Backup
               </button>
               <button 
-                onClick={handleExportEverything}
+                onClick={() => void handleExportEverything()}
                 disabled={isBackingUp}
                 className="flex items-center justify-center gap-2 bg-secondary-container text-on-secondary-container px-5 py-3 rounded-full text-sm font-bold shadow-sm hover:bg-secondary-container/90 transition-colors disabled:opacity-50"
               >
                 <Download className="w-4 h-4" /> Export Everything
               </button>
+              {!isLocalUser(user) && <button type="button" disabled={isBackingUp} onClick={() => void handleExportEverything(true)} className="px-5 py-3 rounded-full bg-secondary-container font-bold">
+                Export migration backup with files
+              </button>}
             </div>
           </div>
           
@@ -727,7 +743,7 @@ export function SettingsView() {
         }}
       />
       {resetTab && (
-        <div role="dialog" aria-modal="true" aria-label="Settings dialog" tabIndex={-1} className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" aria-label="Settings dialog" tabIndex={-1} className="fixed inset-0 bg-pink-100/90 z-[100] flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
             <h3 className="text-[20px] font-bold text-red-700 mb-2">Confirm Reset</h3>
             <p className="text-[14px] text-on-surface-variant mb-4">

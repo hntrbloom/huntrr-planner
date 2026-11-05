@@ -1,3 +1,4 @@
+import { scopedBrowserKey } from './scopedBrowserStorage';
 import { getAccessToken, setAccessToken } from './AuthContext';
 import { requestFreshDriveToken } from './driveAuth';
 import { getThumbnailFromIDB, saveThumbnailToIDB } from './idb';
@@ -52,12 +53,12 @@ export function extractDriveFileId(input?: string | null): string | undefined {
 
 export function getCachedBlobUrl(key: string): string | undefined {
   if (!key) return undefined;
-  return memoryBlobCache.get(key);
+  return memoryBlobCache.get(scopedBrowserKey(key));
 }
 
 export function setCachedBlobUrl(key: string, blobUrl: string) {
   if (key && blobUrl) {
-    memoryBlobCache.set(key, blobUrl);
+    memoryBlobCache.set(scopedBrowserKey(key), blobUrl);
   }
 }
 
@@ -118,7 +119,7 @@ export async function fetchDriveFileWithAuth(fileId: string): Promise<string> {
   const cleanId = extractDriveFileId(fileId) || fileId;
   if (!cleanId) throw new Error('Missing or invalid Drive file ID');
 
-  const cacheKey = cleanId;
+  const cacheKey = scopedBrowserKey(cleanId);
 
   // 1. Check memory cache
   const cached = memoryBlobCache.get(cacheKey);
@@ -126,7 +127,7 @@ export async function fetchDriveFileWithAuth(fileId: string): Promise<string> {
 
   // 2. Check IndexedDB cache
   try {
-    const idbRecord = await getThumbnailFromIDB(cleanId);
+    const idbRecord = await getThumbnailFromIDB(scopedBrowserKey(cleanId));
     if (idbRecord && idbRecord.blob && idbRecord.blob.size > 0) {
       const objUrl = URL.createObjectURL(idbRecord.blob);
       memoryBlobCache.set(cacheKey, objUrl);
@@ -183,7 +184,7 @@ export async function fetchDriveFileWithAuth(fileId: string): Promise<string> {
     memoryBlobCache.set(cacheKey, objectUrl);
 
     try {
-      await saveThumbnailToIDB(cleanId, blob);
+      await saveThumbnailToIDB(scopedBrowserKey(cleanId), blob);
     } catch (_) {}
 
     return objectUrl;
@@ -273,7 +274,7 @@ export async function listImagesInDriveFolder(folderId: string): Promise<any[]> 
 export async function fetchDriveBlobWithAuth(fileId: string): Promise<Blob> {
   const cleanId = extractDriveFileId(fileId) || fileId;
   
-  const cachedBlob = await getThumbnailFromIDB(cleanId);
+  const cachedBlob = await getThumbnailFromIDB(scopedBrowserKey(cleanId));
   if (cachedBlob && cachedBlob.blob) {
     return cachedBlob.blob;
   }
@@ -311,7 +312,7 @@ export async function fetchDriveBlobWithAuth(fileId: string): Promise<Blob> {
   const blob = await res.blob();
   if (blob.size > 0) {
     try {
-      await saveThumbnailToIDB(cleanId, blob);
+      await saveThumbnailToIDB(scopedBrowserKey(cleanId), blob);
     } catch (_) {}
   }
   return blob;

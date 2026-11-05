@@ -10,6 +10,7 @@ import { db, safeGetDoc } from '../lib/firebase';
 import { collection, doc, onSnapshot, setDoc, deleteDoc } from '../lib/workspaceStore';
 import { uploadFileToStorage, uploadDataUrlToStorage, deleteFileFromStorage } from '../lib/storage';
 import { uploadImageToService } from '../lib/imageService';
+import { ACCOUNT_FILE_PREFIX, readAccountFile } from '../lib/accountFiles';
 import { processAndCompressImage } from '../lib/imageProcessor';
 import { printUploadQueue, PhotoTask } from '../lib/printUploadQueue';
 import { SmartImage } from './SmartImage';
@@ -558,6 +559,7 @@ const STATUSES = ['Reference Photo', '3D Mock-Up', '3MF/STL File', 'Ready to Pri
 const MADE_FOR_OPTIONS = ['Adult Critter', 'Child Critter', 'Baby Critter', 'Twin Babies', 'Whole Family', 'House', 'Custom'];
 
 async function fetchImageBlob(url: string): Promise<Blob> {
+  if (url.startsWith(ACCOUNT_FILE_PREFIX)) return readAccountFile(url);
   if (url.startsWith('data:')) {
     const res = await fetch(url);
     return await res.blob();
@@ -1440,7 +1442,7 @@ export const MiniFurnitureView = () => {
                               className="w-full bg-white relative cursor-pointer h-full overflow-hidden flex items-center justify-center p-2"
                               onClick={() => mainImg && setViewingImage(resolveImageToView(mainImg, item, 'Print Design Photo') as any)}
                             >
-                              <div className="absolute top-2 left-2 z-10 bg-black/60 text-white px-2 py-0.5 rounded text-[9px] font-bold">
+                              <div className="absolute top-2 left-2 z-10 bg-pink-100/90 text-white px-2 py-0.5 rounded text-[9px] font-bold">
                                 {getBadgeText(mainImg)}
                               </div>
                               {mainImg ? (
@@ -1466,7 +1468,7 @@ export const MiniFurnitureView = () => {
                                 className="w-1/2 bg-white relative cursor-pointer h-full overflow-hidden"
                                 onClick={() => inspirationImg && setViewingImage(resolveImageToView(inspirationImg, item, 'Reference') as any)}
                               >
-                                <div className="absolute top-2 left-2 z-10 bg-black/60 text-white px-2 py-0.5 rounded text-[9px] font-bold">Reference</div>
+                                <div className="absolute top-2 left-2 z-10 bg-pink-100/90 text-white px-2 py-0.5 rounded text-[9px] font-bold">Reference</div>
                                 {inspirationImg ? (
                                   <SmartImage 
                                     src={inspirationImg.url} 
@@ -1488,7 +1490,7 @@ export const MiniFurnitureView = () => {
                                 className="w-1/2 bg-white relative cursor-pointer h-full border-l border-outline-variant/10 overflow-hidden"
                                 onClick={() => designImg && setViewingImage(resolveImageToView(designImg, item, '3D Mock-Up') as any)}
                               >
-                                <div className="absolute top-2 right-2 z-10 bg-black/60 text-white px-2 py-0.5 rounded text-[9px] font-bold">Mock-Up</div>
+                                <div className="absolute top-2 right-2 z-10 bg-pink-100/90 text-white px-2 py-0.5 rounded text-[9px] font-bold">Mock-Up</div>
                                 {designImg ? (
                                   <SmartImage 
                                     src={designImg.url} 
@@ -1866,7 +1868,7 @@ export const MiniFurnitureView = () => {
                                                     <span className="text-[9px] md:text-[10px] text-on-surface-variant leading-tight font-medium">No<br/>Photo</span>
                                                   </div>
                                                 )}
-                                                <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/5 transition-colors"></div>
+                                                <div className="absolute inset-0 bg-pink-100/0 group-hover/img:bg-pink-100/5 transition-colors"></div>
                                               </div>
                                               <span className="text-[10px] md:text-[12px] text-on-surface font-medium truncate w-[80px] md:w-[100px] px-1 text-center" title={print.name}>{print.name}</span>
                                             </div>
@@ -1963,7 +1965,7 @@ export const MiniFurnitureView = () => {
         />
       )}
       {isTypeSelectorOpen && (
-        <div role="dialog" aria-modal="true" aria-label="MiniFurniture dialog" tabIndex={-1} className="fixed inset-0 z-[70] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6">
+        <div role="dialog" aria-modal="true" aria-label="MiniFurniture dialog" tabIndex={-1} className="fixed inset-0 z-[70] bg-pink-100/90 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6">
           <div className="bg-white rounded-[28px] shadow-2xl w-full max-w-md overflow-hidden flex flex-col animate-fade-in">
             <div className="px-6 py-5 border-b border-outline-variant/20 flex justify-between items-center bg-white">
               <h2 className="text-xl font-headline-md font-semibold text-on-surface">
@@ -2764,7 +2766,7 @@ const FurnitureFormModal = ({ item, draftItem, initialType, onChangeType, catego
   };
 
   return (
-    <div role="dialog" aria-modal="true" aria-label="MiniFurniture dialog" tabIndex={-1} className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 pb-[env(safe-area-inset-bottom,16px)]">
+    <div role="dialog" aria-modal="true" aria-label="MiniFurniture dialog" tabIndex={-1} className="fixed inset-0 z-[60] bg-pink-100/90 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 pb-[env(safe-area-inset-bottom,16px)]">
       <div className="bg-white rounded-[28px] shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col min-h-0 max-h-[calc(100dvh-16px)] sm:max-h-[90vh]">
         <div className="px-6 py-4 border-b border-outline-variant/20 flex justify-between items-center shrink-0 bg-white">
           <h2 className="text-xl font-headline-md font-semibold text-on-surface">
@@ -2909,7 +2911,7 @@ const FurnitureFormModal = ({ item, draftItem, initialType, onChangeType, catego
                     <button
                       type="button"
                       onClick={() => setDrivePickerError(null)}
-                      className="p-1 hover:bg-black/10 rounded-full transition-colors"
+                      className="p-1 hover:bg-pink-100/10 rounded-full transition-colors"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -3063,7 +3065,7 @@ const FurnitureFormModal = ({ item, draftItem, initialType, onChangeType, catego
                                     />
 
                                     {img.driveFileId && !isUploading && (
-                                      <div className="absolute top-3 left-3 z-10 bg-black/60 text-white text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm flex items-center gap-1 shadow-md">
+                                      <div className="absolute top-3 left-3 z-10 bg-pink-100/90 text-white text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm flex items-center gap-1 shadow-md">
                                         <FolderOpen className="w-3 h-3 text-blue-400" />
                                         <span>Google Drive</span>
                                       </div>
@@ -3071,7 +3073,7 @@ const FurnitureFormModal = ({ item, draftItem, initialType, onChangeType, catego
 
                                     {/* Uploading Status Overlay */}
                                     {isUploading && (
-                                      <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] z-20 flex flex-col items-center justify-center p-4 text-white text-center">
+                                      <div className="absolute inset-0 bg-pink-100/90 backdrop-blur-[2px] z-20 flex flex-col items-center justify-center p-4 text-white text-center">
                                         <Loader2 className="w-6 h-6 animate-spin mb-2 text-primary" />
                                         <span className="text-xs font-bold mb-1">Uploading to Drive...</span>
                                         <div className="w-full max-w-[140px] bg-white/20 rounded-full h-1.5 overflow-hidden">
@@ -3106,7 +3108,7 @@ const FurnitureFormModal = ({ item, draftItem, initialType, onChangeType, catego
                                       <button
                                         type="button"
                                         onClick={(e) => { e.stopPropagation(); e.preventDefault(); downloadSingleImage(img.url, title || 'Photo'); }}
-                                        className="w-9 h-9 flex items-center justify-center bg-black/70 hover:bg-black/90 text-white rounded-full backdrop-blur-sm shadow-md border border-white/20 transition-all hover:scale-110 active:scale-95 touch-manipulation"
+                                        className="w-9 h-9 flex items-center justify-center bg-pink-100/90 hover:bg-pink-100/90 text-white rounded-full backdrop-blur-sm shadow-md border border-white/20 transition-all hover:scale-110 active:scale-95 touch-manipulation"
                                         title="Download Photo"
                                         aria-label="Download Photo"
                                       >
@@ -3115,7 +3117,7 @@ const FurnitureFormModal = ({ item, draftItem, initialType, onChangeType, catego
                                       <button
                                         type="button"
                                         onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleRemovePhoto(img.id); }}
-                                        className="w-9 h-9 flex items-center justify-center bg-black/70 hover:bg-error active:bg-error text-white rounded-full backdrop-blur-sm shadow-md border border-white/20 transition-all hover:scale-110 active:scale-95 touch-manipulation"
+                                        className="w-9 h-9 flex items-center justify-center bg-pink-100/90 hover:bg-error active:bg-error text-white rounded-full backdrop-blur-sm shadow-md border border-white/20 transition-all hover:scale-110 active:scale-95 touch-manipulation"
                                         title="Delete photo from print"
                                         aria-label="Delete photo from print"
                                       >
@@ -3140,7 +3142,7 @@ const FurnitureFormModal = ({ item, draftItem, initialType, onChangeType, catego
                                           isPending: false
                                         });
                                       }}
-                                      className="absolute bottom-3 right-3 z-10 bg-black/70 hover:bg-black/90 text-white text-[11px] font-bold px-3 py-1.5 rounded-full backdrop-blur-sm flex items-center gap-1.5 shadow-md border border-white/20 transition-all hover:scale-105 active:scale-95"
+                                      className="absolute bottom-3 right-3 z-10 bg-pink-100/90 hover:bg-pink-100/90 text-white text-[11px] font-bold px-3 py-1.5 rounded-full backdrop-blur-sm flex items-center gap-1.5 shadow-md border border-white/20 transition-all hover:scale-105 active:scale-95"
                                       title="Edit Crop Position & Zoom"
                                     >
                                       <Crop className="w-3.5 h-3.5 text-[#FF6B9E]" />
@@ -3148,7 +3150,7 @@ const FurnitureFormModal = ({ item, draftItem, initialType, onChangeType, catego
                                     </button>
 
                                     {/* Desktop Hover Overlay */}
-                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-3 z-20 hidden sm:flex">
+                                    <div className="absolute inset-0 bg-pink-100/90 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-3 z-20 hidden sm:flex">
                                       <button
                                         type="button"
                                         onClick={(e) => {
@@ -3284,7 +3286,7 @@ const FurnitureFormModal = ({ item, draftItem, initialType, onChangeType, catego
                                             isPending: true
                                           });
                                         }}
-                                        className="absolute bottom-3 left-3 z-10 bg-black/70 hover:bg-black/90 text-white text-[11px] font-bold px-3 py-1.5 rounded-full backdrop-blur-sm flex items-center gap-1.5 shadow-md border border-white/20 transition-all hover:scale-105 active:scale-95"
+                                        className="absolute bottom-3 left-3 z-10 bg-pink-100/90 hover:bg-pink-100/90 text-white text-[11px] font-bold px-3 py-1.5 rounded-full backdrop-blur-sm flex items-center gap-1.5 shadow-md border border-white/20 transition-all hover:scale-105 active:scale-95"
                                         title="Edit Crop Position & Zoom"
                                       >
                                         <Crop className="w-3.5 h-3.5 text-[#FF6B9E]" />
@@ -3300,7 +3302,7 @@ const FurnitureFormModal = ({ item, draftItem, initialType, onChangeType, catego
                                             printUploadQueue.removePendingTask(formData.id, p.id);
                                             removePendingUpload(p.id);
                                           }} 
-                                          className="w-9 h-9 flex items-center justify-center bg-black/70 hover:bg-error active:bg-error text-white rounded-full backdrop-blur-sm shadow-md border border-white/20 transition-all hover:scale-110 active:scale-95 touch-manipulation"
+                                          className="w-9 h-9 flex items-center justify-center bg-pink-100/90 hover:bg-error active:bg-error text-white rounded-full backdrop-blur-sm shadow-md border border-white/20 transition-all hover:scale-110 active:scale-95 touch-manipulation"
                                           title="Remove Upload"
                                           aria-label="Remove Upload"
                                           disabled={isSaving}
@@ -3310,14 +3312,14 @@ const FurnitureFormModal = ({ item, draftItem, initialType, onChangeType, catego
                                       </div>
 
                                       {status === 'preparing' && (
-                                        <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex flex-col items-center justify-center p-3 text-white text-center">
+                                        <div className="absolute inset-0 bg-pink-100/90 backdrop-blur-[1px] flex flex-col items-center justify-center p-3 text-white text-center">
                                           <Loader2 className="w-5 h-5 animate-spin mb-1" />
                                           <span className="text-xs font-bold">Preparing...</span>
                                         </div>
                                       )}
 
                                       {status === 'uploading' && (
-                                        <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] flex flex-col items-center justify-center p-4 text-white">
+                                        <div className="absolute inset-0 bg-pink-100/90 backdrop-blur-[2px] flex flex-col items-center justify-center p-4 text-white">
                                           <div className="w-full bg-white/30 rounded-full h-2 mb-2 overflow-hidden">
                                             <div className="bg-primary h-full transition-all duration-300" style={{ width: `${Math.max(10, progress)}%` }} />
                                           </div>
@@ -3326,7 +3328,7 @@ const FurnitureFormModal = ({ item, draftItem, initialType, onChangeType, catego
                                       )}
 
                                       {status === 'saved' && (
-                                        <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px] flex flex-col items-center justify-center p-2 text-white">
+                                        <div className="absolute inset-0 bg-pink-100/90 backdrop-blur-[1px] flex flex-col items-center justify-center p-2 text-white">
                                           <span className="bg-[#2E7D32] text-white px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-md">
                                             <CheckCircle2 className="w-3.5 h-3.5" /> Saved
                                           </span>
@@ -3458,7 +3460,7 @@ const CategoryManagerModal = ({ categories, onClose, onSave }: { categories: str
   };
 
   return (
-    <div role="dialog" aria-modal="true" aria-label="MiniFurniture dialog" tabIndex={-1} className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+    <div role="dialog" aria-modal="true" aria-label="MiniFurniture dialog" tabIndex={-1} className="fixed inset-0 z-[60] bg-pink-100/90 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-md overflow-hidden">
         <div className="p-5 border-b border-outline-variant/20 flex justify-between items-center">
           <h2 className="text-xl font-semibold text-on-surface">Categories</h2>

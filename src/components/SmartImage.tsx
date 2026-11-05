@@ -56,7 +56,7 @@ export const SmartImage: React.FC<SmartImageProps> = ({
   // Loading state
   if (isLoading) {
     return (
-      <div className={`w-full h-full flex items-center justify-center bg-black/5 animate-pulse ${className || ''}`} style={style}>
+      <div className={`w-full h-full flex items-center justify-center bg-pink-100/5 animate-pulse ${className || ''}`} style={style}>
         <ImageIcon className="w-6 h-6 text-black/20" />
       </div>
     );
@@ -66,7 +66,7 @@ export const SmartImage: React.FC<SmartImageProps> = ({
   if (hasError || !displayUrl) {
     if (fallbackIcon) return <>{fallbackIcon}</>;
     return (
-      <div className={`w-full h-full flex flex-col items-center justify-center bg-black/5 text-black/40 p-2 text-center select-none ${className || ''}`} style={style}>
+      <div className={`w-full h-full flex flex-col items-center justify-center bg-pink-100/5 text-black/40 p-2 text-center select-none ${className || ''}`} style={style}>
         <AlertCircle className="w-5 h-5 mb-1 opacity-50 text-amber-600/70" />
         <span className="text-[10px] line-clamp-1 mb-1">{errorMessage || 'Image not found'}</span>
         <button 

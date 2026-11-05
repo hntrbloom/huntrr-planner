@@ -5,6 +5,9 @@ import { auth, setLocalGuest } from './firebase';
 import { PlannerBow, PocketFriend } from '../components/PlannerDecor';
 import { LogIn, AlertCircle, UserCircle2, RefreshCw } from 'lucide-react';
 import { requestFreshDriveToken, getLastOAuthDiagnostic, OAuthDiagnosticInfo } from './driveAuth';
+import { DeviceWorkspaceProvider } from '../components/DeviceWorkspaceProvider';
+import { EmailAuthProvider } from '../components/EmailAuthProvider';
+import { supabase } from './supabase';
 
 const TOKEN_KEY = 'drive_access_token';
 const TIMESTAMP_KEY = 'drive_token_timestamp';
@@ -63,17 +66,27 @@ export interface LocalWorkspaceUser {
   email: null;
 }
 const localUser: LocalWorkspaceUser = { uid: LOCAL_USER_ID, isAnonymous: false, isLocal: true, displayName: 'Local workspace', email: null };
+export interface EmailWorkspaceUser {
+  uid: string;
+  isAnonymous: false;
+  email: string;
+  displayName: string;
+}
 interface AuthContextType {
-  user: User | LocalWorkspaceUser | null;
+  user: User | LocalWorkspaceUser | EmailWorkspaceUser | null;
   loading: boolean;
   signIn: () => Promise<void>;
   signInAsGuest: () => Promise<void>;
   logOut: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType>({} as AuthContextType);
+export const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  return supabase ? <EmailAuthProvider client={supabase}>{children}</EmailAuthProvider> : <DeviceWorkspaceProvider>{children}</DeviceWorkspaceProvider>;
+}
+
+function LegacyAuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | LocalWorkspaceUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

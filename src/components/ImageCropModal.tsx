@@ -153,15 +153,15 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md animate-fade-in"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-pink-100/90 backdrop-blur-md animate-fade-in"
       onClick={onClose}
     >
       <div 
-        className="planner-dark-panel bg-[#1C1B1F] border border-white/10 text-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl flex flex-col my-auto max-h-[92vh]"
+        className="planner-dark-panel bg-pink-100 border border-white/10 text-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl flex flex-col my-auto max-h-[92vh]"
         onClick={e => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-white/10 bg-[#252429]">
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-white/10 bg-pink-100">
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-[#FF6B9E]/20 text-[#FF6B9E] rounded-xl">
               <Crop className="w-5 h-5" />
@@ -235,7 +235,7 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
               </div>
 
               {/* Zoom & Offset Badge */}
-              <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-md border border-white/10 pointer-events-none">
+              <div className="absolute bottom-2 right-2 bg-pink-100/90 text-white text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-md border border-white/10 pointer-events-none">
                 {Math.round(crop.zoom * 100)}% • X: {Math.round(crop.x)}% Y: {Math.round(crop.y)}%
               </div>
             </div>
@@ -307,7 +307,7 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
         </div>
 
         {/* Modal Footer Actions */}
-        <div className="p-4 sm:p-5 border-t border-white/10 bg-[#252429] flex items-center justify-between gap-3">
+        <div className="p-4 sm:p-5 border-t border-white/10 bg-pink-100 flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={handleReset}

@@ -39,7 +39,7 @@ button { transition: background-color .15s, border-color .15s, box-shadow .15s, 
 .planner-tabs button:nth-child(6)[aria-current] { background: var(--pink-pale); }
 .planner-tabs .all-pages-button { border-left: 1px dashed var(--black-light-gray); border-radius: 0; margin-left: 8px; }
 .planner-page > main, .planner-page > div { animation: page-in .18s ease-out; }
-@keyframes page-in { from { opacity: .65; translate: 0 3px; } to { opacity: 1; translate: 0 0; } }
+@keyframes page-in { from { opacity: .65; } to { opacity: 1; } }
 .planner-page .pb-safe-nav { padding-bottom: 28px !important; }
 .planner-skip-link { position: fixed; top: -100px; left: 20px; padding: 12px 18px; background: var(--white); border-radius: 12px; z-index: 300; }
 .planner-skip-link:focus { top: 12px; }

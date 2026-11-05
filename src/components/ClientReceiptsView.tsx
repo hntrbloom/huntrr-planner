@@ -652,7 +652,7 @@ export function ClientReceiptsView() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 shrink-0">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-[#444444] flex items-center justify-center shadow-xs border border-gray-600">
+            <div className="w-10 h-10 rounded-2xl bg-pink-100 flex items-center justify-center shadow-xs border border-gray-600">
               <Receipt className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -681,7 +681,7 @@ export function ClientReceiptsView() {
           </button>
           <button
             onClick={handleSaveReceipt}
-            className="px-4 py-2 bg-[#444444] hover:bg-[#333333] text-white rounded-full text-[13px] font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+            className="px-4 py-2 bg-pink-100 hover:bg-pink-100 text-white rounded-full text-[13px] font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
             title="Save receipt to app history"
           >
             <Save className="w-4 h-4" />
@@ -696,7 +696,7 @@ export function ClientReceiptsView() {
           <div className="bg-white rounded-3xl p-5 sm:p-6 border border-pink-100 shadow-[0_4px_20px_rgba(111,87,105,0.04)]">
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-pink-50">
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-black"></span>
+                <span className="w-2.5 h-2.5 rounded-full bg-pink-100/90"></span>
                 <h2 className="text-[16px] sm:text-[18px] font-bold text-[#1c1b1d]">
                   {activeReceiptId ? 'Edit Order Details' : 'New Client Receipt'}
                 </h2>
@@ -1171,7 +1171,7 @@ export function ClientReceiptsView() {
                   id="btn-save-receipt"
                   type="button"
                   onClick={handleSaveReceipt}
-                  className="px-5 py-2.5 rounded-xl bg-[#7e5265] hover:bg-[#6c4355] text-white text-[13.5px] font-bold shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                  className="px-5 py-2.5 rounded-xl bg-pink-100 hover:bg-pink-100 text-white text-[13.5px] font-bold shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
                 >
                   <Save className="w-4 h-4" />
                   <span>Save Receipt</span>
@@ -1191,7 +1191,7 @@ export function ClientReceiptsView() {
                   <button
                     type="button"
                     onClick={() => handleDownloadPrintPdf('both')}
-                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#444444] hover:bg-[#333333] text-white text-[13.5px] font-bold shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-pink-100 hover:bg-pink-100 text-white text-[13.5px] font-bold shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
                   >
                     <FileDown className="w-4 h-4" />
                     <span>Save / Print Receipt + Postage</span>
@@ -1481,7 +1481,7 @@ export function ClientReceiptsView() {
 
       {/* Clear Confirmation Modal */}
       {showClearConfirm && (
-        <div role="dialog" aria-modal="true" aria-label="ClientReceipts dialog" tabIndex={-1} className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" aria-label="ClientReceipts dialog" tabIndex={-1} className="fixed inset-0 z-50 bg-pink-100/90 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-xl border border-pink-100 animate-in fade-in zoom-in-95 duration-200">
             <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center mx-auto mb-3">
               <RotateCcw className="w-6 h-6" />
@@ -1512,7 +1512,7 @@ export function ClientReceiptsView() {
 
       {/* Delete Saved Receipt Confirmation Modal */}
       {deleteConfirmId && (
-        <div role="dialog" aria-modal="true" aria-label="ClientReceipts dialog" tabIndex={-1} className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" aria-label="ClientReceipts dialog" tabIndex={-1} className="fixed inset-0 z-50 bg-pink-100/90 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-xl border border-pink-100 animate-in fade-in zoom-in-95 duration-200">
             <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center mx-auto mb-3">
               <Trash2 className="w-6 h-6" />

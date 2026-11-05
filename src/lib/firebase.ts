@@ -1,4 +1,5 @@
 import { isLocalPath } from './workspaceMode';
+import { supabase } from './supabase';
 import { getDoc as localGetDoc, getDocs as localGetDocs } from './workspaceStore';
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { initializeFirestore, getFirestore, persistentLocalCache, DocumentReference, Query, getDoc as fGetDoc, getDocFromCache as fGetDocFromCache, getDocs as fGetDocs, getDocsFromCache as fGetDocsFromCache, Firestore } from 'firebase/firestore';
@@ -47,7 +48,7 @@ export function setLocalGuest(val: boolean) {
 }
 
 export async function safeGetDoc(ref: DocumentReference) {
-  if (isLocalPath(ref.path)) return localGetDoc(ref);
+  if (isLocalPath(ref.path) || supabase) return localGetDoc(ref);
   try { return await fGetDoc(ref); }
   catch (error: any) {
     if (error.code === 'unavailable') return fGetDocFromCache(ref);

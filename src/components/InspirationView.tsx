@@ -1503,7 +1503,7 @@ export function InspirationView() {
       <div className="p-4 md:p-8 flex-1">
         
         {testLogs.length > 0 && (
-          <div className="planner-dark-panel mb-6 p-4 bg-slate-950 text-emerald-400 rounded-2xl text-xs font-mono border border-indigo-500/50 shadow-xl animate-in fade-in">
+          <div className="planner-dark-panel mb-6 p-4 bg-pink-100 text-emerald-400 rounded-2xl text-xs font-mono border border-indigo-500/50 shadow-xl animate-in fade-in">
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
               <span className="font-bold text-indigo-300 flex items-center gap-2 text-sm">
                 <TestTube className="w-4 h-4 text-indigo-400" />
@@ -1511,7 +1511,7 @@ export function InspirationView() {
               </span>
               <button 
                 onClick={() => { setTestLogs([]); setTestUploadedUrl(null); }}
-                className="text-slate-400 hover:text-white px-2.5 py-1 rounded bg-slate-800 text-[11px] font-sans font-medium transition-colors"
+                className="text-slate-400 hover:text-white px-2.5 py-1 rounded bg-pink-100 text-[11px] font-sans font-medium transition-colors"
               >
                 Clear Test Logs
               </button>
@@ -1548,7 +1548,7 @@ export function InspirationView() {
         )}
 
         {debugLogs.length > 0 && (
-          <div className="planner-dark-panel mb-6 p-4 bg-slate-900 text-slate-100 rounded-2xl text-xs font-mono border border-slate-700 shadow-lg animate-in fade-in">
+          <div className="planner-dark-panel mb-6 p-4 bg-pink-100 text-slate-100 rounded-2xl text-xs font-mono border border-slate-700 shadow-lg animate-in fade-in">
             <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-700">
               <span className="font-bold text-slate-300 flex items-center gap-2">
                 <RefreshCw className={`w-3.5 h-3.5 ${isUploading ? 'animate-spin text-pink-400' : 'text-slate-400'}`} />
@@ -1556,7 +1556,7 @@ export function InspirationView() {
               </span>
               <button 
                 onClick={() => setDebugLogs([])}
-                className="text-slate-400 hover:text-white px-2.5 py-1 rounded bg-slate-800 text-[11px] font-sans font-medium transition-colors"
+                className="text-slate-400 hover:text-white px-2.5 py-1 rounded bg-pink-100 text-[11px] font-sans font-medium transition-colors"
               >
                 Dismiss Log
               </button>
@@ -1749,9 +1749,9 @@ export function InspirationView() {
                   </div>
                   
                   {/* Selection Overlay */}
-                  <div className={`absolute inset-0 bg-black/20 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                  <div className={`absolute inset-0 bg-pink-100/20 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                     {isSelectionMode && (
-                      <div className="absolute top-2 right-2 w-6 h-6 rounded-full border-2 border-white flex items-center justify-center bg-black/30 backdrop-blur-sm">
+                      <div className="absolute top-2 right-2 w-6 h-6 rounded-full border-2 border-white flex items-center justify-center bg-pink-100/90 backdrop-blur-sm">
                         {isSelected && <div className="w-3.5 h-3.5 bg-[#FFB8CD] rounded-full shadow-sm" />}
                       </div>
                     )}
@@ -1766,7 +1766,7 @@ export function InspirationView() {
       {/* Lightbox / View Photo Modal */}
       {activePhoto && !isSelectionMode && (
         <div 
-          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 bg-pink-100/90 backdrop-blur-md flex flex-col items-center justify-center p-4 animate-in fade-in duration-200"
           onClick={() => setActivePhoto(null)}
         >
           <div className="absolute top-4 right-4 flex items-center gap-3 z-10">
@@ -1802,7 +1802,7 @@ export function InspirationView() {
             className="max-w-4xl max-h-[90vh] bg-white rounded-2xl overflow-hidden flex flex-col md:flex-row shadow-2xl animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex-1 bg-black flex items-center justify-center min-h-[300px] max-h-[70vh] md:max-h-[85vh]">
+            <div className="flex-1 bg-pink-100/90 flex items-center justify-center min-h-[300px] max-h-[70vh] md:max-h-[85vh]">
               <SmartImage
                 src={getPhotoSrc(activePhoto.url)} 
                 storagePath={activePhoto.storagePath}
@@ -1911,7 +1911,7 @@ export function InspirationView() {
 
       {/* Add / Connect Board Modal */}
       {showAddBoardModal && (
-        <div role="dialog" aria-modal="true" aria-label="Inspiration dialog" tabIndex={-1} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+        <div role="dialog" aria-modal="true" aria-label="Inspiration dialog" tabIndex={-1} className="fixed inset-0 z-50 bg-pink-100/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl flex flex-col">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-on-surface flex items-center gap-2">
@@ -1970,7 +1970,7 @@ export function InspirationView() {
 
       {/* Edit Board Modal */}
       {showEditBoardModal && (
-        <div role="dialog" aria-modal="true" aria-label="Inspiration dialog" tabIndex={-1} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+        <div role="dialog" aria-modal="true" aria-label="Inspiration dialog" tabIndex={-1} className="fixed inset-0 z-50 bg-pink-100/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl flex flex-col">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-on-surface flex items-center gap-2">
@@ -2025,7 +2025,7 @@ export function InspirationView() {
 
       {/* Add Photos by URL Modal */}
       {showAddUrlModal && (
-        <div role="dialog" aria-modal="true" aria-label="Inspiration dialog" tabIndex={-1} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+        <div role="dialog" aria-modal="true" aria-label="Inspiration dialog" tabIndex={-1} className="fixed inset-0 z-50 bg-pink-100/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl flex flex-col">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-on-surface flex items-center gap-2">
@@ -2073,7 +2073,7 @@ export function InspirationView() {
 
       {/* Move Photos Modal */}
       {showMoveModal && (
-        <div role="dialog" aria-modal="true" aria-label="Inspiration dialog" tabIndex={-1} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+        <div role="dialog" aria-modal="true" aria-label="Inspiration dialog" tabIndex={-1} className="fixed inset-0 z-50 bg-pink-100/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl flex flex-col">
             <h3 className="text-lg font-bold text-on-surface mb-4 flex items-center gap-2">
               <FolderOpen className="w-5 h-5 text-[#FFB8CD]" />

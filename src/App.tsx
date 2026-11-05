@@ -8,6 +8,7 @@ import { db } from './lib/firebase';
 import { doc, onSnapshot } from './lib/workspaceStore';
 import { useAuth } from './lib/AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { AccountSyncIndicator } from './components/AccountSyncIndicator';
 import { FocusTimer } from './components/FocusTimer';
 import { MedicationPopup } from './components/MedicationPopup';
 import { isLocalUser } from './lib/workspaceMode';
@@ -40,7 +41,7 @@ export default function App() {
     if (!user || user.isAnonymous) return;
     const unsub = onSnapshot(doc(db, `users/${user.uid}/preferences`, 'global'), (snap) => {
       if (snap.exists() && snap.data().backgroundColor) {
-        document.body.style.backgroundColor = snap.data().backgroundColor;
+        document.body.style.backgroundColor = '#FFF5F9';
       } else {
         document.body.style.backgroundColor = '#FFF5F9';
       }
@@ -180,7 +181,7 @@ export default function App() {
           </div>
           <div className="device-meta">
             <span className="device-model">little plans.</span>
-            <FocusTimer />
+            <AccountSyncIndicator /><FocusTimer />
           </div>
         </footer>
       </div>

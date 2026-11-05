@@ -38,43 +38,43 @@ const HorizontalCarousel = ({ images, onImageClick, onSetCover }: { images: any[
 
   return (
     <div className="relative group w-full min-w-0">
-      <div 
+      <div
         ref={scrollRef}
         onScroll={handleScroll}
         className="flex overflow-x-auto gap-4 snap-x snap-mandatory scrollbar-hide pb-4 items-center"
         style={{ scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch' }}
       >
         {uniqueImages.map((img, idx) => (
-          <div 
-            key={img.id || img.storagePath || img.driveFileId || img.url || idx} 
+          <div
+            key={img.id || img.storagePath || img.driveFileId || img.url || idx}
             className="snap-center shrink-0 w-[200px] sm:w-[250px] h-[200px] sm:h-[250px] relative rounded-xl overflow-hidden bg-surface-variant/30 cursor-pointer border border-outline-variant/20 group/img flex items-center justify-center"
             onClick={() => onImageClick({ url: img.url, storagePath: img.storagePath, driveFileId: img.driveFileId, thumbDriveFileId: img.thumbDriveFileId })}
           >
-            <SmartImage 
-              src={img.url} 
-              storagePath={img.thumbStoragePath || img.storagePath} 
-              driveFileId={img.thumbDriveFileId || img.driveFileId} 
+            <SmartImage
+              src={img.url}
+              storagePath={img.thumbStoragePath || img.storagePath}
+              driveFileId={img.thumbDriveFileId || img.driveFileId}
               fallbackDriveFileId={img.driveFileId}
-              className="w-full h-full object-contain" 
+              className="w-full h-full object-contain"
               crop={img.crop}
             />
-            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex flex-col items-center justify-center p-2">
+            <div className="absolute inset-0 bg-pink-100/90 opacity-0 group-hover/img:opacity-100 transition-opacity flex flex-col items-center justify-center p-2">
                {img.type === 'design' && (<button onClick={(e) => { e.stopPropagation(); onSetCover(img.url); }} className="bg-white/90 text-on-surface text-[10px] font-bold px-3 py-1.5 rounded backdrop-blur-sm shadow-sm hover:bg-white transition-colors mb-2">Set as Cover</button>)}
             </div>
-            <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-sm">
+            <div className="absolute top-2 left-2 bg-pink-100/90 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-sm">
                {idx + 1} of {images.length}
             </div>
           </div>
         ))}
       </div>
-      <button 
+      <button
         onClick={() => scrollBy(-300)}
         className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 text-on-surface p-2 rounded-full shadow-md hover:bg-white opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0 hidden md:block"
         disabled={scrollPos <= 0}
       >
         <ChevronLeft className="w-5 h-5" />
       </button>
-      <button 
+      <button
         onClick={() => scrollBy(300)}
         className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 text-on-surface p-2 rounded-full shadow-md hover:bg-white opacity-0 group-hover:opacity-100 transition-opacity hidden md:block"
       >
@@ -84,15 +84,15 @@ const HorizontalCarousel = ({ images, onImageClick, onSetCover }: { images: any[
   );
 };
 
-export const SetGalleryModal = ({ 
-  setInfo, 
-  items, 
-  onClose, 
-  onSetCover, 
-  onRename, 
+export const SetGalleryModal = ({
+  setInfo,
+  items,
+  onClose,
+  onSetCover,
+  onRename,
   onUpdateFullPrintTime,
   onUpdatePrintLink,
-  onDelete 
+  onDelete
 }: Props) => {
   const [viewingImage, setViewingImage] = useState<{url: string, storagePath?: string, driveFileId?: string} | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -119,7 +119,7 @@ export const SetGalleryModal = ({
     // Lock body scroll
     const originalStyle = window.getComputedStyle(document.body).overflow;
     document.body.style.overflow = 'hidden';
-    
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (viewingImage) {
@@ -130,7 +130,7 @@ export const SetGalleryModal = ({
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    
+
     // Add history state for back button handling
     window.history.pushState({ modal: 'set-gallery' }, '');
     const handlePopState = () => {
@@ -155,11 +155,11 @@ export const SetGalleryModal = ({
   }, [onClose, viewingImage]);
 
   return (
-    <div 
-      className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4 transition-opacity" 
+    <div
+      className="fixed inset-0 z-[100] bg-pink-100/90 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4 transition-opacity"
       onClick={() => onClose()}
     >
-      <div 
+      <div
         className="bg-surface-container-lowest w-full max-w-4xl h-[90dvh] max-h-[90dvh] rounded-t-[32px] sm:rounded-[32px] shadow-2xl flex flex-col overflow-hidden relative overscroll-none"
         onClick={e => e.stopPropagation()}
         style={{
@@ -170,9 +170,9 @@ export const SetGalleryModal = ({
           <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0 mr-4">
             {isEditing ? (
               <div className="flex items-center gap-2 w-full max-w-sm">
-                <input 
-                  type="text" 
-                  value={newName} 
+                <input
+                  type="text"
+                  value={newName}
                   onChange={e => setNewName(e.target.value)}
                   className="w-full px-3 py-1.5 border border-outline-variant rounded-lg focus:outline-none focus:ring-2 focus:ring-primary font-bold text-lg sm:text-xl min-w-0"
                   autoFocus
@@ -183,7 +183,7 @@ export const SetGalleryModal = ({
             ) : (
               <div className="flex items-center gap-3 min-w-0">
                 <h2 className="text-xl sm:text-2xl font-bold text-on-surface flex items-center gap-2 truncate">
-                  <LayoutGrid className="w-5 h-5 sm:w-6 sm:h-6 text-primary shrink-0" /> 
+                  <LayoutGrid className="w-5 h-5 sm:w-6 sm:h-6 text-primary shrink-0" />
                   <span className="truncate">{setInfo.name}</span>
                 </h2>
                 <button onClick={() => setIsEditing(true)} className="p-2 text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-full transition-colors shrink-0">
@@ -204,7 +204,7 @@ export const SetGalleryModal = ({
 
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-surface-container-lowest">
           <div className="max-w-4xl mx-auto space-y-6 pb-12">
-            
+
             <div className="flex flex-wrap gap-2 sm:hidden">
                 <span className="bg-surface-variant/20 text-on-surface-variant px-3 py-1 rounded-full text-sm font-bold">
                   {items.length} Designs
@@ -476,7 +476,7 @@ export const SetGalleryModal = ({
                 </div>
               );
             })}
-            
+
             {items.length === 0 && (
                <div className="text-center py-12 text-on-surface-variant w-full">No designs found in this set.</div>
             )}
@@ -499,7 +499,7 @@ export const SetGalleryModal = ({
             </div>
           </div>
         </div>
-        
+
         <div className="sm:hidden p-4 bg-white border-t border-outline-variant/20 pb-[max(1rem,env(safe-area-inset-bottom))]">
              <button onClick={onClose} className="w-full py-3 bg-primary text-white rounded-xl font-bold text-base shadow-sm">
                  Back to Prints

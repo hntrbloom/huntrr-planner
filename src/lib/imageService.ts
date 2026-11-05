@@ -1,4 +1,6 @@
 import { LOCAL_USER_ID } from './workspaceMode';
+import { getAccountOwner } from './accountStore';
+import { ACCOUNT_FILE_PREFIX, readAccountFile, uploadAccountFile } from './accountFiles';
 import { savePhotoToIDB } from './idb';
 import { storage, db } from './firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -211,6 +213,12 @@ export async function uploadImageToService({
     throw new Error('No valid image file provided for upload');
   }
 
+  if (getAccountOwner() === userId) {
+    const url = await uploadAccountFile(userId, targetBlob);
+    const thumb = thumbnailFile ? await uploadAccountFile(userId, thumbnailFile) : undefined;
+    onProgress?.(100);
+    return { storagePath: url, downloadURL: url, thumbStoragePath: thumb, thumbDownloadURL: thumb, driveFileId: null, filename: targetFilename, mimeType: targetMimeType, status: 'ready', width, height };
+  }
   if (userId === LOCAL_USER_ID) {
     const key = `photo_${uuidv4()}`;
     await savePhotoToIDB(key, targetBlob);
@@ -331,6 +339,7 @@ export async function resolveAndRepairImage(
   userId: string
 ): Promise<string | null> {
   const currentUrl = imgObj.downloadURL || imgObj.url;
+  if (currentUrl?.startsWith(ACCOUNT_FILE_PREFIX)) { await readAccountFile(currentUrl); return currentUrl; }
   const storagePath = imgObj.storagePath;
   const driveFileId = imgObj.driveFileId;
 
@@ -363,6 +372,7 @@ export async function resolveAndRepairImage(
         if (data.success && data.base64Data) {
           const mimeType = data.mimeType || 'image/webp';
           const { blob } = dataURLtoBlob(`data:${mimeType};base64,${data.base64Data}`);
+          if (getAccountOwner() === userId) return uploadAccountFile(userId, blob);
           const newPath = storagePath || `users/${userId}/photos/restored/${Date.now()}-${uuidv4().substring(0,6)}.webp`;
           const storageRef = ref(storage, newPath);
           try {
@@ -413,7 +423,11 @@ export async function runPhotoMigration(userId: string): Promise<MigrationReport
             const url = typeof img === 'string' ? img : img.url || img.downloadURL;
             const storagePath = typeof img === 'object' ? img.storagePath : null;
 
-            if (url && url.startsWith('data:')) {
+            if (url?.startsWith(ACCOUNT_FILE_PREFIX)) {
+              try { await readAccountFile(url); report.recovered++; }
+              catch { report.unrecoverable++; report.details.push(`[${colName}/${docSnap.id}] Private photo unavailable; reference retained.`); }
+              updatedImages.push(img);
+            } else if (url && url.startsWith('data:')) {
               try {
                 const uploaded = await uploadImageToService({
                   dataUrl: url,
@@ -434,7 +448,7 @@ export async function runPhotoMigration(userId: string): Promise<MigrationReport
                   status: 'ready'
                 });
                 report.recovered++;
-                report.details.push(`[${colName}/${docSnap.id}] Base64 image migrated to Firebase Storage & Drive.`);
+                report.details.push(`[${colName}/${docSnap.id}] Base64 image copied to the active workspace storage.`);
                 modified = true;
               } catch (e) {
                 report.unrecoverable++;
@@ -466,12 +480,8 @@ export async function runPhotoMigration(userId: string): Promise<MigrationReport
               } else {
                 report.unrecoverable++;
                 report.details.push(`[${colName}/${docSnap.id}] Temporary blob/file URL lost.`);
-                if (typeof img === 'object') {
-                  updatedImages.push({ ...img, url: '', status: 'unrecoverable' });
-                } else {
-                  updatedImages.push({ url: '', status: 'unrecoverable' });
-                }
-                modified = true;
+                updatedImages.push(img);
+                report.details.push('Original reference retained for a later recovery attempt.');
               }
             } else {
               updatedImages.push(img);

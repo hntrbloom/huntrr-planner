@@ -1,3 +1,7 @@
+# Organizer Preview update
+
+Use the existing **huntrr-organizer** Vercel project and existing Supabase project. Email/password is the primary login; Google authorization is optional for Drive/Sheets. See [the safe Preview and migration guide](docs/organizer-preview.md) for current setup, preservation steps and outstanding live tests. Historical Firebase instructions below describe the retained legacy integrations.
+
 # huntrr.organizer
 
 A pink stationery workspace for everyday planning and creative work. Built on the existing React 19, TypeScript, Vite, Express and Firebase application. The product name is **huntrr.organizer**; it is not a registered domain or a service address.
@@ -94,18 +98,18 @@ See `.env.example`; never commit `.env`, `.env.local`, service-account files, OA
 
 For cloud sign-in, enable the Google provider in Firebase Authentication and add the actual localhost/preview/production host to **Authentication → Settings → Authorized domains**. Use the original project to retain saved data. In Google Cloud, enable Drive API, Sheets API and Picker API as needed; configure the OAuth consent screen, permitted users/scopes and the site's exact JavaScript origin. The client requests `drive.file`, `drive.readonly` and `spreadsheets.readonly`. Authorize only an account with access to the chosen folders/files. Drive access tokens are held in memory/session storage and expire; reconnect through Settings when needed.
 
-Google Drive uploads, folder access, Sheets imports and OAuth require real user authorization. Local/manual planning and STL storage do not. AI text import returns HTTP 503 when its configuration is missing, and requires a verified, non-anonymous Firebase account when enabled. Manual job entry stays available. URL import reads public metadata; private/loopback addresses, unsafe schemes and oversized pages are rejected. MakerWorld/Pinterest may block automated access. Pinterest failures return a clear error instead of fabricated pins; manual boards/images remain available.
+Google Drive uploads, folder access, Sheets imports and OAuth require real user authorization. Local/manual planning and STL storage do not. AI text import returns HTTP 503 when its configuration is missing, and requires a verified email account when enabled. Manual job entry stays available. URL import reads public metadata; private/loopback addresses, unsafe schemes and oversized pages are rejected. MakerWorld/Pinterest may block automated access. Pinterest failures return a clear error instead of fabricated pins; manual boards/images remain available.
 
 ## Deploy the complete Express website
 
-Static-only hosting is insufficient: imports and Drive/Sheets proxies use Express API routes. `vercel.json` deploys `api/index.ts` as the Express handler and `dist` assets on the same origin. `api/index.ts` loads the built `dist/app.cjs` Express backend and never starts a listening port. The build resolves internal TypeScript imports, bundles Firebase Admin and its ESM dependencies for Vercel cold starts, and embeds the original public Firebase configuration into that backend bundle; private credentials remain runtime environment variables. Existing Vite/React/Firebase architecture is retained.
+Static-only hosting is insufficient: imports and Drive/Sheets proxies use Express API routes. `vercel.json` deploys `api/index.ts` as the Express handler and `dist/public` assets on the same origin. `api/index.ts` loads the built `dist/app.cjs` Express backend and never starts a listening port. The build resolves internal TypeScript imports, bundles Firebase Admin and its ESM dependencies for Vercel cold starts, and embeds the original public Firebase configuration into that backend bundle; private credentials remain runtime environment variables. Existing Vite/React/Firebase architecture is retained.
 
 1. Push this working branch to the GitHub repository.
-2. In Vercel, create/import **huntrr-organizer**, linked to this repository, using the intended account/team and Node 24. Use Framework **Other**, install `npm ci`, build `npm run build`, output `dist` (also declared in `vercel.json`). Deploy the working branch as a **preview**, not a promotion to the live production domain.
+2. In Vercel, open the existing **huntrr-organizer** project, linked to this repository, using the intended account/team and Node 24. Use Framework **Other**, install `npm ci`, build `npm run build`, output `dist/public` (also declared in `vercel.json`). Deploy the working branch as a **preview**, not a promotion to the live production domain.
 3. Set optional server/client variables in that project's Preview environment before deployment. Keep private keys server-only. For local-only operation no secrets are required.
 4. Deploy. Check `/api/health`, `/`, `/favicon.svg`, a fingerprinted `/assets/` URL, and an unknown `/api/` URL (404 JSON). Test local CRUD and refresh on the resulting HTTPS origin.
-5. Add the actual preview host to Firebase authorized domains and its origin to the Google OAuth client before testing cloud sign-in/Drive. Use a dedicated test Firebase user; never test by editing existing personal records.
-6. Assign a custom domain only after confirming that it is available and configuring its DNS/TLS. The name `huntrr.organizer` is branding until then.
+5. Follow docs/organizer-preview.md to configure the existing Supabase project and Preview redirects. Test email accounts using disposable sample data. Optional Drive/Sheets authorization uses its existing Google OAuth configuration.
+6. Keep the existing production domain and deployment unchanged until the Preview is tested and approved.
 
 For a conventional Node host, deploy the same source, run `npm ci && npm run build`, set `NODE_ENV=production`, and start `npm start` with the provider's `PORT`. `/api/health` is the health-check route. Firebase remains external durable cloud storage; do not rely on server-local files for user data.
 

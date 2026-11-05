@@ -118,12 +118,12 @@ function CategoryNotepad({ category, isSelected, onClick, onEdit, bgColor, textC
       className={`planner-category-tab group relative shrink-0 min-w-[130px] sm:min-w-[148px] max-w-[200px] h-16 sm:h-16 px-2.5 py-1.5 rounded-sm shadow-sm border-[2px] border-gray-400 flex items-center justify-center cursor-pointer transition-transform hover:-translate-y-1 ${isSelected ? 'ring-2 ring-[#666666] ring-offset-2 scale-105' : ''}`}
     >
       <div className="absolute -top-3 right-4 w-3 h-7 border-[2px] border-gray-400 rounded-full bg-transparent rotate-[15deg] shadow-[1px_1px_1px_rgba(0,0,0,0.1)] z-10 pointer-events-none"></div>
-      <div className="absolute top-1 left-1.5 w-1.5 h-1.5 rounded-full bg-black/15 shadow-inner pointer-events-none"></div>
-      <div className="absolute top-1 right-1.5 w-1.5 h-1.5 rounded-full bg-black/15 shadow-inner pointer-events-none"></div>
-      <div className="absolute bottom-1 left-1.5 w-1.5 h-1.5 rounded-full bg-black/15 shadow-inner pointer-events-none"></div>
-      <div className="absolute bottom-1 right-1.5 w-1.5 h-1.5 rounded-full bg-black/15 shadow-inner pointer-events-none"></div>
+      <div className="absolute top-1 left-1.5 w-1.5 h-1.5 rounded-full bg-pink-100/15 shadow-inner pointer-events-none"></div>
+      <div className="absolute top-1 right-1.5 w-1.5 h-1.5 rounded-full bg-pink-100/15 shadow-inner pointer-events-none"></div>
+      <div className="absolute bottom-1 left-1.5 w-1.5 h-1.5 rounded-full bg-pink-100/15 shadow-inner pointer-events-none"></div>
+      <div className="absolute bottom-1 right-1.5 w-1.5 h-1.5 rounded-full bg-pink-100/15 shadow-inner pointer-events-none"></div>
       <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: 'linear-gradient(transparent 90%, rgba(0,0,0,0.1) 90%)', backgroundSize: '100% 16px' }}></div>
-      <div className="absolute inset-0 pointer-events-none bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+      <div className="absolute inset-0 pointer-events-none bg-pink-100/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
       
       <div className={`flex items-center justify-center w-full px-1.5 ${onEdit ? 'pr-5' : ''} overflow-hidden`}>
         <span 
@@ -139,7 +139,7 @@ function CategoryNotepad({ category, isSelected, onClick, onEdit, bgColor, textC
         <button 
           type="button"
           onClick={(e) => { e.stopPropagation(); onEdit(); }} 
-          className="absolute bottom-0.5 right-0.5 p-1 hover:bg-black/10 rounded-full transition-colors z-20"
+          className="absolute bottom-0.5 right-0.5 p-1 hover:bg-pink-100/10 rounded-full transition-colors z-20"
           title="Edit Category"
         >
           <Pencil className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-black/50" />
@@ -300,11 +300,11 @@ function SortableHabitItem({ habit, todayStr, viewMode, last7Days, toggleHabit, 
         <div className="space-y-3 relative z-10 flex flex-col h-full">
           {/* Metadata */}
           <div className="flex flex-wrap gap-2 text-[11px] font-bold text-[#555555]">
-            <span className="uppercase tracking-wider px-2 py-0.5 bg-black/5 border border-black/5 rounded-md text-[#333333]">
+            <span className="uppercase tracking-wider px-2 py-0.5 bg-pink-100/5 border border-black/5 rounded-md text-[#333333]">
                {habit.timeOfDay === 'multiple-times-daily' ? 'Multiple times daily' : habit.timeOfDay}
             </span>
             {isMedication && habit.reminderTime && <span className="uppercase tracking-wider px-2 py-0.5 text-primary border border-primary/20 bg-primary/5 rounded-md">Reminder: {habit.reminderTime}</span>}
-            <span className="uppercase tracking-wider px-2 py-0.5 bg-black/5 border border-black/5 rounded-md text-[#333333]">Streak: {currentStreak}</span>
+            <span className="uppercase tracking-wider px-2 py-0.5 bg-pink-100/5 border border-black/5 rounded-md text-[#333333]">Streak: {currentStreak}</span>
           </div>
 
           <div className="text-xs text-[#777777] font-medium" title={exactTimeText}>
@@ -324,7 +324,7 @@ function SortableHabitItem({ habit, todayStr, viewMode, last7Days, toggleHabit, 
                  </button>
                ) : (
                  <div className="flex gap-2">
-                   <button onClick={(e) => { e.stopPropagation(); toggleHabit(habit.id, todayStr, false); }} className="bg-black/5 text-black/70 hover:bg-rose-100 hover:text-rose-600 text-xs font-bold px-3 py-1.5 rounded-full transition-colors border border-black/10">
+                   <button onClick={(e) => { e.stopPropagation(); toggleHabit(habit.id, todayStr, false); }} className="bg-pink-100/5 text-black/70 hover:bg-rose-100 hover:text-rose-600 text-xs font-bold px-3 py-1.5 rounded-full transition-colors border border-black/10">
                      {isMedication ? 'Undo' : 'Undo'}
                    </button>
                    <button onClick={(e) => { e.stopPropagation(); toggleHabit(habit.id, todayStr, true); }} className="bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 text-xs font-bold px-3 py-1.5 rounded-full transition-colors">
@@ -351,7 +351,7 @@ function SortableHabitItem({ habit, todayStr, viewMode, last7Days, toggleHabit, 
                   <div key={d} className="flex flex-col items-center gap-1.5">
                     <span className="text-[9px] uppercase font-bold text-black/40">{dObj.toLocaleDateString('en-US', { weekday: 'narrow' })}</span>
                     <div 
-                      className={`w-5 h-5 shrink-0 rounded-full border-[1.5px] flex items-center justify-center ${completed ? 'bg-primary border-primary' : scheduled ? 'border-black/20 bg-white' : 'border-transparent bg-black/5'}`}
+                      className={`w-5 h-5 shrink-0 rounded-full border-[1.5px] flex items-center justify-center ${completed ? 'bg-primary border-primary' : scheduled ? 'border-black/20 bg-white' : 'border-transparent bg-pink-100/5'}`}
                     >
                       {!!completed && <Check className="w-3.5 h-3.5 text-white shrink-0" strokeWidth={3} />}
                     </div>
@@ -852,7 +852,7 @@ export function HabitsView() {
                               className="text-[28px] md:text-[36px] font-bold text-black/70 uppercase tracking-widest text-center border-b-2 border-primary outline-none bg-transparent"
                             />
                             <button onClick={handleInlineSaveCategory} className="p-2 bg-primary text-white rounded hover:bg-primary/90 transition-colors">{user?.isAnonymous ? 'Test Save' : 'Save'}</button>
-                            <button onClick={() => { setInlineEditCatId(null); setInlineEditStatus('idle'); }} className="p-2 bg-black/10 text-black/60 rounded hover:bg-black/20 transition-colors">Cancel</button>
+                            <button onClick={() => { setInlineEditCatId(null); setInlineEditStatus('idle'); }} className="p-2 bg-pink-100/10 text-black/60 rounded hover:bg-pink-100/20 transition-colors">Cancel</button>
                           </div>
                           {inlineEditStatus === 'success' && <p className="text-green-600 text-sm font-bold mt-2">Saved successfully!</p>}
                           {inlineEditStatus === 'error' && <p className="text-red-500 text-sm font-bold mt-2">Error saving or invalid name.</p>}
@@ -950,8 +950,8 @@ export function HabitsView() {
                           </select>
                         </div>
                         <div className="flex flex-col sm:flex-row gap-2 mt-4">
-                           <button type="submit" className="flex-1 bg-black/80 text-white px-4 py-2 rounded-lg font-semibold hover:bg-black transition-colors">{user?.isAnonymous ? 'Test Save' : 'Save Habit'}</button>
-                           <button type="button" onClick={() => { setShowAddForm(false); setEditingHabitId(null); setNewHabit({ name: '', timeOfDay: 'daily', scheduledDays: [0,1,2,3,4,5,6] }); }} className="flex-1 px-4 py-2 rounded-lg font-semibold text-black/50 border border-black/10 hover:bg-black/10 transition-colors">Cancel</button>
+                           <button type="submit" className="flex-1 bg-pink-100/90 text-white px-4 py-2 rounded-lg font-semibold hover:bg-pink-100/90 transition-colors">{user?.isAnonymous ? 'Test Save' : 'Save Habit'}</button>
+                           <button type="button" onClick={() => { setShowAddForm(false); setEditingHabitId(null); setNewHabit({ name: '', timeOfDay: 'daily', scheduledDays: [0,1,2,3,4,5,6] }); }} className="flex-1 px-4 py-2 rounded-lg font-semibold text-black/50 border border-black/10 hover:bg-pink-100/10 transition-colors">Cancel</button>
                         </div>
                       </form>
                     )}
@@ -965,7 +965,7 @@ export function HabitsView() {
       </div>
 
       {showCategoryManager && (
-        <div role="dialog" aria-modal="true" aria-label="Habits dialog" tabIndex={-1} className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div role="dialog" aria-modal="true" aria-label="Habits dialog" tabIndex={-1} className="fixed inset-0 bg-pink-100/90 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-surface-container-lowest rounded-2xl shadow-xl max-w-sm w-full p-6 flex flex-col gap-4 border border-outline-variant/20 max-h-[90vh]">
             <h3 className="text-xl font-bold text-on-surface">
               {editingCategory ? 'Edit Category' : 'Add Category'}
@@ -1013,7 +1013,7 @@ export function HabitsView() {
                     <p className="text-sm text-on-surface-variant italic py-2">No habits in this category.</p>
                   ) : (
                     editCatHabits.filter(h => !h.deleted).map((h, i) => (
-                      <div key={h.id} className="flex gap-2 items-center bg-black/5 p-2 rounded-xl">
+                      <div key={h.id} className="flex gap-2 items-center bg-pink-100/5 p-2 rounded-xl">
                         <input 
                           value={h.name || ''}
                           aria-label="Habit name"

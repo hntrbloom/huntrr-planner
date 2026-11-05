@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -175,6 +176,7 @@ export function AgendaView({ onNavigate }: AgendaViewProps) {
   }, [todayItems]);
 
   return (
+    <>
     <main className="agenda-scroll-container flex-1 md:overflow-y-auto px-4 sm:px-6 md:px-8 lg:px-10 py-5 sm:py-6 md:py-8 pb-28 md:pb-12 w-full max-w-[1260px] mx-auto min-w-0">
       <div className="home-page-label"><span><Sparkles size={14} aria-hidden="true" /> YOUR EVERYDAY HAPPY PLACE</span><span>{todayFormatted}</span></div>
       <section className="planner-welcome">
@@ -212,7 +214,7 @@ export function AgendaView({ onNavigate }: AgendaViewProps) {
 
           <button
             onClick={() => openAddModal(todayStr)}
-            className="h-9 px-4 rounded-full bg-primary hover:bg-[#604b5b] text-white font-semibold text-[13px] transition-all cursor-pointer shadow-xs inline-flex items-center gap-1.5 active:scale-95"
+            className="h-9 px-4 rounded-full bg-primary hover:bg-pink-100 text-white font-semibold text-[13px] transition-all cursor-pointer shadow-xs inline-flex items-center gap-1.5 active:scale-95"
             title="Add New Event"
           >
             <Plus className="w-4 h-4 shrink-0" />
@@ -262,7 +264,7 @@ export function AgendaView({ onNavigate }: AgendaViewProps) {
               </p>
               <button
                 onClick={() => openAddModal(todayStr)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary hover:bg-[#604b5b] text-white font-semibold text-[13px] shadow-xs transition-all active:scale-95 cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary hover:bg-pink-100 text-white font-semibold text-[13px] shadow-xs transition-all active:scale-95 cursor-pointer"
               >
                 <Plus className="w-4 h-4" /> Add Event for Today
               </button>
@@ -480,6 +482,9 @@ export function AgendaView({ onNavigate }: AgendaViewProps) {
         </section>
       </div>
 
+    </main>
+    {/* Page dialogs live outside the screen's scrolling and clipping boundary. */}
+    {createPortal(<>
       {/* Appointment Form Modal (Add / Edit) */}
       {isFormOpen && (
         <AppointmentFormModal
@@ -525,7 +530,7 @@ export function AgendaView({ onNavigate }: AgendaViewProps) {
 
       {/* Work Shift Details Modal (if user taps a work shift) */}
       {selectedShiftDetails && (
-        <div role="dialog" aria-modal="true" aria-label="Agenda dialog" tabIndex={-1} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div role="dialog" aria-modal="true" aria-label="Agenda dialog" tabIndex={-1} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-pink-100/90 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-surface w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-outline-variant/30">
             <div className="flex flex-col p-6 pb-4 border-b border-outline-variant/20 bg-surface-container-lowest">
               <div className="flex items-start justify-between mb-2">
@@ -589,6 +594,7 @@ export function AgendaView({ onNavigate }: AgendaViewProps) {
           </div>
         </div>
       )}
-    </main>
+    </>, document.body)}
+    </>
   );
 }

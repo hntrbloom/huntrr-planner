@@ -1,4 +1,5 @@
 import { safeGetDoc as getDoc, safeGetDocs as getDocs } from '../lib/firebase';
+import { getAccountOwner } from '../lib/accountStore';
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Heart, Plus, X, Edit, Trash2, Image as ImageIcon, Upload, ChevronLeft, Wand2, Loader2, Droplet } from 'lucide-react';
 import { ImageUploaderArea } from './ui/ImageUploaderArea';
@@ -663,7 +664,7 @@ export function CharacterWikiView() {
         setSeriesList(mergedSeries);
         setFranchiseList(mergedFranchises);
       } else {
-        const saved = localStorage.getItem('characterWikiData');
+        const saved = getAccountOwner() ? null : localStorage.getItem('characterWikiData');
         if (saved) {
           try {
             const parsed = JSON.parse(saved);
@@ -1020,7 +1021,7 @@ export function CharacterWikiView() {
               }).map(seriesName => (
                 <div key={seriesName}>
                   <h3 className="text-[20px] font-bold text-black mb-4 flex items-center gap-2">
-                    {seriesName} <span className="text-[14px] font-medium text-black/40 bg-black/5 px-2 py-0.5 rounded-full">{groupedCharacters[seriesName].length}</span>
+                    {seriesName} <span className="text-[14px] font-medium text-black/40 bg-pink-100/5 px-2 py-0.5 rounded-full">{groupedCharacters[seriesName].length}</span>
                   </h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 3xl:grid-cols-8 gap-4 md:gap-6">
                     {groupedCharacters[seriesName].map(char => (
@@ -1041,7 +1042,7 @@ export function CharacterWikiView() {
       )}
 
       {isEditing && (
-        <div role="dialog" aria-modal="true" aria-label="CharacterWiki dialog" tabIndex={-1} className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-5 md:p-6 bg-black/40 backdrop-blur-sm pointer-events-auto overflow-hidden wiki-edit-overlay">
+        <div role="dialog" aria-modal="true" aria-label="CharacterWiki dialog" tabIndex={-1} className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-5 md:p-6 bg-pink-100/90 backdrop-blur-sm pointer-events-auto overflow-hidden wiki-edit-overlay">
           <CharacterForm
             initialData={selectedCharacter}
             existingCharacters={characters}
@@ -1139,7 +1140,7 @@ function CharacterDetail({ character, onClose, onEdit, onDelete, onUpdate, user 
 
   return (
     <div className="bg-white rounded-[2rem] shadow-[0_8px_32px_rgba(255,184,205,0.3)] border border-[#FFB8CD]/30 overflow-hidden flex flex-col md:flex-row min-h-[600px] animate-in fade-in zoom-in-95 duration-200">
-      {confirmDelete && <div role="dialog" aria-modal="true" aria-label="Delete character confirmation" tabIndex={-1} className="fixed inset-0 z-[1000] bg-black/40 flex items-center justify-center p-4">
+      {confirmDelete && <div role="dialog" aria-modal="true" aria-label="Delete character confirmation" tabIndex={-1} className="fixed inset-0 z-[1000] bg-pink-100/90 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
           <h2 className="font-bold text-xl mb-2">Delete this character?</h2>
           <p className="text-sm mb-4">This removes {character.name} from your Wiki. Saved Series and Franchise options will be kept.</p>
@@ -1262,7 +1263,7 @@ function CharacterDetail({ character, onClose, onEdit, onDelete, onUpdate, user 
                           <div className="absolute top-14 left-1/2 -translate-x-1/2 w-48 bg-white p-2 rounded-xl shadow-lg border border-outline-variant/30 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
                             <p className="text-[10px] font-bold text-black/40 uppercase mb-1">Sampled from:</p>
                             <div className="relative w-full h-24 bg-surface rounded-lg overflow-hidden flex items-center justify-center">
-                              <img src={color.photoUrl} className="max-h-full object-contain" />
+                              <SmartImage src={color.photoUrl} alt="Color reference" className="max-h-full object-contain" />
                               {color.point && (
                                 <div
                                   className="absolute w-3 h-3 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.5)]"

@@ -57,7 +57,7 @@ export function ImageViewerModal({ image, allImages, zipTitle, onClose }: ImageV
 
   return (
     <div 
-      className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex flex-col items-center justify-between p-4 md:p-8 animate-in fade-in duration-200"
+      className="fixed inset-0 z-[100] bg-pink-100/90 backdrop-blur-md flex flex-col items-center justify-between p-4 md:p-8 animate-in fade-in duration-200"
       onClick={onClose}
     >
       {/* Top action bar */}

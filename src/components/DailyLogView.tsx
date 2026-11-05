@@ -2,7 +2,7 @@ import { safeGetDoc as getDoc, safeGetDocs as getDocs, safeGetDoc, safeGetDocs }
 import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2, Pencil, Check, X, Calendar as CalendarIcon, Clock, Settings2, Star, PaintBucket, Heart } from 'lucide-react';
 import { db } from '../lib/firebase';
-import { getGrayscalePalette } from '../lib/colors';
+import { getGrayscalePalette, lightSurfaceColor } from '../lib/colors';
 import { doc, setDoc, collection, query, orderBy, limit, where, documentId } from '../lib/workspaceStore';
 import { useAuth } from '../lib/AuthContext';
 import { logActivity } from '../lib/activityLogger';
@@ -60,7 +60,7 @@ function FullCategoryNotepad({ categoryId, categoryName, color, activeItems, don
       <div className="absolute top-4 right-4 z-20 flex gap-2">
         <button
           onClick={() => openHistory(categoryId)}
-          className="p-1.5 hover:bg-black/10 rounded-full text-black/40 hover:text-black transition-colors"
+          className="p-1.5 hover:bg-pink-100/10 rounded-full text-black/40 hover:text-black transition-colors"
           title="History"
         >
           <Clock className="w-4 h-4" />
@@ -69,7 +69,7 @@ function FullCategoryNotepad({ categoryId, categoryName, color, activeItems, don
           <button
             aria-label={`Change ${categoryName} colour`}
           onClick={() => setActiveColorPicker(activeColorPicker === categoryId ? null : categoryId)}
-            className="p-1.5 hover:bg-black/10 rounded-full text-black/40 hover:text-black transition-colors"
+            className="p-1.5 hover:bg-pink-100/10 rounded-full text-black/40 hover:text-black transition-colors"
           >
             <PaintBucket className="w-4 h-4" />
           </button>
@@ -93,8 +93,8 @@ function FullCategoryNotepad({ categoryId, categoryName, color, activeItems, don
         </div>
       </div>
       <div className="absolute -top-5 right-8 w-4 h-12 border-[3px] border-gray-400/90 rounded-full bg-transparent rotate-[15deg] shadow-[1px_2px_2px_rgba(0,0,0,0.1)] z-10"></div>
-      <div className="absolute top-4 left-4 w-2 h-2 rounded-full bg-black/15 shadow-inner"></div>
-      <div className="absolute bottom-4 left-4 w-2 h-2 rounded-full bg-black/15 shadow-inner"></div>
+      <div className="absolute top-4 left-4 w-2 h-2 rounded-full bg-pink-100/15 shadow-inner"></div>
+      <div className="absolute bottom-4 left-4 w-2 h-2 rounded-full bg-pink-100/15 shadow-inner"></div>
 
       <div className="relative z-10 flex flex-col h-full mt-2">
         <div className="flex items-center justify-center gap-2 mb-6 pb-2 border-b-[3px] border-black/10 self-center px-4 w-full">
@@ -121,7 +121,7 @@ function FullCategoryNotepad({ categoryId, categoryName, color, activeItems, don
                 aria-label={`Add to ${categoryName}`}
                 onClick={() => { if(localInput.trim()) { handleAddSubmit(localInput.trim(), categoryId); setLocalInput(''); } }}
                 disabled={!localInput.trim()}
-                className="w-7 h-7 flex items-center justify-center rounded-full bg-black/5 hover:bg-black/10 disabled:opacity-50 text-black/60 transition-colors shrink-0"
+                className="w-7 h-7 flex items-center justify-center rounded-full bg-pink-100/5 hover:bg-pink-100/10 disabled:opacity-50 text-black/60 transition-colors shrink-0"
               >
                 <Plus className="w-4 h-4" aria-hidden="true" />
               </button>
@@ -169,11 +169,11 @@ function SortableCategoryNotepad({ id, categoryName, isSelected, onClick, bgColo
       className={`planner-category-tab group relative shrink-0 min-w-[130px] sm:min-w-[148px] max-w-[200px] h-16 sm:h-16 px-2.5 py-1.5 rounded-sm shadow-sm border-[2px] border-gray-400 flex items-center justify-center cursor-pointer transition-transform hover:-translate-y-1 ${isSelected ? 'ring-2 ring-[#666666] ring-offset-2 scale-105' : ''}`}
     >
       <div className="absolute -top-3 right-4 w-3 h-7 border-[2px] border-gray-400 rounded-full bg-transparent rotate-[15deg] shadow-[1px_1px_1px_rgba(0,0,0,0.1)] z-10 pointer-events-none"></div>
-      <div className="absolute top-1 left-1.5 w-1.5 h-1.5 rounded-full bg-black/15 shadow-inner pointer-events-none"></div>
-      <div className="absolute top-1 right-1.5 w-1.5 h-1.5 rounded-full bg-black/15 shadow-inner pointer-events-none"></div>
-      <div className="absolute bottom-1 left-1.5 w-1.5 h-1.5 rounded-full bg-black/15 shadow-inner pointer-events-none"></div>
-      <div className="absolute bottom-1 right-1.5 w-1.5 h-1.5 rounded-full bg-black/15 shadow-inner pointer-events-none"></div>
-      <div className="absolute inset-0 pointer-events-none bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-sm"></div>
+      <div className="absolute top-1 left-1.5 w-1.5 h-1.5 rounded-full bg-pink-100/15 shadow-inner pointer-events-none"></div>
+      <div className="absolute top-1 right-1.5 w-1.5 h-1.5 rounded-full bg-pink-100/15 shadow-inner pointer-events-none"></div>
+      <div className="absolute bottom-1 left-1.5 w-1.5 h-1.5 rounded-full bg-pink-100/15 shadow-inner pointer-events-none"></div>
+      <div className="absolute bottom-1 right-1.5 w-1.5 h-1.5 rounded-full bg-pink-100/15 shadow-inner pointer-events-none"></div>
+      <div className="absolute inset-0 pointer-events-none bg-pink-100/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-sm"></div>
 
       <div className="flex items-center justify-center w-full px-1.5 pr-5 overflow-hidden">
         <span
@@ -189,7 +189,7 @@ function SortableCategoryNotepad({ id, categoryName, isSelected, onClick, bgColo
         <button 
           type="button"
           onPointerDown={(e) => { e.stopPropagation(); setShowPicker(!showPicker); }}
-          className="p-1 hover:bg-black/10 rounded-md text-black/60 hover:text-black transition-colors"
+          className="p-1 hover:bg-pink-100/10 rounded-md text-black/60 hover:text-black transition-colors"
           title="Change Color"
         >
           <PaintBucket className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
@@ -486,7 +486,10 @@ export function DailyLogView() {
   }
   
   const getCategoryName = (id: string) => categories.find(c => c.id === id)?.name || id;
-  const getCategoryColor = (id: string) => categories.find(c => c.id === id)?.color;
+  const getCategoryColor = (id: string) => {
+    const saved = categories.find(c => c.id === id)?.color;
+    return saved ? lightSurfaceColor(saved) : undefined;
+  };
   const handleCategoryColorChange = (id: string, color?: string) => {
     const newCats = categories.map(c => c.id === id ? { ...c, color } : c);
     saveCategoryData(newCats, categoryOrder);
@@ -658,7 +661,7 @@ export function DailyLogView() {
                                   className="bg-transparent text-black outline-none w-[110px]"
                                 />
                                 {editTask.dueDate && (
-                                  <button onClick={() => setEditTask({...editTask, dueDate: ''})} className="p-0.5 hover:bg-black/10 rounded-full text-black/50">
+                                  <button onClick={() => setEditTask({...editTask, dueDate: ''})} className="p-0.5 hover:bg-pink-100/10 rounded-full text-black/50">
                                     <X className="w-3 h-3" />
                                   </button>
                                 )}
@@ -673,7 +676,7 @@ export function DailyLogView() {
                                   className="bg-transparent text-black outline-none w-[90px]"
                                 />
                                 {editTask.dueTime && (
-                                  <button onClick={() => setEditTask({...editTask, dueTime: ''})} className="p-0.5 hover:bg-black/10 rounded-full text-black/50">
+                                  <button onClick={() => setEditTask({...editTask, dueTime: ''})} className="p-0.5 hover:bg-pink-100/10 rounded-full text-black/50">
                                     <X className="w-3 h-3" />
                                   </button>
                                 )}
@@ -691,7 +694,7 @@ export function DailyLogView() {
                                   className="bg-transparent text-black outline-none w-[110px]"
                                 />
                                 {editTask.timeDoneDate && (
-                                  <button onClick={() => setEditTask({...editTask, timeDoneDate: ''})} className="p-0.5 hover:bg-black/10 rounded-full text-black/50">
+                                  <button onClick={() => setEditTask({...editTask, timeDoneDate: ''})} className="p-0.5 hover:bg-pink-100/10 rounded-full text-black/50">
                                     <X className="w-3 h-3" />
                                   </button>
                                 )}
@@ -705,7 +708,7 @@ export function DailyLogView() {
                                   className="bg-transparent text-black outline-none w-[90px]"
                                 />
                                 {editTask.timeDoneTime && (
-                                  <button onClick={() => setEditTask({...editTask, timeDoneTime: ''})} className="p-0.5 hover:bg-black/10 rounded-full text-black/50">
+                                  <button onClick={() => setEditTask({...editTask, timeDoneTime: ''})} className="p-0.5 hover:bg-pink-100/10 rounded-full text-black/50">
                                     <X className="w-3 h-3" />
                                   </button>
                                 )}
@@ -717,8 +720,8 @@ export function DailyLogView() {
                                 <Trash2 className="w-4 h-4" /> Delete Task
                               </button>
                               <div className="flex gap-2">
-                                <button onClick={() => setEditingItemId(null)} className="px-3 py-1.5 rounded-md text-[14px] font-semibold text-black/60 hover:bg-black/5 transition-colors">Cancel</button>
-                                <button onClick={saveEditedTask} disabled={!editTask.text?.trim()} className="bg-[#222222] text-white px-4 py-1.5 rounded-md text-[14px] font-semibold hover:bg-black transition-colors disabled:opacity-50">{user?.isAnonymous ? 'Test Save' : 'Save'}</button>
+                                <button onClick={() => setEditingItemId(null)} className="px-3 py-1.5 rounded-md text-[14px] font-semibold text-black/60 hover:bg-pink-100/5 transition-colors">Cancel</button>
+                                <button onClick={saveEditedTask} disabled={!editTask.text?.trim()} className="bg-pink-100 text-white px-4 py-1.5 rounded-md text-[14px] font-semibold hover:bg-pink-100/90 transition-colors disabled:opacity-50">{user?.isAnonymous ? 'Test Save' : 'Save'}</button>
                               </div>
                             </div>
                           </div>
@@ -767,7 +770,7 @@ export function DailyLogView() {
                                 <button 
                                   type="button"
                                   onClick={() => toggleImportant(item.id)}
-                                  className={`p-1.5 md:p-2 rounded-lg transition-colors ${item.important ? 'text-[#F8DA78] opacity-100' : 'text-black/40 hover:text-black/80 hover:bg-black/10 opacity-100 md:opacity-0 md:group-hover:opacity-100'}`}
+                                  className={`p-1.5 md:p-2 rounded-lg transition-colors ${item.important ? 'text-[#F8DA78] opacity-100' : 'text-black/40 hover:text-black/80 hover:bg-pink-100/10 opacity-100 md:opacity-0 md:group-hover:opacity-100'}`}
                                   title="Mark as Important"
                                 >
                                   <Star className={`w-4 h-4 ${item.important ? 'fill-current' : ''}`} />
@@ -775,7 +778,7 @@ export function DailyLogView() {
                                 <button 
                                   type="button"
                                   onClick={() => startEditingTask(item)}
-                                  className="p-1.5 md:p-2 text-black/40 hover:text-black/80 hover:bg-black/10 rounded-lg transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                                  className="p-1.5 md:p-2 text-black/40 hover:text-black/80 hover:bg-pink-100/10 rounded-lg transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
                                   title="Edit Task"
                                 >
                                   <Pencil className="w-4 h-4" />
@@ -841,7 +844,7 @@ export function DailyLogView() {
               <div className="category-strip w-full py-4 -my-4 relative">
                 <div className="flex items-center gap-2 mb-2 px-4">
                   <span className="text-black/50 font-bold uppercase tracking-widest text-[12px]">Categories</span>
-                  <button onClick={() => setIsCategoryModalOpen(true)} className="p-1 hover:bg-black/5 rounded-full text-black/40 hover:text-black/80 transition-colors" title="Manage Categories">
+                  <button onClick={() => setIsCategoryModalOpen(true)} className="p-1 hover:bg-pink-100/5 rounded-full text-black/40 hover:text-black/80 transition-colors" title="Manage Categories">
                      <Pencil className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -905,14 +908,14 @@ export function DailyLogView() {
       
       {/* History Modal */}
       {historyModalCategory && (
-        <div role="dialog" aria-modal="true" aria-label="DailyLog dialog" tabIndex={-1} className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex justify-end">
+        <div role="dialog" aria-modal="true" aria-label="DailyLog dialog" tabIndex={-1} className="fixed inset-0 bg-pink-100/90 backdrop-blur-sm z-[100] flex justify-end">
            <div className="w-full max-w-md bg-surface h-full shadow-2xl flex flex-col animate-in slide-in-from-right relative">
               <div className="flex items-center justify-between p-6 border-b border-outline-variant/20 bg-surface-container-low">
                  <div>
                    <h2 className="text-xl font-bold">{getCategoryName(historyModalCategory)} History</h2>
                    <p className="text-sm text-on-surface-variant">Past 30 days</p>
                  </div>
-                 <button onClick={() => setHistoryModalCategory(null)} className="p-2 hover:bg-black/10 rounded-full">
+                 <button onClick={() => setHistoryModalCategory(null)} className="p-2 hover:bg-pink-100/10 rounded-full">
                     <X className="w-5 h-5" />
                  </button>
               </div>
@@ -949,7 +952,7 @@ export function DailyLogView() {
 
       {/* Category Management Modal */}
       {isCategoryModalOpen && (
-        <div role="dialog" aria-modal="true" aria-label="DailyLog dialog" tabIndex={-1} className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" aria-label="DailyLog dialog" tabIndex={-1} className="fixed inset-0 bg-pink-100/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-surface rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh]">
             <div className="flex items-center justify-between p-4 border-b border-outline-variant/20">
               <h3 className="text-[18px] md:text-[20px] font-headline-sm text-on-surface">Manage Categories</h3>

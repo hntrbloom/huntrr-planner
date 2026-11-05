@@ -134,7 +134,7 @@ export function DriveSTLPickerModal({ onClose, onSelectSTL }: DriveSTLPickerModa
   const categoryName = MODEL_CATEGORY_NAMES[selectedCategory];
 
   return (
-    <div role="dialog" aria-modal="true" aria-label="DriveSTLPicker dialog" tabIndex={-1} className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+    <div role="dialog" aria-modal="true" aria-label="DriveSTLPicker dialog" tabIndex={-1} className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-pink-100/90 backdrop-blur-xs">
       <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-black/10 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header */}
@@ -150,7 +150,7 @@ export function DriveSTLPickerModal({ onClose, onSelectSTL }: DriveSTLPickerModa
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-full text-[#666666] hover:text-[#111111] hover:bg-black/5 transition-colors cursor-pointer"
+            className="p-2 rounded-full text-[#666666] hover:text-[#111111] hover:bg-pink-100/5 transition-colors cursor-pointer"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
@@ -170,7 +170,7 @@ export function DriveSTLPickerModal({ onClose, onSelectSTL }: DriveSTLPickerModa
                   className={`px-3.5 py-1.5 rounded-lg transition-all cursor-pointer font-semibold ${
                     isSelected
                       ? 'bg-white text-primary shadow-xs font-bold'
-                      : 'text-[#666666] hover:text-[#111111] hover:bg-black/5'
+                      : 'text-[#666666] hover:text-[#111111] hover:bg-pink-100/5'
                   }`}
                 >
                   {cat.label}

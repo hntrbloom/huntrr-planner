@@ -262,7 +262,7 @@ export function EntitySelector({
             <button
               type="button"
               onClick={handleClear}
-              className="p-1 text-black/40 hover:text-black rounded-full hover:bg-black/5"
+              className="p-1 text-black/40 hover:text-black rounded-full hover:bg-pink-100/5"
               title="Clear"
             >
               <X className="w-4 h-4" />
@@ -349,7 +349,7 @@ export function EntitySelector({
               </div>
               <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-1">
                 {entities.map(e => (
-                  <div key={e.id} className="flex items-center justify-between p-2 hover:bg-black/5 rounded-lg group">
+                  <div key={e.id} className="flex items-center justify-between p-2 hover:bg-pink-100/5 rounded-lg group">
                     {editingId === e.id ? (
                       <div className="flex-1 flex gap-2 items-center">
                         <input

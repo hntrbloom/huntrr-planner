@@ -144,7 +144,7 @@ export function ColorSampler({ initialImageUrl, onSave, onCancel }: { initialIma
               <input type="file" accept="image/*" className="hidden" onChange={handleUpload} />
             </label>
           )}
-          <button type="button" onClick={onCancel} className="p-1 hover:bg-black/5 rounded-full"><X className="w-4 h-4" /></button>
+          <button type="button" onClick={onCancel} className="p-1 hover:bg-pink-100/5 rounded-full"><X className="w-4 h-4" /></button>
         </div>
       </div>
 

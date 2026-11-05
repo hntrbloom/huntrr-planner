@@ -1,0 +1,19 @@
+// Run npm run build and npm start, then node scripts/verify-planner-browser.mjs. Uses a disposable profile.
+import puppeteer from 'puppeteer';
+import assert from 'node:assert/strict';
+const browser=await puppeteer.launch({executablePath:process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+const results=[];
+try{
+ const p=await browser.newPage();await p.setViewport({width:1440,height:1000});
+ await p.setRequestInterception(true);p.on('request',r=>r.url().startsWith('http://127.0.0.1')||r.url().startsWith('data:')||r.url().startsWith('blob:')?r.continue():r.abort());
+ await p.goto('http://127.0.0.1:3000/');await p.waitForSelector('.email-account-primary');await p.click('.email-account-primary');await p.waitForSelector('.planner-welcome');
+ const go=async route=>{await p.evaluate(route=>location.hash=route,route);await p.waitForFunction(route=>document.querySelector('.planner-page')?.dataset.page===route,{},route);};
+ const click=async text=>{const el=await p.waitForFunction(text=>[...document.querySelectorAll('button')].find(e=>e.textContent.trim()===text),{},text);await el.asElement().click();};
+ await click('Add event');await p.waitForSelector('[aria-label="Event title"]');await p.type('[aria-label="Event title"]','Organizer sample event');await click('Add to Calendar');await p.waitForFunction(()=>!document.querySelector('[aria-label="Event title"]'));await p.waitForFunction(()=>document.querySelector('.planner-page').textContent.includes('Organizer sample event'));
+ await go('month');await p.waitForFunction(()=>document.querySelector('.planner-page').textContent.includes('Organizer sample event'));results.push('event added in agenda appears in calendar');
+ await go('notes');await p.waitForSelector('[aria-label="Add note"]');await p.click('[aria-label="Add note"]');await p.waitForSelector('[aria-label="Note content"]');await p.type('[aria-label="Note content"]','Organizer local persistence sample');await new Promise(r=>setTimeout(r,1000));await p.reload();await p.waitForFunction(()=>document.querySelector('[aria-label="Note content"]')?.value==='Organizer local persistence sample');results.push('note survives refresh in IndexedDB workspace');
+ await go('habits');await click('Add Category');await p.waitForSelector('input[placeholder="Category Name"]');await p.type('input[placeholder="Category Name"]','Sample routines');await p.click('#save-category-btn');await click('Add New Habit');await p.waitForSelector('[aria-label="Habit name"]');await p.type('[aria-label="Habit name"]','Organizer sample habit');await click('Save Habit');await p.waitForSelector('[aria-label="Check in Organizer sample habit"]');await p.click('[aria-label="Check in Organizer sample habit"]');await p.reload();await p.waitForSelector('[aria-label="Update check-in for Organizer sample habit"]');results.push('habit and check-in survive refresh');
+ await go('log');await p.waitForSelector('input[aria-label^="New task in"]');const input=(await p.waitForFunction(()=>[...document.querySelectorAll('input[aria-label^="New task in"]')].find(e=>e.getBoundingClientRect().width>0))).asElement();await input.type('Organizer sample task');await input.press('Enter');await p.waitForFunction(()=>document.querySelector('.planner-page').textContent.includes('Organizer sample task'));await p.reload();await p.waitForFunction(()=>document.querySelector('.planner-page').textContent.includes('Organizer sample task'));results.push('task survives refresh');
+ await go('agenda');await p.reload();await p.waitForFunction(()=>document.querySelector('.planner-page').textContent.includes('Organizer sample event'));results.push('calendar event survives refresh');
+ console.log(JSON.stringify({mode:'real browser IndexedDB; disposable browser profile',passed:results},null,2));
+}catch(e){console.error('Completed:',results);throw e;}finally{await browser.close();}

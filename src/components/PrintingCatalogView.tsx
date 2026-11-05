@@ -299,7 +299,7 @@ export function PrintingCatalogView() {
                     <ImageIcon className="w-10 h-10 text-on-surface-variant/50" />
                   </div>
                 )}
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
+                <div className="absolute inset-0 bg-pink-100/0 group-hover:bg-pink-100/10 transition-colors duration-300" />
               </div>
               <div className="p-4">
                 <h3 className="font-bold text-[#111111] text-lg leading-tight mb-2 font-headline-sm">{build.name}</h3>
@@ -314,7 +314,7 @@ export function PrintingCatalogView() {
       </div>
 
       {isAdding && (
-        <div role="dialog" aria-modal="true" aria-label="PrintingCatalog dialog" tabIndex={-1} className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div role="dialog" aria-modal="true" aria-label="PrintingCatalog dialog" tabIndex={-1} className="fixed inset-0 bg-pink-100/90 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-surface-container-lowest rounded-[2rem] w-full max-w-md shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between p-6 border-b border-outline-variant/20">
               <h2 className="text-2xl font-bold text-[#111111] font-headline-sm">
@@ -490,7 +490,7 @@ export function PrintingCatalogView() {
       )}
 
       {selectedBuild && !isAdding && (
-        <div role="dialog" aria-modal="true" aria-label="PrintingCatalog dialog" tabIndex={-1} className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setSelectedBuild(null)}>
+        <div role="dialog" aria-modal="true" aria-label="PrintingCatalog dialog" tabIndex={-1} className="fixed inset-0 bg-pink-100/90 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setSelectedBuild(null)}>
           <div 
             className="bg-surface-container-lowest rounded-[2rem] w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]"
             onClick={e => e.stopPropagation()}
@@ -503,7 +503,7 @@ export function PrintingCatalogView() {
                   driveFileId={selectedBuild.referenceId || selectedBuild.mockupId}
                   isThumbnail={false}
                   alt={selectedBuild.name}
-                  className="w-full h-full object-contain max-h-[50vh] md:max-h-none bg-black/5"
+                  className="w-full h-full object-contain max-h-[50vh] md:max-h-none bg-pink-100/5"
                 />
               ) : (
                 <ImageIcon className="w-20 h-20 text-on-surface-variant/30" />

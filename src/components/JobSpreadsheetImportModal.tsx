@@ -311,7 +311,7 @@ export function JobSpreadsheetImportModal({
 
   return (
     <div 
-      className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-6 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200"
+      className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-6 bg-pink-100/90 backdrop-blur-xs animate-in fade-in duration-200"
       role="dialog"
       aria-modal="true"
     >

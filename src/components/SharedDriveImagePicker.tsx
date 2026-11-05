@@ -178,7 +178,7 @@ export function SharedDriveImagePicker({ onClose, onSelect, folderId, title = 'S
         e.stopPropagation();
         onClose();
       }}
-      className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-4 bg-pink-100/90 backdrop-blur-sm"
     >
       <div 
         onClick={(e) => e.stopPropagation()}
@@ -352,7 +352,7 @@ export function SharedDriveImagePicker({ onClose, onSelect, folderId, title = 'S
               e.stopPropagation();
               onClose();
             }}
-            className="px-5 py-2 text-[14px] font-bold text-black/60 hover:text-black hover:bg-black/5 rounded-full transition-colors cursor-pointer"
+            className="px-5 py-2 text-[14px] font-bold text-black/60 hover:text-black hover:bg-pink-100/5 rounded-full transition-colors cursor-pointer"
           >
             Cancel
           </button>
@@ -366,7 +366,7 @@ export function SharedDriveImagePicker({ onClose, onSelect, folderId, title = 'S
             className={`px-6 py-2 text-[14px] font-bold rounded-full transition-all shadow-sm cursor-pointer ${
               selectedId 
                 ? 'bg-[#FFB8CD] hover:bg-[#FFB8CD]/90 text-white active:scale-95' 
-                : 'bg-black/5 text-black/30 cursor-not-allowed'
+                : 'bg-pink-100/5 text-black/30 cursor-not-allowed'
             }`}
           >
             Use Photo

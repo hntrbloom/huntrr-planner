@@ -1,3 +1,4 @@
+import { scopedBrowserKey } from './scopedBrowserStorage';
 import { getAccessToken } from './AuthContext';
 
 export interface DriveFolderSetup {
@@ -207,7 +208,7 @@ export function getPrintFolderId(printType: string | undefined | null, userSetti
 
   // 3. Check localStorage cache
   try {
-    const cached = localStorage.getItem('huntrr_print_folder_ids');
+    const cached = localStorage.getItem(scopedBrowserKey('huntrr_print_folder_ids'));
     if (cached) {
       const parsed = JSON.parse(cached);
       if (parsed[canonicalKey]) {
@@ -224,7 +225,7 @@ export function getPrintFolderId(printType: string | undefined | null, userSetti
       }
     }
     if (canonicalKey === 'wiki') {
-      const wikiCache = localStorage.getItem('huntrr_wiki_folder_id');
+      const wikiCache = localStorage.getItem(scopedBrowserKey('huntrr_wiki_folder_id'));
       if (wikiCache) {
         const extracted = extractDriveFolderId(wikiCache);
         if (extracted) return extracted;
@@ -483,7 +484,7 @@ export function getModelsFolderId(userSettings?: any): string {
     if (extracted) return extracted;
   }
   try {
-    const cached = localStorage.getItem('huntrr_models_folder_id');
+    const cached = localStorage.getItem(scopedBrowserKey('huntrr_models_folder_id'));
     if (cached) {
       const extracted = extractDriveFolderId(cached);
       if (extracted) return extracted;
@@ -514,7 +515,7 @@ export async function getOrCreateModelsFolder(mainFolderId?: string): Promise<st
 
   const folderId = await getOrCreateFolder(headers, 'models', parentId);
   try {
-    localStorage.setItem('huntrr_models_folder_id', folderId);
+    localStorage.setItem(scopedBrowserKey('huntrr_models_folder_id'), folderId);
   } catch {}
   return folderId;
 }
@@ -540,7 +541,7 @@ export async function getOrResolveModelCategoryFolder(category: ModelCategoryTyp
   // Check category cache
   const cacheKey = `huntrr_models_category_${category}`;
   try {
-    const cached = localStorage.getItem(cacheKey);
+    const cached = localStorage.getItem(scopedBrowserKey(cacheKey));
     if (cached) {
       const cleanCached = extractDriveFolderId(cached);
       if (cleanCached) return cleanCached;
@@ -568,7 +569,7 @@ export async function getOrResolveModelCategoryFolder(category: ModelCategoryTyp
         const data = await res.json();
         if (data.files && data.files.length > 0) {
           const foundId = data.files[0].id;
-          try { localStorage.setItem(cacheKey, foundId); } catch {}
+          try { localStorage.setItem(scopedBrowserKey(cacheKey), foundId); } catch {}
           return foundId;
         }
       }
@@ -586,7 +587,7 @@ export async function getOrResolveModelCategoryFolder(category: ModelCategoryTyp
         const data = await res.json();
         if (data.files && data.files.length > 0) {
           const foundId = data.files[0].id;
-          try { localStorage.setItem(cacheKey, foundId); } catch {}
+          try { localStorage.setItem(scopedBrowserKey(cacheKey), foundId); } catch {}
           return foundId;
         }
       }
@@ -598,7 +599,7 @@ export async function getOrResolveModelCategoryFolder(category: ModelCategoryTyp
   // 3. If not found, create the folder inside the models root
   const primaryName = MODEL_CATEGORY_NAMES[category];
   const newFolderId = await getOrCreateFolder(headers, primaryName, modelsRootId);
-  try { localStorage.setItem(cacheKey, newFolderId); } catch {}
+  try { localStorage.setItem(scopedBrowserKey(cacheKey), newFolderId); } catch {}
   return newFolderId;
 }
 

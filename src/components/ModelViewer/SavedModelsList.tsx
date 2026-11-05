@@ -1,4 +1,5 @@
 import { getFileFromIDB } from '../../lib/idb';
+import { ACCOUNT_FILE_PREFIX, readAccountFile } from '../../lib/accountFiles';
 import React, { useState } from 'react';
 import { Box, Eye, Edit3, Download, Trash2, Search, Calendar, Ruler, Layers, Loader2, HardDrive, AlertTriangle } from 'lucide-react';
 import { SavedModel3D } from '../../types';
@@ -54,7 +55,9 @@ export function SavedModelsList({
     try {
       setLoadingModelId(model.id);
       setErrorMsg(null);
-      const file = model.localFileKey ? await getFileFromIDB(model.localFileKey) : undefined;
+      const file = model.localFileKey?.startsWith(ACCOUNT_FILE_PREFIX)
+        ? await readAccountFile(model.localFileKey)
+        : model.localFileKey ? await getFileFromIDB(model.localFileKey) : undefined;
       const buffer = file ? await file.arrayBuffer() : model.driveFileId ? await fetchDriveSTLArrayBuffer(model.driveFileId) : null;
       if (!buffer) throw new Error('This local STL file is missing. Restore a backup or upload it again.');
       onOpenModel(model, buffer);
@@ -75,7 +78,9 @@ export function SavedModelsList({
     try {
       setDownloadingModelId(model.id);
       setErrorMsg(null);
-      const file = model.localFileKey ? await getFileFromIDB(model.localFileKey) : undefined;
+      const file = model.localFileKey?.startsWith(ACCOUNT_FILE_PREFIX)
+        ? await readAccountFile(model.localFileKey)
+        : model.localFileKey ? await getFileFromIDB(model.localFileKey) : undefined;
       const buffer = file ? await file.arrayBuffer() : model.driveFileId ? await fetchDriveSTLArrayBuffer(model.driveFileId) : null;
       if (!buffer) throw new Error('This local STL file is missing. Restore a backup or upload it again.');
       downloadSTLBuffer(buffer, model.originalFilename || model.name);
@@ -231,20 +236,20 @@ export function SavedModelsList({
 
                     {/* Drive Badge */}
                     {model.driveFileId && (
-                      <div className="absolute top-2.5 right-2.5 bg-black/60 backdrop-blur-xs text-white p-1 rounded-md text-[10px] flex items-center gap-1">
+                      <div className="absolute top-2.5 right-2.5 bg-pink-100/90 backdrop-blur-xs text-white p-1 rounded-md text-[10px] flex items-center gap-1">
                         <HardDrive className="w-3 h-3" />
                       </div>
                     )}
 
                     {/* Hover Overlay */}
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                    <div className="absolute inset-0 bg-pink-100/90 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
                       {isLoading ? (
-                        <div className="flex items-center gap-2 bg-black/70 px-3 py-1.5 rounded-full text-[12px] font-medium">
+                        <div className="flex items-center gap-2 bg-pink-100/90 px-3 py-1.5 rounded-full text-[12px] font-medium">
                           <Loader2 className="w-4 h-4 animate-spin text-primary" />
                           Loading 3D...
                         </div>
                       ) : (
-                        <div className="flex items-center gap-1.5 bg-black/70 px-3.5 py-1.5 rounded-full text-[12px] font-semibold">
+                        <div className="flex items-center gap-1.5 bg-pink-100/90 px-3.5 py-1.5 rounded-full text-[12px] font-semibold">
                           <Eye className="w-4 h-4" />
                           Open in 3D Viewer
                         </div>
@@ -353,7 +358,7 @@ export function SavedModelsList({
 
       {/* Rename Modal */}
       {editingModel && (
-        <div role="dialog" aria-modal="true" aria-label="SavedModelsList dialog" tabIndex={-1} className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+        <div role="dialog" aria-modal="true" aria-label="SavedModelsList dialog" tabIndex={-1} className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-pink-100/90 backdrop-blur-xs">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl border border-black/10 animate-in fade-in zoom-in-95 duration-150">
             <h3 className="text-[17px] font-bold text-[#111111] mb-2">Rename 3D Model</h3>
             <p className="text-[13px] text-[#666666] mb-4">
@@ -390,7 +395,7 @@ export function SavedModelsList({
 
       {/* Delete Confirmation Modal */}
       {deletingModel && (
-        <div role="dialog" aria-modal="true" aria-label="SavedModelsList dialog" tabIndex={-1} className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+        <div role="dialog" aria-modal="true" aria-label="SavedModelsList dialog" tabIndex={-1} className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-pink-100/90 backdrop-blur-xs">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl border border-black/10 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center gap-3 text-error mb-3">
               <div className="p-2.5 bg-error-container/40 rounded-xl">

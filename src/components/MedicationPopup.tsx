@@ -206,7 +206,7 @@ export function MedicationFormModal({ initialLog, onSave, onClose }: {
   };
 
   return (
-    <div role="dialog" aria-modal="true" aria-label="MedicationPopup dialog" tabIndex={-1} className="fixed inset-0 bg-inverse-surface/40 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+    <div role="dialog" aria-modal="true" aria-label="MedicationPopup dialog" tabIndex={-1} className="fixed inset-0 bg-pink-100/80 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-surface-container-lowest w-full max-w-md rounded-2xl p-6 shadow-2xl border border-outline-variant/30 animate-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between pb-4 border-b border-outline-variant/20 mb-4">
           <div className="flex items-center gap-3">

@@ -1568,7 +1568,7 @@ export function JobApplicationsView() {
       {/* ================= MODAL 1: ADD / EDIT JOB APPLICATION ================= */}
       {isAddingJob && (
         <div 
-          className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 md:p-6 bg-black/40 backdrop-blur-xs overflow-hidden"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 md:p-6 bg-pink-100/90 backdrop-blur-xs overflow-hidden"
           role="dialog"
           aria-modal="true"
         >
@@ -1821,7 +1821,7 @@ export function JobApplicationsView() {
       {/* ================= MODAL 2: ADD / EDIT LOCAL COMPANY ================= */}
       {isAddingLocal && (
         <div 
-          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-black/40 backdrop-blur-xs overflow-hidden"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-pink-100/90 backdrop-blur-xs overflow-hidden"
           role="dialog"
           aria-modal="true"
         >
@@ -1934,7 +1934,7 @@ export function JobApplicationsView() {
       {/* ================= MODAL 3: ADD / EDIT REMOTE COMPANY ================= */}
       {isAddingRemote && (
         <div 
-          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-black/40 backdrop-blur-xs overflow-hidden"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-pink-100/90 backdrop-blur-xs overflow-hidden"
           role="dialog"
           aria-modal="true"
         >

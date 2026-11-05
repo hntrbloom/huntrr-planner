@@ -664,7 +664,7 @@ function ShiftForm({ initialData, onSave, onCancel }: { initialData: WorkShift |
   };
 
   return (
-    <div role="dialog" aria-modal="true" aria-label="Monthly dialog" tabIndex={-1} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div role="dialog" aria-modal="true" aria-label="Monthly dialog" tabIndex={-1} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-pink-100/90 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-surface w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col">
         <div className="flex items-center justify-between p-6 border-b border-outline-variant/20 bg-surface-container-lowest">
           <h3 className="text-[22px] font-bold text-on-surface flex items-center gap-2">
@@ -757,7 +757,7 @@ function ShiftDetailsModal({ shift, onClose, onEdit, onDelete }: { shift: WorkSh
   const hrs = calculateTotalHours([shift]).toFixed(2);
   
   return (
-    <div role="dialog" aria-modal="true" aria-label="Monthly dialog" tabIndex={-1} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div role="dialog" aria-modal="true" aria-label="Monthly dialog" tabIndex={-1} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-pink-100/90 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-surface w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden flex flex-col">
         <div className="flex flex-col p-6 pb-0 border-b border-outline-variant/20 bg-surface-container-lowest">
           <div className="flex items-start justify-between mb-4">

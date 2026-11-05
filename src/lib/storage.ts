@@ -1,4 +1,7 @@
 import { storage, auth } from './firebase';
+import { ACCOUNT_FILE_PREFIX } from './accountFiles';
+import { getAccountOwner } from './accountStore';
+import { supabase } from './supabase';
 import { ref, deleteObject } from 'firebase/storage';
 import { savePhotoToIDB, deletePhotoFromIDB } from './idb';
 import { uploadImageToService } from './imageService';
@@ -141,6 +144,7 @@ export const uploadFileToStorage = async (
       log(`Primary storage upload complete: ${result.downloadURL}`);
       return { url: result.downloadURL, path: result.storagePath, driveFileId: result.driveFileId };
     } catch (err: any) {
+      if (getAccountOwner() === userId) throw err;
       log(`Primary storage warning: ${err?.message || err}. Checking fallback...`);
       if (auth.currentUser?.isAnonymous || String(err).includes('storage/unauthorized') || String(err).includes('timed out')) {
         log(`Falling back to local IndexedDB...`);
@@ -211,11 +215,15 @@ export const uploadDataUrlToStorage = async (
 
 export const deleteFileFromStorage = async (path: string): Promise<void> => {
   if (!path) return;
+  // Other records or an unsynced edit may still refer to the object.
+  if (path.startsWith(ACCOUNT_FILE_PREFIX)) return;
   if (path.startsWith('idb://') || path.startsWith('photo_')) {
+    if (getAccountOwner()) return;
     const key = path.replace('idb://', '');
     await deletePhotoFromIDB(key).catch(() => {});
     return;
   }
+  if (supabase) return;
   try {
     const storageRef = ref(storage, path);
     await deleteObject(storageRef);

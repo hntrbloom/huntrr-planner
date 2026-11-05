@@ -89,7 +89,7 @@ export const SetDriveFoldersModal: React.FC<SetDriveFoldersModalProps> = ({
   };
 
   return (
-    <div role="dialog" aria-modal="true" aria-label="SetDriveFolders dialog" tabIndex={-1} className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div role="dialog" aria-modal="true" aria-label="SetDriveFolders dialog" tabIndex={-1} className="fixed inset-0 z-[100] bg-pink-100/90 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-white rounded-[28px] shadow-2xl w-full max-w-lg overflow-hidden flex flex-col border border-outline-variant/30">
         <div className="px-6 py-4 border-b border-outline-variant/20 flex justify-between items-center bg-white">
           <div className="flex items-center gap-2">

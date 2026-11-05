@@ -1,3 +1,5 @@
+import * as legacy from 'firebase/firestore';
+import { auth } from './firebase';
 import { db } from './firebase';
 import { collection, doc, getDoc, getDocs, writeBatch, Timestamp } from './workspaceStore';
 import { getFileFromIDB, getPhotoFromIDB, saveFileToIDB, savePhotoToIDB } from './idb';
@@ -17,13 +19,16 @@ function decode(value: any): any {
   if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, decode(v)]));
   return value;
 }
-export async function gatherAllData(userId: string) {
+export async function gatherAllData(userId: string, legacySource = false) {
+  if (legacySource && (!auth.currentUser || auth.currentUser.isAnonymous || auth.currentUser.uid !== userId)) throw new Error('The original Firebase session is not available. Export from the original Organizer.');
+  const readDocs = legacySource ? legacy.getDocs : getDocs;
+  const readDoc = legacySource ? legacy.getDoc : getDoc;
   const data: Record<string, any> = {};
   for (const name of BACKUP_COLLECTIONS) {
-    const snap = await getDocs(collection(db, `users/${userId}/${name}`));
+    const snap = await readDocs(collection(db, `users/${userId}/${name}`));
     data[name] = Object.fromEntries(snap.docs.map(d => [d.id, encode(d.data())]));
   }
-  const root = await getDoc(doc(db, 'users', userId));
+  const root = await readDoc(doc(db, 'users', userId));
   if (root.exists()) data._user = encode(root.data());
   const files: Record<string, { kind: 'photo' | 'file'; dataUrl: string }> = {};
   if (userId === LOCAL_USER_ID) {
