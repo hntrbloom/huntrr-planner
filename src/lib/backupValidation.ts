@@ -1,4 +1,4 @@
-export const BACKUP_COLLECTIONS = ['settings', 'preferences', 'appointments', 'workShifts', 'dailyLogs', 'boards', 'photos', 'notes', 'goals', 'keychains', 'miniFurniture', 'minifurniture', 'prints', 'printing', 'saved_models', 'reminders', 'blog', 'jobs', 'job_applications', 'activity', 'moods', 'medications'] as const;
+export const BACKUP_COLLECTIONS = ['settings', 'preferences', 'appointments', 'workShifts', 'dailyLogs', 'boards', 'photos', 'notes', 'goals', 'keychains', 'miniFurniture', 'minifurniture', 'prints', 'printing', 'saved_models', 'reminders', 'blog', 'jobs', 'job_applications', 'activity', 'moods', 'medications', 'characterWiki'] as const;
 
 export function validateBackup(backup: any) {
   if (!backup || typeof backup !== 'object' || Array.isArray(backup)) throw new Error('Choose a valid JSON backup.');

@@ -9,6 +9,7 @@ import { doc, onSnapshot } from './lib/workspaceStore';
 import { useAuth } from './lib/AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { FocusTimer } from './components/FocusTimer';
+import { AccountSyncIndicator } from './components/AccountSyncIndicator';
 import { MedicationPopup } from './components/MedicationPopup';
 import { isLocalUser } from './lib/workspaceMode';
 import { StorageNotice } from './components/StorageNotice';
@@ -141,15 +142,6 @@ export default function App() {
 
   return (
     <div data-local-workspace={user?.isAnonymous || isLocalUser(user) ? 'true' : undefined} className="app-container planner-world text-on-surface font-body-md antialiased selection:bg-primary-container selection:text-on-primary-container">
-      <CatPlannerHeader
-        currentView={currentView}
-        onChangeView={handleViewChange}
-        menuOpen={isSidebarOpen}
-        onOpenMenu={() => setIsSidebarOpen(true)}
-        workspaceLabel={isLocalUser(user) ? 'Saved on this device' : user?.isAnonymous ? 'Guest preview · temporary changes' : 'Your private workspace'}
-        canSwitchWorkspace={Boolean(user?.isAnonymous || isLocalUser(user))}
-        onSwitchWorkspace={logOut}
-      />
       <StorageNotice />
       <DialogAccessibility />
       <MedicationPopup />
@@ -163,9 +155,19 @@ export default function App() {
       
       <a className="planner-skip-link" href="#planner-content" onClick={event => { event.preventDefault(); document.getElementById('planner-content')?.focus(); }}>Skip to planner page</a>
       <div className="planner-device">
+        <CatPlannerHeader
+          currentView={currentView}
+          onChangeView={handleViewChange}
+          menuOpen={isSidebarOpen}
+          onOpenMenu={() => setIsSidebarOpen(true)}
+          workspaceLabel={isLocalUser(user) ? 'Saved on this device' : user?.isAnonymous ? 'Guest preview · temporary changes' : 'Your private workspace'}
+          canSwitchWorkspace={Boolean(user?.isAnonymous || isLocalUser(user))}
+          onSwitchWorkspace={logOut}
+        />
         <div className="planner-bezel">
           <div className="planner-screen">
-            <div id="planner-content" tabIndex={-1} data-page={currentView} className="planner-page">
+            {/* A new route gets its own outer scroll region; saves and timer ticks keep it. */}
+            <div key={currentView} id="planner-content" tabIndex={-1} data-page={currentView} className="planner-page">
               <ErrorBoundary key={currentView}>
                 <Suspense fallback={<div role="status" className="p-10 text-on-surface-variant">Loading your space…</div>}>{renderView()}</Suspense>
               </ErrorBoundary>
@@ -180,6 +182,7 @@ export default function App() {
           </div>
           <div className="device-meta">
             <span className="device-model">little plans.</span>
+            <AccountSyncIndicator />
             <FocusTimer />
           </div>
         </footer>

@@ -14,6 +14,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
+import { getAccountOwner } from '../lib/accountStore';
 import { db } from '../lib/firebase';
 import { doc, onSnapshot, setDoc, getDoc } from '../lib/workspaceStore';
 import { 
@@ -141,7 +142,7 @@ export function JobApplicationStreakTracker() {
   // 2. Load and listen to Weekly Goal preference
   useEffect(() => {
     // Load local storage fallback first
-    const savedGoal = localStorage.getItem('job_weekly_goal');
+    const savedGoal = getAccountOwner() ? null : localStorage.getItem('job_weekly_goal');
     if (savedGoal) {
       const parsed = parseInt(savedGoal, 10);
       if (!isNaN(parsed) && parsed > 0) {
@@ -176,7 +177,7 @@ export function JobApplicationStreakTracker() {
     setIsEditingGoal(false);
 
     try {
-      localStorage.setItem('job_weekly_goal', String(newGoal));
+      if (!getAccountOwner()) localStorage.setItem('job_weekly_goal', String(newGoal));
     } catch (e) {}
 
     if (user && !user.isAnonymous) {

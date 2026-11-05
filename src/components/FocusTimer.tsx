@@ -2,7 +2,8 @@ import { safeGetDoc as getDoc, safeGetDocs as getDocs, safeGetDoc } from '../lib
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Play, Pause, Square, X, Clock, Volume2, VolumeX, Bell, BellOff, Check } from 'lucide-react';
-import { doc, setDoc, onSnapshot } from '../lib/workspaceStore';
+import { arrayUnion, doc, setDoc, onSnapshot } from '../lib/workspaceStore';
+import { getAccountOwner } from '../lib/accountStore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../lib/AuthContext';
 import { Habit } from './HabitsView';
@@ -20,6 +21,8 @@ export type FocusSession = {
 
 export function FocusTimer() {
   const { user } = useAuth();
+  const account = getAccountOwner();
+  const timerKey = account ? 'focus_timer_state:' + account : 'focus_timer_state';
   
   const [isOpen, setIsOpen] = useState(false);
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -72,7 +75,7 @@ export function FocusTimer() {
 
   // Load state from local storage on mount
   useEffect(() => {
-    const saved = localStorage.getItem('focus_timer_state');
+    const saved = localStorage.getItem(timerKey);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -103,7 +106,7 @@ export function FocusTimer() {
         console.error(e);
       }
     }
-  }, []);
+  }, [timerKey]);
 
   // Save state to local storage whenever it changes
   useEffect(() => {
@@ -119,8 +122,30 @@ export function FocusTimer() {
       volume,
       notificationsEnabled
     };
-    localStorage.setItem('focus_timer_state', JSON.stringify(stateToSave));
-  }, [isActive, isPaused, timeRemaining, duration, taskTitle, selectedHabitId, soundsEnabled, volume, notificationsEnabled]);
+    localStorage.setItem(timerKey, JSON.stringify(stateToSave));
+  }, [timerKey, isActive, isPaused, timeRemaining, duration, taskTitle, selectedHabitId, soundsEnabled, volume, notificationsEnabled]);
+
+  useEffect(() => {
+    if (!account) return;
+    let mounted = true;
+    void safeGetDoc(doc(db, 'users', account, 'preferences', 'focusSettings')).then(snapshot => {
+      if (!mounted || !snapshot.exists()) return;
+      const settings = snapshot.data();
+      const timer = localStorage.getItem(timerKey);
+      if (typeof settings.duration === 'number' && !(timer && JSON.parse(timer).isActive)) {
+        setDuration(settings.duration);
+        setTimeRemaining(settings.duration * 60);
+      }
+      if (typeof settings.soundsEnabled === 'boolean') setSoundsEnabled(settings.soundsEnabled);
+      if (typeof settings.notificationsEnabled === 'boolean') setNotificationsEnabled(settings.notificationsEnabled);
+      if (typeof settings.volume === 'number') setVolume(settings.volume);
+    }).catch(error => console.error('Could not load focus settings', error));
+    return () => { mounted = false; };
+  }, [account, timerKey]);
+
+  const saveFocusSettings = (settings: Record<string, number | boolean>) => {
+    if (account) void setDoc(doc(db, 'users', account, 'preferences', 'focusSettings'), settings, { merge: true }).catch(() => {});
+  };
 
   const playSound = () => {
     if (!soundsEnabled) return;
@@ -248,8 +273,8 @@ export function FocusTimer() {
       startTime: Date.now() - (actualDurationMinutes * 60 * 1000),
       durationMinutes: duration,
       actualDurationMinutes,
-      habitId: selectedHabitId || undefined,
-      taskTitle: taskTitle || undefined,
+      ...(selectedHabitId ? { habitId: selectedHabitId } : {}),
+      ...(taskTitle ? { taskTitle } : {}),
       completedEarly
     };
     
@@ -258,13 +283,7 @@ export function FocusTimer() {
     
     try {
       const docRef = doc(db, `users/${user.uid}/preferences`, 'focusData');
-      const snap = await safeGetDoc(docRef);
-      let sessions = [];
-      if (snap.exists()) {
-        sessions = snap.data().sessions || [];
-      }
-      sessions.push(session);
-      await setDoc(docRef, { sessions }, { merge: true });
+      await setDoc(docRef, { sessions: arrayUnion(session) }, { merge: true });
     } catch (e) {
       console.error('Error saving focus session', e);
     }
@@ -366,7 +385,7 @@ export function FocusTimer() {
               {[15, 25, 45, 60].map(m => (
                 <button 
                   key={m}
-                  onClick={() => { setDuration(m); setTimeRemaining(m * 60); }}
+                  onClick={() => { setDuration(m); setTimeRemaining(m * 60); saveFocusSettings({ duration: m }); }}
                   className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${duration === m ? 'bg-primary/20 text-primary border-primary/30' : 'bg-surface-container-high text-on-surface-variant border-transparent hover:bg-surface-container-highest'} border`}
                 >
                   {m}m
@@ -380,6 +399,7 @@ export function FocusTimer() {
                   const v = parseInt(e.target.value) || 25; 
                   setDuration(v); 
                   setTimeRemaining(v * 60); 
+                  saveFocusSettings({ duration: v });
                 }}
                 className="w-16 text-center bg-surface-container-high rounded-xl text-sm font-semibold text-on-surface-variant border border-transparent focus:border-primary outline-none"
                 title="Custom minutes"
@@ -408,7 +428,7 @@ export function FocusTimer() {
               
               <div className="flex justify-between items-center mt-2 px-2">
                 <div className="flex items-center gap-3">
-                  <button onClick={() => setSoundsEnabled(!soundsEnabled)} className="flex items-center gap-2 text-sm font-semibold text-on-surface-variant hover:text-primary transition-colors">
+                  <button onClick={() => { setSoundsEnabled(!soundsEnabled); saveFocusSettings({ soundsEnabled: !soundsEnabled }); }} className="flex items-center gap-2 text-sm font-semibold text-on-surface-variant hover:text-primary transition-colors">
                     {soundsEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
                   </button>
                   {soundsEnabled && (
@@ -416,12 +436,12 @@ export function FocusTimer() {
                       type="range" 
                       min="0" max="1" step="0.05"
                       value={volume}
-                      onChange={e => setVolume(parseFloat(e.target.value))}
+                      onChange={e => { const next = Number(e.target.value); setVolume(next); saveFocusSettings({ volume: next }); }}
                       className="w-20 accent-primary"
                     />
                   )}
                 </div>
-                <button onClick={() => setNotificationsEnabled(!notificationsEnabled)} className="flex items-center gap-2 text-sm font-semibold text-on-surface-variant hover:text-primary transition-colors">
+                <button onClick={() => { setNotificationsEnabled(!notificationsEnabled); saveFocusSettings({ notificationsEnabled: !notificationsEnabled }); }} className="flex items-center gap-2 text-sm font-semibold text-on-surface-variant hover:text-primary transition-colors">
                   {notificationsEnabled ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
                   Notifications {notificationsEnabled ? 'On' : 'Off'}
                 </button>

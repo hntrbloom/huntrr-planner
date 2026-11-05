@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { getPhotoFromIDB } from '../lib/idb';
 import { storage } from '../lib/firebase';
 import { ref, getDownloadURL } from 'firebase/storage';
+import { ACCOUNT_FILE_PREFIX, readAccountFile } from '../lib/accountFiles';
 import { 
   fetchDriveFileWithAuth, 
   fetchDriveThumbnailWithAuth,
@@ -109,7 +110,7 @@ export const useImageCache = (
       if (typeof cached === 'string') return cached;
     }
 
-    if (cleanSrc && !cleanSrc.startsWith('idb://') && !cleanSrc.startsWith('photo_') && !cleanSrc.includes('drive.google.com') && !cleanSrc.includes('docs.google.com') && !cleanSrc.includes('googleusercontent.com')) {
+    if (cleanSrc && !cleanSrc.startsWith(ACCOUNT_FILE_PREFIX) && !cleanSrc.startsWith('idb://') && !cleanSrc.startsWith('photo_') && !cleanSrc.includes('drive.google.com') && !cleanSrc.includes('docs.google.com') && !cleanSrc.includes('googleusercontent.com')) {
       return cleanSrc;
     }
 
@@ -125,12 +126,33 @@ export const useImageCache = (
 
   const [hasError, setHasError] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [accountRetry, setAccountRetry] = useState(0);
 
   useEffect(() => {
     let active = true;
 
     const cleanStoragePath = (typeof storagePath === 'string' ? storagePath : '').trim();
     const cleanSrc = (typeof src === 'string' ? src : '').trim();
+    const accountFile = [cleanSrc, cleanStoragePath].find(value => value.startsWith(ACCOUNT_FILE_PREFIX));
+    if (accountFile) {
+      let objectUrl: string | undefined;
+      setDisplayUrl(null);
+      setIsLoading(true);
+      setHasError(false);
+      readAccountFile(accountFile).then(blob => {
+        if (!active) return;
+        objectUrl = URL.createObjectURL(blob);
+        setDisplayUrl(objectUrl);
+      }).catch(error => {
+        if (!active) return;
+        setHasError(true);
+        setErrorMessage(error.message);
+      }).finally(() => { if (active) setIsLoading(false); });
+      return () => {
+        active = false;
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+      };
+    }
 
     if (primaryDriveId) {
       const cachedPrimary = getCachedBlobUrl(primaryDriveId);
@@ -240,10 +262,14 @@ export const useImageCache = (
     }
 
     return () => { active = false; };
-  }, [storagePath, src, driveFileId, fallbackDriveFileId]);
+  }, [storagePath, src, driveFileId, fallbackDriveFileId, accountRetry]);
 
   const retry = useCallback(async (interactiveAuth: boolean = false) => {
     if (!primaryDriveId && !storagePath && !src) return;
+    if ([src, storagePath].some(value => value?.trim().startsWith(ACCOUNT_FILE_PREFIX))) {
+      setAccountRetry(value => value + 1);
+      return;
+    }
 
     setIsLoading(true);
     setHasError(false);

@@ -35,7 +35,6 @@ export function CatPlannerHeader({ currentView, onChangeView, menuOpen, onOpenMe
   const workspaceAction = canSwitchWorkspace ? onSwitchWorkspace : () => onChangeView('settings');
   const workspaceActionLabel = canSwitchWorkspace ? 'Switch workspace' : 'Workspace settings';
   return <header className="cat-planner-header">
-    <div className="cat-header-surface" aria-hidden="true" />
     <div className="cat-header-inner">
       <CatEar side="left" /><CatEar side="right" /><MoldedBow />
       <div className="cat-header-toolbar">

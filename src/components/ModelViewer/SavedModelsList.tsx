@@ -1,4 +1,5 @@
 import { getFileFromIDB } from '../../lib/idb';
+import { ACCOUNT_FILE_PREFIX, readAccountFile } from '../../lib/accountFiles';
 import React, { useState } from 'react';
 import { Box, Eye, Edit3, Download, Trash2, Search, Calendar, Ruler, Layers, Loader2, HardDrive, AlertTriangle } from 'lucide-react';
 import { SavedModel3D } from '../../types';
@@ -54,7 +55,9 @@ export function SavedModelsList({
     try {
       setLoadingModelId(model.id);
       setErrorMsg(null);
-      const file = model.localFileKey ? await getFileFromIDB(model.localFileKey) : undefined;
+      const file = model.localFileKey?.startsWith(ACCOUNT_FILE_PREFIX)
+        ? await readAccountFile(model.localFileKey)
+        : model.localFileKey ? await getFileFromIDB(model.localFileKey) : undefined;
       const buffer = file ? await file.arrayBuffer() : model.driveFileId ? await fetchDriveSTLArrayBuffer(model.driveFileId) : null;
       if (!buffer) throw new Error('This local STL file is missing. Restore a backup or upload it again.');
       onOpenModel(model, buffer);
@@ -75,7 +78,9 @@ export function SavedModelsList({
     try {
       setDownloadingModelId(model.id);
       setErrorMsg(null);
-      const file = model.localFileKey ? await getFileFromIDB(model.localFileKey) : undefined;
+      const file = model.localFileKey?.startsWith(ACCOUNT_FILE_PREFIX)
+        ? await readAccountFile(model.localFileKey)
+        : model.localFileKey ? await getFileFromIDB(model.localFileKey) : undefined;
       const buffer = file ? await file.arrayBuffer() : model.driveFileId ? await fetchDriveSTLArrayBuffer(model.driveFileId) : null;
       if (!buffer) throw new Error('This local STL file is missing. Restore a backup or upload it again.');
       downloadSTLBuffer(buffer, model.originalFilename || model.name);

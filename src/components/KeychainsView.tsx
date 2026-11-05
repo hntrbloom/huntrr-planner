@@ -12,6 +12,7 @@ import { compressImageIfNeeded, uploadFileToStorage } from '../lib/storage';
 import { ImageUploaderArea } from './ui/ImageUploaderArea';
 import { ImageViewerModal } from './ImageViewerModal';
 import { SmartImage } from './SmartImage';
+import { ACCOUNT_FILE_PREFIX, readAccountFile } from '../lib/accountFiles';
 import { GUEST_SAMPLE_KEYCHAINS } from '../lib/guestSampleData';
 
 interface Charm {
@@ -389,8 +390,7 @@ export function KeychainsView() {
         const addImage = async (url: string | undefined, suffix: string) => {
             if (!url) return;
             try {
-              const res = await fetch(url);
-              const blob = await res.blob();
+              const blob = url.startsWith(ACCOUNT_FILE_PREFIX) ? await readAccountFile(url) : await (await fetch(url)).blob();
               const ext = blob.type.split('/')[1] || 'png';
               const filename = charm.name ? `${charm.name}-${suffix}.${ext}` : `charm-${index + 1}-${suffix}.${ext}`;
               folder.file(filename, blob);
@@ -434,7 +434,7 @@ export function KeychainsView() {
         >
           {hasImage ? (
             <div className="relative group w-full aspect-square rounded-xl overflow-hidden border border-outline-variant/30">
-              <img src={charm[field] as string} className="w-full h-full object-cover" />
+              <SmartImage src={charm[field] as string} alt={label} className="w-full h-full object-cover" />
               {user?.isAnonymous && (charm[field] as string).startsWith('blob:') && (
                 <div className="absolute inset-x-0 bottom-0 bg-black/60 backdrop-blur-sm p-1.5 flex justify-center z-10">
                    <span className="text-[10px] leading-tight text-white/90 text-center font-medium">Temporary preview<br/>(will not be saved)</span>
@@ -817,7 +817,7 @@ export function KeychainsView() {
                     >
                       {imgUrl ? (
                         <>
-                           <img src={imgUrl} className="w-full h-full object-contain p-2" />
+                           <SmartImage src={imgUrl} alt="Charm view" className="w-full h-full object-contain p-2" />
                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors"></div>
                         </>
                       ) : (

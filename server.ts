@@ -1,5 +1,6 @@
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
+import { createClient } from '@supabase/supabase-js';
 import firebaseConfig from './firebase-applet-config.json';
 import express from "express";
 import path from "path";
@@ -30,6 +31,13 @@ export async function createApp() {
     const token = req.headers.authorization?.replace(/^Bearer /, '');
     if (!token) return false;
     try {
+      const url = process.env.VITE_SUPABASE_URL;
+      const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      if (url && key) {
+        const client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+        const { data, error } = await client.auth.getUser(token);
+        return !error && Boolean(data.user?.email_confirmed_at);
+      }
       const admin = getApps().find(app => app.name === 'organizer-verifier') || initializeApp({ projectId: process.env.FIREBASE_PROJECT_ID || firebaseConfig.projectId }, 'organizer-verifier');
       const identity = await getAuth(admin).verifyIdToken(token);
       return identity.firebase.sign_in_provider !== 'anonymous';
@@ -41,6 +49,45 @@ export async function createApp() {
 
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", product: "huntrr.organizer", integrations: { gemini: Boolean(process.env.GEMINI_API_KEY) } });
+  });
+
+  app.delete('/api/account', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const url = process.env.VITE_SUPABASE_URL;
+    const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const secret = process.env.SUPABASE_SECRET_KEY;
+    if (!url || !key || !secret) return res.status(503).json({ error: 'Account deletion is not configured.' });
+    const token = req.headers.authorization?.match(/^Bearer (\S+)$/i)?.[1];
+    const password = req.body?.password;
+    if (!token || typeof password !== 'string' || !password || password.length > 1024) {
+      return res.status(401).json({ error: 'Sign in again and confirm your current password.' });
+    }
+    const authOptions = { auth: { persistSession: false, autoRefreshToken: false } };
+    try {
+      const client = createClient(url, key, authOptions);
+      const { data } = await client.auth.getUser(token);
+      const user = data.user;
+      if (!user?.email || !user.email_confirmed_at) return res.status(401).json({ error: 'Sign in again.' });
+      const verified = await client.auth.signInWithPassword({ email: user.email, password });
+      if (verified.error || verified.data.user?.id !== user.id) {
+        return res.status(401).json({ error: 'The current password could not be verified.' });
+      }
+      const admin = createClient(url, secret, authOptions);
+      const bucket = admin.storage.from('planner-files');
+      // Remove private objects before Auth deletes the owner and cascades database records.
+      for (;;) {
+        const files = await bucket.list(user.id, { limit: 100 });
+        if (files.error) throw files.error;
+        if (!files.data.length) break;
+        const removed = await bucket.remove(files.data.map(file => user.id + '/' + file.name));
+        if (removed.error || !removed.data?.length) throw new Error('Attachment cleanup failed.');
+      }
+      const deleted = await admin.auth.admin.deleteUser(user.id);
+      if (deleted.error) throw deleted.error;
+      return res.status(204).end();
+    } catch {
+      return res.status(502).json({ error: 'Deletion could not be completed. Retry to finish removing the account.' });
+    }
   });
 
   // Extract job details from Indeed, LinkedIn, or career listing links
@@ -381,7 +428,7 @@ export async function createApp() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    const distPath = path.join(process.cwd(), 'dist', 'public');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));

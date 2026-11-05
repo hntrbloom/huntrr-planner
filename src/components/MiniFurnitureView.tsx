@@ -10,6 +10,7 @@ import { db, safeGetDoc } from '../lib/firebase';
 import { collection, doc, onSnapshot, setDoc, deleteDoc } from '../lib/workspaceStore';
 import { uploadFileToStorage, uploadDataUrlToStorage, deleteFileFromStorage } from '../lib/storage';
 import { uploadImageToService } from '../lib/imageService';
+import { ACCOUNT_FILE_PREFIX, readAccountFile } from '../lib/accountFiles';
 import { processAndCompressImage } from '../lib/imageProcessor';
 import { printUploadQueue, PhotoTask } from '../lib/printUploadQueue';
 import { SmartImage } from './SmartImage';
@@ -558,6 +559,7 @@ const STATUSES = ['Reference Photo', '3D Mock-Up', '3MF/STL File', 'Ready to Pri
 const MADE_FOR_OPTIONS = ['Adult Critter', 'Child Critter', 'Baby Critter', 'Twin Babies', 'Whole Family', 'House', 'Custom'];
 
 async function fetchImageBlob(url: string): Promise<Blob> {
+  if (url.startsWith(ACCOUNT_FILE_PREFIX)) return readAccountFile(url);
   if (url.startsWith('data:')) {
     const res = await fetch(url);
     return await res.blob();

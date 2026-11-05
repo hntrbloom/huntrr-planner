@@ -1,5 +1,7 @@
 import { isLocalUser } from '../lib/workspaceMode';
 import { saveFileToIDB, deleteFileFromIDB } from '../lib/idb';
+import { ACCOUNT_FILE_PREFIX, uploadAccountFile } from '../lib/accountFiles';
+import { getAccountOwner } from '../lib/accountStore';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
@@ -263,7 +265,8 @@ export function ModelViewerView() {
       let driveId = currentDriveFileId;
 
       // 1. If not already on Google Drive, upload original STL to Drive dedicated models folder
-      if (!driveId && !isLocalUser(user)) {
+      const cloudAccount = getAccountOwner() === user.uid;
+      if (!driveId && !isLocalUser(user) && !cloudAccount) {
         const blob = new Blob([currentSTLBuffer], { type: 'model/stl' });
         const uploadRes = await uploadSTLToDrive(blob, currentFilename, (percent) => {
           setUploadProgress(percent);
@@ -280,8 +283,11 @@ export function ModelViewerView() {
 
       // 3. Create document record
       const modelRecordId = currentActiveModelId || uuidv4();
-      const localFileKey = isLocalUser(user) ? `huntrr_local_stl_${modelRecordId}` : undefined;
-      if (localFileKey) await saveFileToIDB(localFileKey, new Blob([currentSTLBuffer], { type: 'model/stl' }));
+      const modelFile = new Blob([currentSTLBuffer], { type: 'model/stl' });
+      const localFileKey = cloudAccount
+        ? await uploadAccountFile(user.uid, modelFile)
+        : isLocalUser(user) ? `huntrr_local_stl_${modelRecordId}` : undefined;
+      if (localFileKey && !cloudAccount) await saveFileToIDB(localFileKey, modelFile);
       const modelRecord: SavedModel3D = {
         localFileKey,
         id: modelRecordId,
@@ -352,7 +358,7 @@ export function ModelViewerView() {
     if (user && !user.isAnonymous) {
       await deleteDoc(doc(db, `users/${user.uid}/saved_models`, modelId));
       const deleted = savedModels.find(m => m.id === modelId);
-      if (deleted?.localFileKey) await deleteFileFromIDB(deleted.localFileKey);
+      if (deleted?.localFileKey && !deleted.localFileKey.startsWith(ACCOUNT_FILE_PREFIX)) await deleteFileFromIDB(deleted.localFileKey);
     } else {
       const updated = savedModels.filter((m) => m.id !== modelId);
       setSavedModels(updated);

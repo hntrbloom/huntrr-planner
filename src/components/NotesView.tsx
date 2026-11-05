@@ -3,7 +3,8 @@ import { safeGetDoc as getDoc, safeGetDocs as getDocs, safeGetDoc } from '../lib
 import React, { useState, useEffect, useRef } from 'react';
 import { FileText, Plus, Trash2, ArrowLeft, PaintBucket } from 'lucide-react';
 import { db } from '../lib/firebase';
-import { doc, setDoc } from '../lib/workspaceStore';
+import { doc, onSnapshot, setDoc } from '../lib/workspaceStore';
+import { getAccountOwner } from '../lib/accountStore';
 import { useAuth } from '../lib/AuthContext';
 import { PocketFriend } from './PlannerDecor';
 import { SyncStatus } from './SyncStatus';
@@ -55,9 +56,21 @@ export function NotesView() {
       setLoading(false);
       return;
     }
+    const docRef = doc(db, 'users', user.uid, 'preferences', 'notesData');
+    if (getAccountOwner() === user.uid) {
+      let initial = true;
+      return onSnapshot(docRef, async snapshot => {
+        const first = initial;
+        initial = false;
+        const root = first && !snapshot.exists() ? await safeGetDoc(doc(db, 'users', user.uid)).catch(() => null) : null;
+        const loaded: Note[] = snapshot.data()?.notes ?? root?.data()?.notes ?? [];
+        setNotes(loaded);
+        if (first) setActiveNoteId(loaded[0]?.id ?? null);
+        setLoading(false);
+      }, () => { setSyncStatus('error'); setLoading(false); });
+    }
     const loadData = async () => {
       try {
-        const docRef = doc(db, `users/${user.uid}/preferences`, 'notesData');
         const docSnap = await safeGetDoc(docRef);
         let loadedNotes = docSnap.exists() ? (docSnap.data().notes || []) : [];
         if (loadedNotes.length === 0) {

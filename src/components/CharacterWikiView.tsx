@@ -1,4 +1,5 @@
 import { safeGetDoc as getDoc, safeGetDocs as getDocs } from '../lib/firebase';
+import { getAccountOwner } from '../lib/accountStore';
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Heart, Plus, X, Edit, Trash2, Image as ImageIcon, Upload, ChevronLeft, Wand2, Loader2, Droplet } from 'lucide-react';
 import { ImageUploaderArea } from './ui/ImageUploaderArea';
@@ -663,7 +664,7 @@ export function CharacterWikiView() {
         setSeriesList(mergedSeries);
         setFranchiseList(mergedFranchises);
       } else {
-        const saved = localStorage.getItem('characterWikiData');
+        const saved = getAccountOwner() ? null : localStorage.getItem('characterWikiData');
         if (saved) {
           try {
             const parsed = JSON.parse(saved);
@@ -1262,7 +1263,7 @@ function CharacterDetail({ character, onClose, onEdit, onDelete, onUpdate, user 
                           <div className="absolute top-14 left-1/2 -translate-x-1/2 w-48 bg-white p-2 rounded-xl shadow-lg border border-outline-variant/30 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
                             <p className="text-[10px] font-bold text-black/40 uppercase mb-1">Sampled from:</p>
                             <div className="relative w-full h-24 bg-surface rounded-lg overflow-hidden flex items-center justify-center">
-                              <img src={color.photoUrl} className="max-h-full object-contain" />
+                              <SmartImage src={color.photoUrl} alt="Color reference" className="max-h-full object-contain" />
                               {color.point && (
                                 <div
                                   className="absolute w-3 h-3 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.5)]"

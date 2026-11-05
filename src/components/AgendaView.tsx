@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -175,6 +176,7 @@ export function AgendaView({ onNavigate }: AgendaViewProps) {
   }, [todayItems]);
 
   return (
+    <>
     <main className="agenda-scroll-container flex-1 md:overflow-y-auto px-4 sm:px-6 md:px-8 lg:px-10 py-5 sm:py-6 md:py-8 pb-28 md:pb-12 w-full max-w-[1260px] mx-auto min-w-0">
       <div className="home-page-label"><span><Sparkles size={14} aria-hidden="true" /> YOUR EVERYDAY HAPPY PLACE</span><span>{todayFormatted}</span></div>
       <section className="planner-welcome">
@@ -480,6 +482,9 @@ export function AgendaView({ onNavigate }: AgendaViewProps) {
         </section>
       </div>
 
+    </main>
+    {/* Page dialogs live outside the screen's scrolling and clipping boundary. */}
+    {createPortal(<>
       {/* Appointment Form Modal (Add / Edit) */}
       {isFormOpen && (
         <AppointmentFormModal
@@ -589,6 +594,7 @@ export function AgendaView({ onNavigate }: AgendaViewProps) {
           </div>
         </div>
       )}
-    </main>
+    </>, document.body)}
+    </>
   );
 }

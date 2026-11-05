@@ -24,7 +24,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 button { transition: background-color .15s, border-color .15s, box-shadow .15s, transform .15s; }
 :focus-visible { outline: 3px solid var(--black-light-gray); outline-offset: 3px; }
 ::selection { background: var(--pink-pale); color: var(--black-dark-gray); }
-.planner-world { padding: 54px 30px 24px; min-height: 100dvh; }
+.planner-world { min-height: 100dvh; }
 .app-container.planner-world { --workspace-banner-height: 0px; }
 .workspace-ribbon { position: absolute; top: 13px; left: 0; width: 100%; display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 11px; color: var(--black-dark-gray); min-height: 24px; padding: 0 12px; }
 .workspace-ribbon button { color: var(--black-dark-gray); }
@@ -39,7 +39,8 @@ button { transition: background-color .15s, border-color .15s, box-shadow .15s, 
 .planner-tabs button:nth-child(6)[aria-current] { background: var(--pink-pale); }
 .planner-tabs .all-pages-button { border-left: 1px dashed var(--black-light-gray); border-radius: 0; margin-left: 8px; }
 .planner-page > main, .planner-page > div { animation: page-in .18s ease-out; }
-@keyframes page-in { from { opacity: .65; translate: 0 3px; } to { opacity: 1; translate: 0 0; } }
+/* Opacity keeps fixed page dialogs relative to the viewport, outside screen clipping. */
+@keyframes page-in { from { opacity: .65; } to { opacity: 1; } }
 .planner-page .pb-safe-nav { padding-bottom: 28px !important; }
 .planner-skip-link { position: fixed; top: -100px; left: 20px; padding: 12px 18px; background: var(--white); border-radius: 12px; z-index: 300; }
 .planner-skip-link:focus { top: 12px; }
@@ -47,6 +48,7 @@ button { transition: background-color .15s, border-color .15s, box-shadow .15s, 
 .home-page-label { display: flex; justify-content: space-between; gap: 14px; margin-bottom: 18px; color: var(--black-dark-gray); font-size: 10px; }
 .home-page-label > span:first-child { display: flex; align-items: center; gap: 6px; letter-spacing: 1.5px; font-weight: 700; }
 .agenda-scroll-container { max-width: 1240px; padding: 24px 32px 32px; scrollbar-width: thin; }
+.planner-device .planner-page .agenda-scroll-container button { min-width: 44px; min-height: 44px !important; }
 .planner-welcome { display: flex; align-items: center; position: relative; padding: 23px 30px; border: 1px solid var(--black-light-gray); border-radius: 15px; background: var(--pink-pale); background-image: linear-gradient(90deg, color-mix(in srgb, var(--white) 22.0%, transparent) 50%, transparent 50%), linear-gradient(color-mix(in srgb, var(--white) 22.0%, transparent) 50%, transparent 50%); background-size: 14px 14px; box-shadow: 0 3px 0 color-mix(in srgb, var(--black-near) 8%, transparent); gap: 25px; }
 .welcome-copy { flex: 1; }
 .welcome-copy .planner-eyebrow { margin-bottom: 8px; }
@@ -164,7 +166,6 @@ input[type='checkbox']:checked { background: var(--pink-deep); border-color: var
   .planner-page[data-page='notes'] > div > section:first-child { width: 240px; }
 }
 @media (max-width: 767px) {
-  .app-container.planner-world { padding: 47px 10px 18px; overflow-x: clip; }
   .workspace-ribbon { top: 9px; font-size: 9px; gap: 8px; }
   .planner-tabs { position: sticky; top: 0; z-index: 40; border-radius: 12px 12px 0 0; padding: 7px 4px 0; gap: 1px; grid-template-columns: repeat(7,minmax(0,1fr)); }
   .planner-tabs button { flex-direction: column; min-height: 58px; gap: 4px; padding: 9px 1px; font-size: 9px; border-radius: 8px 8px 0 0; }
@@ -181,20 +182,19 @@ input[type='checkbox']:checked { background: var(--pink-deep); border-color: var
   .welcome-copy .planner-eyebrow { font-size: 9px !important; }
   .welcome-copy > p:last-child { font-size: 11px !important; }
   .welcome-friend { width: 91px; height: 92px; margin: 0; position: absolute; right: 7px; bottom: 10px; }
-  .welcome-copy { padding-right: 49px; }
-  .welcome-copy > p:last-child { max-width: 180px; }
+  .welcome-copy { min-width: 0; }
+  .welcome-copy > p:last-child { max-width: none; min-height: 82px; padding-right: 78px; }
   .welcome-date { display: none; }
   .home-actions { flex-direction: column; align-items: flex-start; gap: 10px; margin: 19px 0; }
   .home-actions > span { font-size: 18px; }
   .quick-actions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; gap: 8px; }
-  .quick-actions button { font-size: 11px; padding: 10px 5px; min-height: 42px !important; }
+  .quick-actions button { font-size: 11px; padding: 10px 5px; }
   .today-inserts { grid-template-columns: 1fr; gap: 16px; margin-bottom: 23px; }
   .paper-insert { padding: 17px 16px 12px; }
   .insert-heading h2 { font-size: 16px !important; }
   .insert-heading { margin-bottom: 8px; }
-  .insert-heading button { min-width: 38px; min-height: 38px; }
   .insert-empty { font-size: 12px !important; }
-  .insert-link { font-size: 12px; min-height: 40px !important; }
+  .insert-link { font-size: 12px; }
   .daily-progress { margin-top: 6px; }
   .daily-progress p { font-size: 11px !important; }
   .progress-caption { font-size: 11px !important; }

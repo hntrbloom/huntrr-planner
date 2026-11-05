@@ -1,4 +1,6 @@
 import { LOCAL_USER_ID } from './workspaceMode';
+import { getAccountOwner } from './accountStore';
+import { uploadAccountFile } from './accountFiles';
 import { savePhotoToIDB } from './idb';
 import { storage, db } from './firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -211,6 +213,12 @@ export async function uploadImageToService({
     throw new Error('No valid image file provided for upload');
   }
 
+  if (getAccountOwner() === userId) {
+    const url = await uploadAccountFile(userId, targetBlob);
+    const thumb = thumbnailFile ? await uploadAccountFile(userId, thumbnailFile) : undefined;
+    onProgress?.(100);
+    return { storagePath: url, downloadURL: url, thumbStoragePath: thumb, thumbDownloadURL: thumb, driveFileId: null, filename: targetFilename, mimeType: targetMimeType, status: 'ready', width, height };
+  }
   if (userId === LOCAL_USER_ID) {
     const key = `photo_${uuidv4()}`;
     await savePhotoToIDB(key, targetBlob);
