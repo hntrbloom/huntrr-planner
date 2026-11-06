@@ -56,7 +56,7 @@ const MODEL_COLORS = [
 ];
 
 const BACKGROUND_COLORS = [
-  { name: 'Soft Light Pink', hex: '#FFF0F6', isDark: false },
+  { name: 'Soft Light Pink', hex: '#FFF0F5', isDark: false },
   { name: 'Rose Blush', hex: '#FFE4E6', isDark: false },
   { name: 'Clean White', hex: '#FFFFFF', isDark: false },
   { name: 'Warm Cream', hex: '#FFF7ED', isDark: false },
@@ -84,7 +84,7 @@ export function ModelViewerView() {
 
   // Display and Render Settings
   const [modelColor, setModelColor] = useState<string>('#FFB8CD');
-  const [backgroundColor, setBackgroundColor] = useState<string>('#FFF0F6');
+  const [backgroundColor, setBackgroundColor] = useState<string>(BACKGROUND_COLORS[0].hex);
   const [wireframe, setWireframe] = useState<boolean>(false);
   const [showGrid, setShowGrid] = useState<boolean>(true);
   const [showAxes, setShowAxes] = useState<boolean>(true);

@@ -290,7 +290,7 @@ export function EntitySelector({
                     id={`${inputId}-option-${index}`}
                     role="option"
                     aria-selected={valueId === e.id}
-                    style={activeIndex === index ? { backgroundColor: '#FFF0F4', outline: '2px solid #673b50', outlineOffset: '-2px' } : undefined}
+                    style={activeIndex === index ? { backgroundColor: 'var(--pink-pale)', outline: '2px solid var(--pink-medium)', outlineOffset: '-2px' } : undefined}
                     key={e.id}
                     onMouseDown={(ev) => {
                       ev.preventDefault();

@@ -157,24 +157,24 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
       onClick={onClose}
     >
       <div 
-        className="planner-dark-panel bg-pink-100 border border-white/10 text-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl flex flex-col my-auto max-h-[92vh]"
+        className="bg-surface-container-low border border-outline-variant text-on-surface w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl flex flex-col my-auto max-h-[92vh]"
         onClick={e => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-white/10 bg-pink-100">
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-outline-variant bg-pink-100">
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-[#FF6B9E]/20 text-[#FF6B9E] rounded-xl">
               <Crop className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-base sm:text-lg leading-tight text-white">Edit Photo Crop</h3>
-              <p className="text-xs text-white/60 truncate max-w-[200px] sm:max-w-[280px]">{title}</p>
+              <h3 className="font-bold text-base sm:text-lg leading-tight text-on-surface">Edit Photo Crop</h3>
+              <p className="text-xs text-on-surface-variant truncate max-w-[200px] sm:max-w-[280px]">{title}</p>
             </div>
           </div>
           <button 
             type="button" 
             onClick={onClose}
-            className="p-2 text-white/60 hover:text-white hover:bg-white/10 rounded-full transition-colors"
+            className="p-2 text-on-surface-variant hover:text-on-surface hover:bg-white/10 rounded-full transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -183,7 +183,7 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
         {/* Modal Body / Interactive Stage */}
         <div className="p-4 sm:p-6 flex flex-col items-center justify-center overflow-y-auto">
           {/* Instruction hint */}
-          <div className="flex items-center gap-2 text-xs text-white/70 bg-white/5 border border-white/10 px-3 py-1.5 rounded-full mb-4">
+          <div className="flex items-center gap-2 text-xs text-on-surface-variant bg-white border border-outline-variant px-3 py-1.5 rounded-full mb-4">
             <Move className="w-3.5 h-3.5 text-[#FF6B9E]" />
             <span>Drag photo to position • Scroll/pinch to zoom</span>
           </div>
@@ -235,7 +235,7 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
               </div>
 
               {/* Zoom & Offset Badge */}
-              <div className="absolute bottom-2 right-2 bg-pink-100/90 text-white text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-md border border-white/10 pointer-events-none">
+              <div className="absolute bottom-2 right-2 bg-pink-100/90 text-on-surface text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-md border border-outline-variant pointer-events-none">
                 {Math.round(crop.zoom * 100)}% • X: {Math.round(crop.x)}% Y: {Math.round(crop.y)}%
               </div>
             </div>
@@ -243,33 +243,33 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
 
           {/* Aspect Ratio Preview Selector */}
           <div className="flex items-center gap-2 mt-4">
-            <span className="text-[11px] font-semibold text-white/50 uppercase tracking-wider mr-1">Preview Ratio:</span>
+            <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider mr-1">Preview Ratio:</span>
             <button
               type="button"
               onClick={() => setAspectRatio('1:1')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${aspectRatio === '1:1' ? 'bg-[#FF6B9E] text-white shadow-md' : 'bg-white/10 text-white/70 hover:bg-white/20'}`}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${aspectRatio === '1:1' ? 'bg-[#FF6B9E] text-white shadow-md' : 'bg-secondary-container text-on-surface-variant hover:bg-surface-container-highest'}`}
             >
               1:1 Square
             </button>
             <button
               type="button"
               onClick={() => setAspectRatio('4:3')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${aspectRatio === '4:3' ? 'bg-[#FF6B9E] text-white shadow-md' : 'bg-white/10 text-white/70 hover:bg-white/20'}`}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${aspectRatio === '4:3' ? 'bg-[#FF6B9E] text-white shadow-md' : 'bg-secondary-container text-on-surface-variant hover:bg-surface-container-highest'}`}
             >
               4:3 Card
             </button>
             <button
               type="button"
               onClick={() => setAspectRatio('1/2')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${aspectRatio === '1/2' ? 'bg-[#FF6B9E] text-white shadow-md' : 'bg-white/10 text-white/70 hover:bg-white/20'}`}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${aspectRatio === '1/2' ? 'bg-[#FF6B9E] text-white shadow-md' : 'bg-secondary-container text-on-surface-variant hover:bg-surface-container-highest'}`}
             >
               Split Half
             </button>
           </div>
 
           {/* Zoom Slider Controls */}
-          <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 mt-4 flex flex-col gap-3">
-            <div className="flex items-center justify-between text-xs text-white/80 font-bold">
+          <div className="w-full bg-white border border-outline-variant rounded-2xl p-4 mt-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between text-xs text-on-surface-variant font-bold">
               <span className="flex items-center gap-1.5"><ZoomIn className="w-4 h-4 text-[#FF6B9E]" /> Zoom Level</span>
               <span className="text-[#FF6B9E] font-mono">{Math.round(crop.zoom * 100)}%</span>
             </div>
@@ -278,7 +278,7 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
               <button
                 type="button"
                 onClick={() => setCrop(prev => ({ ...prev, zoom: Math.max(0.1, Math.round((prev.zoom - 0.1) * 10) / 10) }))}
-                className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-colors shrink-0"
+                className="p-2 bg-secondary-container hover:bg-surface-container-highest text-on-surface rounded-xl transition-colors shrink-0"
                 title="Zoom Out"
               >
                 <ZoomOut className="w-4 h-4" />
@@ -297,7 +297,7 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
               <button
                 type="button"
                 onClick={() => setCrop(prev => ({ ...prev, zoom: Math.min(3.0, Math.round((prev.zoom + 0.1) * 10) / 10) }))}
-                className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-colors shrink-0"
+                className="p-2 bg-secondary-container hover:bg-surface-container-highest text-on-surface rounded-xl transition-colors shrink-0"
                 title="Zoom In"
               >
                 <ZoomIn className="w-4 h-4" />
@@ -307,13 +307,13 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
         </div>
 
         {/* Modal Footer Actions */}
-        <div className="p-4 sm:p-5 border-t border-white/10 bg-pink-100 flex items-center justify-between gap-3">
+        <div className="p-4 sm:p-5 border-t border-outline-variant bg-pink-100 flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={handleReset}
-            className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white text-xs sm:text-sm font-bold rounded-xl flex items-center gap-2 transition-colors"
+            className="px-4 py-2.5 bg-secondary-container hover:bg-surface-container-highest text-on-surface text-xs sm:text-sm font-bold rounded-xl flex items-center gap-2 transition-colors"
           >
-            <RotateCcw className="w-4 h-4 text-white/70" />
+            <RotateCcw className="w-4 h-4 text-on-surface-variant" />
             <span>Reset Crop</span>
           </button>
 
@@ -321,7 +321,7 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 bg-transparent hover:bg-white/10 text-white/80 text-xs sm:text-sm font-bold rounded-xl transition-colors"
+              className="px-4 py-2.5 bg-transparent hover:bg-white/10 text-on-surface-variant text-xs sm:text-sm font-bold rounded-xl transition-colors"
             >
               Cancel
             </button>

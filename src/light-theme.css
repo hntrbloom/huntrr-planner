@@ -1,34 +1,31 @@
-/* Last in the cascade: light surfaces also apply to portals and saved legacy classes. */
-:root { color-scheme: only light; --color-inverse-surface: #fce4ef; --color-inverse-on-surface: #302830; }
-html, body { color-scheme: only light; background-color: #fff5f9 !important; color: #302830; }
-input, textarea, select { color-scheme: only light; }
-[class*='bg-pink-100'][class*='text-white'],
-[class*='bg-pink-100'] [class*='text-white'],
-[class*='bg-pink-100'][class*='text-inverse-on-surface'] { color: #302830; }
-/* Compatibility for legacy rich text classes, without rewriting the saved document. */
+/* Light surfaces apply to planner pages, portals, and saved legacy classes. */
+:root { color-scheme: only light; background-color: var(--pink-blush); color: var(--black-near); }
+
+/* Preserve legacy rich text classes without changing stored content. */
 [class*='bg-[#444444]'], [class*='bg-[#333333]'], [class*='bg-[#222222]'],
-[class*='bg-[#1C1B1F]'], [class*='bg-[#252429]'], [class~='bg-black'] { background-color: #fce4ef; color: #302830; }
-.cat-header-title { white-space: normal; }
-.planner-tabs { background: #fce4ef; border-bottom-color: #cf3974; }
-.planner-tabs button { color: #302830; }
-.planner-tabs button:hover { background: #fff8fb; color: #302830; }
-.planner-tabs button[aria-current='page'], .planner-tabs button[aria-expanded='true'],
-.planner-tabs button[aria-current='page']:hover, .planner-tabs button:active { background: #f4a7c7; color: #302830; border-color: #cf3974; box-shadow: 0 2px #f4a7c7; }
-.progress-insert { background: #fff; color: #302830; border-color: #e6bfd0; }
-.planner-page .progress-insert h2, .progress-insert p, .progress-insert strong,
-.progress-insert .progress-flower span, .progress-insert .progress-caption { color: #302830; }
-.progress-insert .daily-progress strong, .progress-insert .daily-progress p { color: #302830; }
-.progress-flower::before { background: #fff; }
-.progress-insert .progress-flower { background: conic-gradient(#ed77aa var(--progress), #fce4ef 0); }
-.bg-on-surface { background-color: #f4a7c7; color: #302830; }
-button.bg-primary, button.bg-secondary, button.bg-error,
-button[class*='bg-primary/90'], button[class*='bg-primary/80'],
-button[class*='bg-[#FFB8CD]'], button[class*='bg-[#FF6B9E]'],
-.planner-category-tab[aria-pressed='true'], [role='tab'][aria-selected='true'] {
-  background-color: #f4a7c7 !important; color: #302830; border-color: #cf3974;
+[class*='bg-[#1C1B1F]'], [class*='bg-[#252429]'], [class~='bg-black'] {
+  background-color: var(--surface-soft);
+  color: var(--black-near);
 }
-button.bg-primary:hover, button.bg-secondary:hover, button.bg-error:hover,
-button[class*='bg-[#FFB8CD]']:hover, button[class*='bg-[#FF6B9E]']:hover { background: #f8bed6; color: #302830; }
+:is(.bg-pink-100, .bg-pink-100\/90).text-white { color: var(--black-near); }
+button:is(.bg-pink-100, .bg-pink-100\/90).text-white {
+  background-color: var(--pink-deep);
+  color: var(--white);
+}
+button:is(.bg-pink-100, .bg-pink-100\/90).text-white:hover { background-color: var(--pink-berry); }
+.bg-on-surface { background-color: var(--pink-soft); color: var(--black-near); }
+.cat-header-title { white-space: normal; }
+
+/* Keep focus on the field edge, clear of adjacent labels and help text. */
+:is(input:not([type='checkbox'], [type='radio'], [type='range'], [type='color']), textarea, select):focus {
+  border-color: var(--pink-medium);
+  --tw-ring-inset: inset;
+  --tw-ring-color: var(--pink-medium);
+}
+:is(input:not([type='checkbox'], [type='radio'], [type='range'], [type='color']), textarea, select):focus-visible {
+  outline: 2px solid var(--pink-medium);
+  outline-offset: -2px;
+}
 @media (max-width: 767px) {
   .cat-header-title { font-size: clamp(16px, 4.8vw, 20px); }
 }

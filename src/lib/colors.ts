@@ -1,5 +1,5 @@
 // Presentation-only defaults. Custom colours saved with records remain intact.
-export function lightSurfaceColor(value: string | undefined, fallback = '#FCE4EF') {
+export function lightSurfaceColor(value: string | undefined, fallback = 'var(--pink-pale)') {
   if (!value) return fallback;
   const match = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(value);
   if (!match) return fallback;

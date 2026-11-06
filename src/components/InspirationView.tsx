@@ -1397,7 +1397,7 @@ export function InspirationView() {
       <div className="p-4 md:p-8 flex-1">
         
         {debugLogs.length > 0 && (
-          <div className="planner-dark-panel mb-6 p-4 bg-pink-100 text-slate-100 rounded-2xl text-xs font-mono border border-slate-700 shadow-lg animate-in fade-in">
+          <div className="mb-6 p-4 bg-surface-container-low text-on-surface rounded-2xl text-xs font-mono border border-outline-variant shadow-lg animate-in fade-in">
             <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-700">
               <span className="font-bold text-slate-300 flex items-center gap-2">
                 <RefreshCw className={`w-3.5 h-3.5 ${isUploading ? 'animate-spin text-pink-400' : 'text-slate-400'}`} />

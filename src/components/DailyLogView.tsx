@@ -33,7 +33,7 @@ interface TaskItem {
 }
 
 
-const PAD_COLORS = ['#FCE4EF', '#FFF5F9', '#FFFFFF', '#F4A7C7', '#E8E3E7'];
+const PAD_COLORS = ['#F6DCE8', '#FFF0F5', '#FFFFFF', '#E7D8E1', '#E8DFE5'];
 
 interface TaskNotepadProps {
   categoryId: string;

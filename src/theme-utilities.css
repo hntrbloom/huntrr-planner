@@ -18,10 +18,10 @@
   .bg-\[\#FFF0F4\]\/50 { background-color: color-mix(in srgb, var(--pink-pale) 50%, transparent); }
   .bg-\[\#FFF0F4\]\/60 { background-color: color-mix(in srgb, var(--pink-pale) 60%, transparent); }
   .bg-\[\#FFF0F6\]\/85 { background-color: color-mix(in srgb, var(--pink-pale) 85%, transparent); }
-  .bg-\[\#444444\] { background-color: var(--black-charcoal); }
+  .bg-\[\#444444\],
   .bg-\[\#1C1B1F\],
   .bg-\[\#222222\],
-  .bg-\[\#252429\] { background-color: var(--black-near); }
+  .bg-\[\#252429\] { background-color: var(--surface-soft); }
   .bg-\[\#F2F8FF\],
   .bg-\[\#FFF5F9\],
   .bg-\[\#fbf9fb\] { background-color: var(--pink-blush); }
@@ -136,7 +136,7 @@
   }
   @media (hover: hover) {
   .hover\:bg-\[\#333333\]:hover,
-  .hover\:bg-\[\#604b5b\]:hover { background-color: var(--black-charcoal); }
+  .hover\:bg-\[\#604b5b\]:hover { background-color: var(--pink-berry); }
   }
   @media (hover: hover) {
   .hover\:bg-\[\#6c4355\]:hover,

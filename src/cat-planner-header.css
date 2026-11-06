@@ -1,13 +1,13 @@
 /* Fixed cat-ear frame. Only shared header placement and its reserved space change. */
 :root {
   --cat-header-height: 176px;
-  --cat-header-pink: #F7B6D2;
-  --cat-header-highlight: #FFD8E8;
-  --cat-bow-pink: #ED77AA;
-  --cat-bow-highlight: #F7A6C8;
-  --cat-header-outline: #B93572;
-  --cat-header-ink: #171217;
-  --cat-header-shadow: rgba(23, 18, 23, 0.25);
+  --cat-header-pink: var(--pink-pale);
+  --cat-header-highlight: var(--surface-soft);
+  --cat-bow-pink: var(--pink-soft);
+  --cat-bow-highlight: var(--pink-pale);
+  --cat-header-outline: var(--pink-medium);
+  --cat-header-ink: var(--black-near);
+  --cat-header-shadow: color-mix(in srgb, var(--pink-deep) 20%, transparent);
 }
 html { scroll-padding-top: calc(var(--cat-header-height) + 16px); }
 .cat-planner-header { position: fixed; top: 0; inset-inline: 0; height: var(--cat-header-height); z-index: 40; isolation: isolate; overflow-x: clip; overflow-y: visible; color: var(--cat-header-ink); }

@@ -1,12 +1,12 @@
 /* Three physical layers: body → bezel → screen. All frame geometry lives here. */
 :root {
-  --tablet-body: #F3A4C6;
-  --tablet-highlight: #F8BED6;
-  --tablet-bezel: #FFD9E8;
-  --tablet-screen: #FFF8FB;
-  --tablet-outline: #CF3974;
-  --tablet-ink: #171217;
-  --tablet-shadow: rgba(40, 15, 28, 0.18);
+  --tablet-body: var(--pink-pale);
+  --tablet-highlight: var(--surface-soft);
+  --tablet-bezel: var(--pink-soft);
+  --tablet-screen: var(--surface-soft);
+  --tablet-outline: var(--pink-medium);
+  --tablet-ink: var(--black-near);
+  --tablet-shadow: color-mix(in srgb, var(--pink-deep) 18%, transparent);
   --tablet-radius: 38px;
   --tablet-rim: 12px;
   --tablet-bezel-width: 12px;

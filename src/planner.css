@@ -257,28 +257,27 @@ input[type='checkbox']:checked { background: var(--pink-deep); border-color: var
   .goal-card-heading { padding-top: 58px !important; }
 }
 
-/* Role refinements for the requested pink / black theme. Geometry is retained. */
+/* Shared colors for planner controls and cards. */
 :focus-visible { outline-color: var(--pink-berry); }
 ::selection { background: var(--pink-soft); color: var(--black-near); }
-.planner-tabs { background: var(--black-near); border-bottom-color: var(--black-charcoal); }
-.planner-tabs button { color: var(--white); border-radius: 13px 13px 0 0; }
-.planner-tabs button:hover { background: var(--pink-berry); color: var(--white); }
+.planner-tabs { background: var(--pink-soft); border-bottom-color: var(--black-light-gray); }
+.planner-tabs button { color: var(--black-near); border-radius: 13px 13px 0 0; }
+.planner-tabs button:hover { background: var(--surface-soft); color: var(--black-near); }
 .planner-tabs button[aria-current='page'], .planner-tabs button[aria-expanded='true'] { background: var(--pink-deep); color: var(--white); border-color: var(--pink-deep); box-shadow: 0 2px var(--pink-deep); }
 .planner-tabs button[aria-current='page']:hover, .planner-tabs button:active { background: var(--pink-berry); color: var(--white); }
 .planner-tabs [aria-current='page']::before { background: var(--pink-soft); }
-.planner-tabs .all-pages-button { border-left-color: var(--black-dark-gray); }
+.planner-tabs .all-pages-button { border-left-color: var(--black-light-gray); }
 .planner-tabs button:focus-visible { outline-color: var(--pink-soft); outline-offset: -4px; }
 .paper-insert, .habits-insert { background: var(--pink-pale); border-color: var(--black-light-gray); }
 .paper-insert::before, .habits-insert::before, .progress-insert::before { background: var(--pink-soft); }
-.progress-insert { background: var(--black-charcoal); color: var(--white); border-color: var(--black-light-gray); }
-.progress-insert .insert-heading h2, .progress-insert .daily-progress strong { color: var(--white); }
-.progress-insert .daily-progress p, .progress-insert .progress-caption { color: var(--pink-pale); }
-.progress-insert .insert-heading svg, .progress-insert .progress-caption svg { color: var(--pink-soft); }
-.progress-flower { background: conic-gradient(var(--pink-medium) var(--progress), var(--black-dark-gray) 0); }
-.progress-flower::before { background: var(--black-charcoal); }
-.progress-flower span { color: var(--white); }
+.progress-insert { background: var(--white); color: var(--black-near); border-color: var(--black-light-gray); }
+.progress-insert .daily-progress strong { color: var(--black-near); }
+.progress-insert .daily-progress p, .progress-insert .progress-caption { color: var(--black-dark-gray); }
+.progress-insert .insert-heading svg, .progress-insert .progress-caption svg { color: var(--pink-deep); }
+.progress-flower { background: conic-gradient(var(--pink-deep) var(--progress), var(--pink-soft) 0); }
+.progress-flower::before { background: var(--white); }
+.progress-flower span { color: var(--black-near); }
 .planner-page :is(h1,h2,h3,h4), .planner-drawer :is(h2,h3), [role='dialog'] :is(h1,h2,h3,h4) { color: var(--black-near); }
-.planner-page .progress-insert h2 { color: var(--white); }
 .quick-actions button, .notes-empty button, .device-controls button { color: var(--pink-deep); }
 .quick-actions button:hover, .notes-empty button:hover, .device-controls button:hover { background: var(--pink-pale); color: var(--pink-berry); }
 input[type='checkbox'] { border-color: var(--black-mid-gray); }
@@ -290,9 +289,8 @@ button.bg-primary :is(span,svg), button.bg-secondary :is(span,svg), button.bg-er
 button[class*='bg-[#FFB8CD]'], button[class*='bg-[#FF6B9E]'] { background: var(--pink-deep); color: var(--white); }
 button[class*='bg-[#FFB8CD]']:hover, button[class*='bg-[#FF6B9E]']:hover { background: var(--pink-berry); }
 button[class*='bg-[#FFB8CD]'] :is(span,svg), button[class*='bg-[#FF6B9E]'] :is(span,svg) { color: inherit; }
-:is(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),select,textarea) { border-color: var(--black-light-gray); accent-color: var(--pink-deep); }
+:is(input:not([type='checkbox'], [type='radio'], [type='range'], [type='color']),select,textarea) { border-color: var(--black-light-gray); accent-color: var(--pink-deep); }
 :is(input,select,textarea)::placeholder { color: var(--black-dark-gray); opacity: 1; }
-:is(input,select,textarea):focus-visible { outline-color: var(--pink-deep); }
 .planner-page .task-notepad, .goal-card-heading { border-color: var(--black-light-gray); }
 .goal-card-heading { background: var(--pink-pale); }
 .drawer-page-grid button[aria-current='page'] { background: var(--pink-pale); color: var(--black-near); border-color: var(--pink-deep); box-shadow: inset 3px 0 var(--pink-deep); }
@@ -311,8 +309,4 @@ button[class*='bg-[#FFB8CD]'] :is(span,svg), button[class*='bg-[#FF6B9E]'] :is(s
 
 .planner-category-tab[aria-pressed='true'] :is(button,svg) { color: var(--white) !important; }
 
-/* Dark photo tools and activity panels retain readable, pale foregrounds. */
-.planner-dark-panel { color: var(--white); }
-.planner-dark-panel :is(h1,h2,h3,h4) { color: var(--white); }
-.planner-dark-panel :is([class*='text-slate-'],[class*='text-gray-'],[class*='text-red-'],[class*='text-emerald-'],[class*='text-indigo-'],[class*='text-cyan-'],[class*='text-pink-'],[class*='text-[#FF6B9E]']) { color: var(--pink-pale); }
 input[type='range'], input[type='radio'] { accent-color: var(--pink-deep); }

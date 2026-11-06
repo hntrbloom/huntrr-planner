@@ -14,7 +14,7 @@
 .profile-welcome > form { margin: 1.25rem 0; text-align: left; }
 .profile-panel {
   background: var(--white);
-  border: 1px solid var(--pink-soft);
+  border: 1px solid var(--black-light-gray);
   border-radius: 1rem;
   padding: clamp(.75rem, 3vw, 1.25rem);
   margin-bottom: 1rem;
@@ -27,12 +27,13 @@
 .profile-panel summary { cursor: pointer; color: var(--pink-berry); padding-block: .5rem; }
 .profile-panel form { margin-top: .75rem; }
 .profile-panel form + form, .profile-import { border-top: 1px solid var(--pink-pale); padding-top: .75rem; }
-.profile-panel label, .profile-welcome form label { display: grid; gap: .35rem; font-size: .875rem; font-weight: 700; }
+.profile-panel label, .profile-welcome form label { display: grid; gap: .5rem; font-size: .875rem; font-weight: 700; }
+.profile-welcome > form > label { margin-bottom: .5rem; }
 .profile-panel input, .profile-panel select, .profile-welcome form input {
   box-sizing: border-box;
   width: 100%;
   min-height: 44px !important;
-  border: 1px solid var(--pink-soft);
+  border: 1px solid var(--black-light-gray);
   background: var(--white);
   color: var(--black-near);
   border-radius: .65rem;
@@ -44,7 +45,7 @@
   background: var(--pink-pale);
   color: var(--pink-berry);
   padding: .55rem .75rem;
-  border: 1px solid var(--pink-soft);
+  border: 1px solid var(--black-light-gray);
   border-radius: .75rem;
   font-size: .875rem;
   font-weight: 800;
@@ -52,9 +53,10 @@
 }
 .profile-panel button:hover, .profile-welcome button:hover { background: var(--pink-soft); }
 .profile-panel .profile-primary, .profile-welcome .profile-primary {
-  background: var(--pink-soft);
-  color: var(--black-near);
+  background: var(--pink-deep);
+  color: var(--white);
 }
+.profile-panel .profile-primary:hover, .profile-welcome .profile-primary:hover { background: var(--pink-berry); }
 .profile-welcome > form button, .profile-panel form > button { margin-top: .55rem; }
 .profile-actions { display: flex; gap: .5rem; flex-wrap: wrap; align-items: flex-end; }
 .profile-file { min-width: 0; flex: 1 1 14rem; }

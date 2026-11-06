@@ -3,17 +3,18 @@
 @import "./theme-utilities.css";
 
 :root {
-  --pink-deep: #C2185B;
-  --pink-berry: #AD1457;
-  --pink-medium: #E85D9E;
-  --pink-soft: #F4A7C7;
-  --pink-pale: #FCE4EF;
-  --pink-blush: #FFF5F9;
-  --black-near: #171217;
-  --black-charcoal: #302830;
-  --black-dark-gray: #514851;
-  --black-mid-gray: #817781;
-  --black-light-gray: #E8E3E7;
+  --pink-deep: #725A6D;
+  --pink-berry: #604A5B;
+  --pink-medium: #927487;
+  --pink-soft: #E7D8E1;
+  --pink-pale: #F6DCE8;
+  --pink-blush: #FFF0F5;
+  --surface-soft: #FAF5F7;
+  --black-near: #242024;
+  --black-charcoal: var(--black-near);
+  --black-dark-gray: #776B75;
+  --black-mid-gray: var(--black-dark-gray);
+  --black-light-gray: #E8DFE5;
   --white: #FFFFFF;
 }
 
@@ -32,14 +33,14 @@
   --color-surface-dim: var(--black-light-gray);
   --color-surface-bright: var(--white);
   --color-surface-container-lowest: var(--white);
-  --color-surface-container-low: var(--pink-pale);
-  --color-surface-container: var(--pink-pale);
+  --color-surface-container-low: var(--surface-soft);
+  --color-surface-container: var(--surface-soft);
   --color-surface-container-high: var(--pink-pale);
   --color-surface-container-highest: var(--pink-soft);
   --color-on-surface: var(--black-near);
   --color-on-surface-variant: var(--black-dark-gray);
-  --color-inverse-surface: var(--black-charcoal);
-  --color-inverse-on-surface: var(--white);
+  --color-inverse-surface: var(--pink-soft);
+  --color-inverse-on-surface: var(--black-near);
   --color-outline: var(--black-mid-gray);
   --color-outline-variant: var(--black-light-gray);
   --color-surface-tint: var(--pink-deep);
@@ -847,7 +848,7 @@ body,
   /* Label goes full width */
   .wiki-edit-modal .w-full.md\:w-\[170px\] > div > label {
     width: 100% !important;
-    margin-bottom: -4px !important;
+    margin-bottom: 0 !important;
   }
 
   /* The actual image square */
