@@ -11,7 +11,24 @@
   line-height: 1.2;
   margin: 0 0 .75rem;
 }
-.profile-welcome > form { margin: 1.25rem 0; text-align: left; }
+.profile-welcome-paws {
+  display: block;
+  width: min(100%, 228px);
+  height: auto;
+  margin: 0 auto .75rem;
+  color: var(--black-near);
+}
+.profile-welcome > form { margin: 1rem 0 .5rem; text-align: left; }
+.profile-welcome-import { text-align: left; }
+.profile-welcome-import > summary {
+  padding-block: .75rem;
+  color: var(--pink-deep);
+  font-size: .875rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.profile-welcome-import > .profile-panel { border: 0; padding: 0; margin: 0; }
+.profile-welcome-import > .profile-panel > h2 { display: none; }
 .profile-panel {
   background: var(--white);
   border: 1px solid var(--black-light-gray);

@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { PlannerBow, PocketFriend } from './PlannerDecor';
 import { ProfileTransfer } from './ProfileTransfer';
 import { useProfile } from '../lib/ProfileContext';
 
@@ -18,8 +17,23 @@ export function ProfileWelcome({ error }: { error: string }) {
 
   return <main className="planner-login-world profile-welcome-world">
     <div className="planner-login-device profile-welcome">
-      <PlannerBow className="login-bow" />
-      <PocketFriend className="login-friend" />
+      <svg className="profile-welcome-paws" viewBox="0 0 228 46" fill="currentColor" aria-hidden="true" focusable="false">
+        <defs>
+          <g id="welcome-paw">
+            <ellipse cx="-9" cy="-4" rx="2.7" ry="3.4" transform="rotate(-24 -9 -4)" />
+            <ellipse cx="-3.5" cy="-9" rx="2.7" ry="3.6" transform="rotate(-10 -3.5 -9)" />
+            <ellipse cx="3.5" cy="-9" rx="2.7" ry="3.6" transform="rotate(10 3.5 -9)" />
+            <ellipse cx="9" cy="-4" rx="2.7" ry="3.4" transform="rotate(24 9 -4)" />
+            <path d="M0-4c3.1 0 4.2 2.9 6.5 4.8C8.9 2.8 9 6.2 6.4 7.4 4.4 8.4 2 7 0 7s-4.4 1.4-6.4.4C-9 6.2-8.9 2.8-6.5.8-4.2-1.1-3.1-4 0-4Z" />
+          </g>
+        </defs>
+        <use href="#welcome-paw" transform="translate(17 29) rotate(72) scale(.92)" />
+        <use href="#welcome-paw" transform="translate(55 16) rotate(98)" />
+        <use href="#welcome-paw" transform="translate(94 29) rotate(76) scale(.95)" />
+        <use href="#welcome-paw" transform="translate(133 16) rotate(102) scale(.9)" />
+        <use href="#welcome-paw" transform="translate(172 29) rotate(74)" />
+        <use href="#welcome-paw" transform="translate(211 16) rotate(97) scale(.94)" />
+      </svg>
       <h1>Welcome to Huntrr Organizer! ♡</h1>
       <p>Pick a nickname for your planner. Your profiles stay in this browser.</p>
       {error ? <>
@@ -43,7 +57,10 @@ export function ProfileWelcome({ error }: { error: string }) {
           </ul>
         </section>}
         {problem && <p role="alert">{problem}</p>}
-        <ProfileTransfer {...legacy} />
+        <details className="profile-welcome-import">
+          <summary>Import existing profile</summary>
+          <ProfileTransfer {...legacy} />
+        </details>
       </>}
     </div>
   </main>;
