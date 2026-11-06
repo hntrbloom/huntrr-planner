@@ -6,7 +6,7 @@ import { Sidebar } from './components/Navigation';
 import { ViewState } from './types';
 import { db } from './lib/firebase';
 import { doc, onSnapshot } from './lib/workspaceStore';
-import { useAuth } from './lib/AuthContext';
+import { useProfile } from './lib/ProfileContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { FocusTimer } from './components/FocusTimer';
 import { MedicationPopup } from './components/MedicationPopup';
@@ -34,7 +34,7 @@ const ModelViewerView = lazy(() => import('./components/ModelViewerView').then(m
 const SettingsView = lazy(() => import('./components/SettingsView').then(m => ({ default: m.SettingsView })));
 
 export default function App() {
-  const { user, logOut } = useAuth();
+  const { user, profile } = useProfile();
 
   useEffect(() => {
     if (!user || user.isAnonymous) return;
@@ -146,9 +146,7 @@ export default function App() {
         onChangeView={handleViewChange}
         menuOpen={isSidebarOpen}
         onOpenMenu={() => setIsSidebarOpen(true)}
-        workspaceLabel={isLocalUser(user) ? 'Saved on this device' : user?.isAnonymous ? 'Guest preview · temporary changes' : 'Your private workspace'}
-        canSwitchWorkspace={Boolean(user?.isAnonymous || isLocalUser(user))}
-        onSwitchWorkspace={logOut}
+        workspaceLabel={profile?.nickname ?? 'Local profile'}
       />
       <StorageNotice />
       <DialogAccessibility />

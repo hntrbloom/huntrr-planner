@@ -13,7 +13,7 @@ import {
   Info,
   Sparkles
 } from 'lucide-react';
-import { useAuth } from '../lib/AuthContext';
+import { useProfile } from '../lib/ProfileContext';
 import { db } from '../lib/firebase';
 import { doc, onSnapshot, setDoc, getDoc } from '../lib/workspaceStore';
 import { 
@@ -44,7 +44,7 @@ import {
 type TimeframeView = 'week' | 'month' | 'all';
 
 export function JobApplicationStreakTracker() {
-  const { user } = useAuth();
+  const { user } = useProfile();
   
   // Real-time Applications State
   const [applications, setApplications] = useState<JobApplication[]>([]);
@@ -140,16 +140,6 @@ export function JobApplicationStreakTracker() {
 
   // 2. Load and listen to Weekly Goal preference
   useEffect(() => {
-    // Load local storage fallback first
-    const savedGoal = localStorage.getItem('job_weekly_goal');
-    if (savedGoal) {
-      const parsed = parseInt(savedGoal, 10);
-      if (!isNaN(parsed) && parsed > 0) {
-        setWeeklyGoal(parsed);
-        setTempGoalInput(String(parsed));
-      }
-    }
-
     if (!user || user.isAnonymous) return;
 
     // Load from Firestore
@@ -174,10 +164,6 @@ export function JobApplicationStreakTracker() {
     setWeeklyGoal(newGoal);
     setTempGoalInput(String(newGoal));
     setIsEditingGoal(false);
-
-    try {
-      localStorage.setItem('job_weekly_goal', String(newGoal));
-    } catch (e) {}
 
     if (user && !user.isAnonymous) {
       try {

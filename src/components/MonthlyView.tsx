@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Clock, Plus, Edit2, Trash2, X, AlertTriangle, Calendar as CalendarIcon, Briefcase, MapPin, AlignLeft, CheckCircle2 } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { useWorkShifts, WorkShift } from '../lib/WorkShiftsContext';
-import { useAuth } from '../lib/AuthContext';
+import { useProfile } from '../lib/ProfileContext';
 import { useCalendar, CalendarAppointment, formatTime } from '../lib/CalendarContext';
 import { AppointmentFormModal, AppointmentDetailsModal, getCategoryStyle } from './AppointmentModals';
 import { v4 as uuidv4 } from 'uuid';
@@ -51,7 +51,7 @@ export const calculateTotalHours = (shifts: WorkShift[]) => {
 };
 
 export function MonthlyView() {
-  const { user } = useAuth();
+  const { user } = useProfile();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<'month' | 'week' | 'day'>('month');
   
@@ -641,7 +641,7 @@ export function MonthlyView() {
 }
 
 function ShiftForm({ initialData, onSave, onCancel }: { initialData: WorkShift | null, onSave: (s: WorkShift) => void, onCancel: () => void }) {
-  const { user } = useAuth();
+  const { user } = useProfile();
   const [formData, setFormData] = useState<WorkShift>(initialData || {
     id: uuidv4(),
     date: (() => { const d = new Date(); return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}` })(),

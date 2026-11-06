@@ -3,8 +3,8 @@ export const BACKUP_COLLECTIONS = ['settings', 'preferences', 'appointments', 'w
 export function validateBackup(backup: any) {
   if (!backup || typeof backup !== 'object' || Array.isArray(backup)) throw new Error('Choose a valid JSON backup.');
   const data = backup.format === 'huntrr.organizer' ? backup.data : backup;
-  if (backup.format && (backup.format !== 'huntrr.organizer' || backup.version !== 1)) throw new Error('This backup format is not supported.');
-  if (!data || !Object.keys(data).length) throw new Error('This backup has no records.');
+  if (backup.format && (backup.format !== 'huntrr.organizer' || ![1, 2].includes(backup.version))) throw new Error('This backup format is not supported.');
+  if (!data || typeof data !== 'object' || Array.isArray(data) || (!Object.keys(data).length && backup.version !== 2)) throw new Error('This backup has no records.');
   const inspect = (value: any): void => {
     if (value && typeof value === 'object') for (const [key, child] of Object.entries(value)) {
       if (['__proto__', 'constructor', 'prototype'].includes(key)) throw new Error('The backup contains an unsafe field.');
@@ -21,8 +21,9 @@ export function validateBackup(backup: any) {
       count++;
     }
   }
+  if (backup.files != null && (typeof backup.files !== 'object' || Array.isArray(backup.files))) throw new Error('Invalid backup attachment table.');
   for (const [key, file] of Object.entries<any>(backup.files || {})) {
-    if (!/^(photo_|huntrr_local_stl_)[a-zA-Z0-9_.-]+$/.test(key) || !['photo', 'file'].includes(file.kind) || typeof file.dataUrl !== 'string' || !/^data:[^,]*;base64,/.test(file.dataUrl)) throw new Error('The backup contains an invalid local attachment.');
+    if (!/^(photo_|huntrr_local_stl_)[a-zA-Z0-9_.-]+$/.test(key) || !file || !['photo', 'file'].includes(file.kind) || typeof file.dataUrl !== 'string' || !/^data:[^,]*;base64,/.test(file.dataUrl)) throw new Error('The backup contains an invalid local attachment.');
   }
   return { data, count };
 }

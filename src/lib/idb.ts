@@ -1,3 +1,6 @@
+import { isProfileId } from './workspaceMode';
+import { workspaceDatabase } from './workspaceStore';
+import type { WorkspaceAttachment } from './profileStore';
 import { openDB } from 'idb';
 
 const DB_NAME = 'SereneStationeryIDB';
@@ -71,35 +74,40 @@ export const clearThumbnailsIDB = async (): Promise<void> => {
   }
 };
 
-export const saveFileToIDB = async (key: string, file: Blob) => {
-  const db = await initDB();
-  await db.put('keychains_files', file, key);
-};
+async function writeAttachment(key: string, blob: Blob, kind: WorkspaceAttachment['kind'], uid?: string) {
+  if (uid && isProfileId(uid)) {
+    await (await workspaceDatabase()).put('attachments', { kind, blob }, `${uid}/${key}`);
+  } else {
+    await (await initDB()).put(kind === 'photo' ? 'inspiration_photos' : 'keychains_files', blob, key);
+  }
+}
 
-export const getFileFromIDB = async (key: string): Promise<Blob | undefined> => {
-  const db = await initDB();
-  return db.get('keychains_files', key);
-};
+async function readAttachment(key: string, kind: WorkspaceAttachment['kind'], uid?: string): Promise<Blob | undefined> {
+  if (uid && isProfileId(uid)) {
+    const file: WorkspaceAttachment | undefined = await (await workspaceDatabase()).get('attachments', `${uid}/${key}`);
+    return file?.kind === kind ? file.blob : undefined;
+  }
+  return (await initDB()).get(kind === 'photo' ? 'inspiration_photos' : 'keychains_files', key);
+}
 
-export const deleteFileFromIDB = async (key: string) => {
-  const db = await initDB();
-  await db.delete('keychains_files', key);
-};
+async function removeAttachment(key: string, kind: WorkspaceAttachment['kind'], uid?: string) {
+  if (uid && isProfileId(uid)) {
+    const db = await workspaceDatabase();
+    const tx = db.transaction('attachments', 'readwrite');
+    const path = `${uid}/${key}`;
+    const file: WorkspaceAttachment | undefined = await tx.store.get(path);
+    if (file?.kind === kind) await tx.store.delete(path);
+    await tx.done;
+  }
+  // Legacy files can be shared by old records. Leave the original store intact.
+}
 
-export const savePhotoToIDB = async (key: string, file: Blob) => {
-  const db = await initDB();
-  await db.put('inspiration_photos', file, key);
-};
-
-export const getPhotoFromIDB = async (key: string): Promise<Blob | undefined> => {
-  const db = await initDB();
-  return db.get('inspiration_photos', key);
-};
-
-export const deletePhotoFromIDB = async (key: string) => {
-  const db = await initDB();
-  await db.delete('inspiration_photos', key);
-};
+export const saveFileToIDB = (key: string, file: Blob, uid?: string) => writeAttachment(key, file, 'file', uid);
+export const getFileFromIDB = (key: string, uid?: string) => readAttachment(key, 'file', uid);
+export const deleteFileFromIDB = (key: string, uid?: string) => removeAttachment(key, 'file', uid);
+export const savePhotoToIDB = (key: string, file: Blob, uid?: string) => writeAttachment(key, file, 'photo', uid);
+export const getPhotoFromIDB = (key: string, uid?: string) => readAttachment(key, 'photo', uid);
+export const deletePhotoFromIDB = (key: string, uid?: string) => removeAttachment(key, 'photo', uid);
 
 export const clearKeychainsIDB = async () => {
   const db = await initDB();

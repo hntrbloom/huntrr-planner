@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { db } from './firebase';
 import { collection, onSnapshot, query, setDoc, doc, deleteDoc } from './workspaceStore';
-import { useAuth } from './AuthContext';
+import { useProfile } from './ProfileContext';
 
 export interface CalendarAppointment {
   id: string;
@@ -113,7 +113,7 @@ const CalendarContext = createContext<CalendarContextType>({
 export const useCalendar = () => useContext(CalendarContext);
 
 export const CalendarProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user } = useProfile();
   const [appointments, setAppointments] = useState<CalendarAppointment[]>([]);
   const [loading, setLoading] = useState(true);
 

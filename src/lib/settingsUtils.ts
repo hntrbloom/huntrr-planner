@@ -1,6 +1,6 @@
 import { db } from './firebase';
 import { doc, getDoc, setDoc, updateDoc } from './workspaceStore';
-import { getAccessToken } from './AuthContext';
+import { getAccessToken } from './driveAccess';
 import { checkAndCreateFolders } from './driveFolderUtils';
 
 export interface UserSettings {
@@ -29,11 +29,6 @@ export async function getUserSettings(uid: string): Promise<UserSettings | null>
     const snap = await getDoc(docRef);
     if (snap.exists()) {
       const data = snap.data() as UserSettings;
-      if (data.printFolderIds) {
-        try {
-          localStorage.setItem('huntrr_print_folder_ids', JSON.stringify(data.printFolderIds));
-        } catch {}
-      }
       return data;
     }
   } catch (err) {
@@ -43,11 +38,6 @@ export async function getUserSettings(uid: string): Promise<UserSettings | null>
 }
 
 export async function updateUserSettings(uid: string, settings: Partial<UserSettings>): Promise<void> {
-  if (settings.printFolderIds) {
-    try {
-      localStorage.setItem('huntrr_print_folder_ids', JSON.stringify(settings.printFolderIds));
-    } catch {}
-  }
   const docRef = doc(db, 'users', uid, 'settings', 'general');
   const snap = await getDoc(docRef);
   if (snap.exists()) {

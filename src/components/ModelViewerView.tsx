@@ -34,7 +34,7 @@ import { STL3DCanvas, STL3DCanvasHandle, CameraPreset, CameraProjection } from '
 import { DriveSTLPickerModal } from './ModelViewer/DriveSTLPickerModal';
 import { SavedModelsList } from './ModelViewer/SavedModelsList';
 import { SavedModel3D, Model3DDimensions } from '../types';
-import { useAuth } from '../lib/AuthContext';
+import { useProfile } from '../lib/ProfileContext';
 import { db } from '../lib/firebase';
 import { collection, doc, onSnapshot, setDoc, deleteDoc, updateDoc } from '../lib/workspaceStore';
 import { sanitizeFirestorePayload } from '../lib/firestoreUtils';
@@ -65,7 +65,7 @@ const BACKGROUND_COLORS = [
 ];
 
 export function ModelViewerView() {
-  const { user } = useAuth();
+  const { user } = useProfile();
   const canvasRef = useRef<STL3DCanvasHandle>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -281,7 +281,7 @@ export function ModelViewerView() {
       // 3. Create document record
       const modelRecordId = currentActiveModelId || uuidv4();
       const localFileKey = isLocalUser(user) ? `huntrr_local_stl_${modelRecordId}` : undefined;
-      if (localFileKey) await saveFileToIDB(localFileKey, new Blob([currentSTLBuffer], { type: 'model/stl' }));
+      if (localFileKey) await saveFileToIDB(localFileKey, new Blob([currentSTLBuffer], { type: 'model/stl' }), user.uid);
       const modelRecord: SavedModel3D = {
         localFileKey,
         id: modelRecordId,
@@ -352,7 +352,7 @@ export function ModelViewerView() {
     if (user && !user.isAnonymous) {
       await deleteDoc(doc(db, `users/${user.uid}/saved_models`, modelId));
       const deleted = savedModels.find(m => m.id === modelId);
-      if (deleted?.localFileKey) await deleteFileFromIDB(deleted.localFileKey);
+      if (deleted?.localFileKey) await deleteFileFromIDB(deleted.localFileKey, user?.uid);
     } else {
       const updated = savedModels.filter((m) => m.id !== modelId);
       setSavedModels(updated);

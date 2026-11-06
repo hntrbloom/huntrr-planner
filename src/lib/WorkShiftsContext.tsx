@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { db } from './firebase';
 import { collection, onSnapshot, query, setDoc, doc, deleteDoc } from './workspaceStore';
-import { useAuth } from './AuthContext';
+import { useProfile } from './ProfileContext';
 import { GUEST_SAMPLE_SHIFTS } from './guestSampleData';
 
 export interface WorkShift {
@@ -32,7 +32,7 @@ const WorkShiftsContext = createContext<WorkShiftsContextType>({
 export const useWorkShifts = () => useContext(WorkShiftsContext);
 
 export const WorkShiftsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user } = useProfile();
   const [workShifts, setWorkShifts] = useState<WorkShift[]>([]);
   const [loading, setLoading] = useState(true);
 

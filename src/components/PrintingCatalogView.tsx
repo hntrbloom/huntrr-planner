@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Printer, Image as ImageIcon, Search, Trash2, Edit2, X, Link as LinkIcon, Layers, Loader2, ExternalLink, Upload, FolderOpen } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { collection, query, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from '../lib/workspaceStore';
-import { useAuth } from '../lib/AuthContext';
+import { useProfile } from '../lib/ProfileContext';
 import { SyncStatus } from './SyncStatus';
 import { uploadFileToStorage, deleteFileFromStorage } from '../lib/storage';
 import { GUEST_SAMPLE_PRINT_DESIGNS } from '../lib/guestSampleData';
@@ -30,7 +30,7 @@ interface PrintBuild {
 }
 
 export function PrintingCatalogView() {
-  const { user } = useAuth();
+  const { user } = useProfile();
   const { showPicker } = useGoogleDrivePicker();
   const [driveFolders, setDriveFolders] = useState<any>(null);
 
@@ -209,7 +209,7 @@ export function PrintingCatalogView() {
     try {
       const build = builds.find(b => b.id === id);
       if (build?.imageStoragePath) {
-        await deleteFileFromStorage(build.imageStoragePath);
+        await deleteFileFromStorage(build.imageStoragePath, user?.uid);
       }
       await deleteDoc(doc(db, `users/${user.uid}/printing`, id));
       if (selectedBuild?.id === id) {

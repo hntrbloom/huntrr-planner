@@ -1,4 +1,4 @@
-import { getAccessToken } from './AuthContext';
+import { getAccessToken } from './driveAccess';
 
 export interface DriveFolderSetup {
   mainFolderId?: string;
@@ -205,33 +205,6 @@ export function getPrintFolderId(printType: string | undefined | null, userSetti
     }
   }
 
-  // 3. Check localStorage cache
-  try {
-    const cached = localStorage.getItem('huntrr_print_folder_ids');
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      if (parsed[canonicalKey]) {
-        const extracted = extractDriveFolderId(parsed[canonicalKey]);
-        if (extracted && (canonicalKey !== 'figures' || extracted !== '19HKbZxzPmFWz0onno8YydY3uz4HJcUBv')) return extracted;
-      }
-      if (parsed[rawType]) {
-        const extracted = extractDriveFolderId(parsed[rawType]);
-        if (extracted && (canonicalKey !== 'figures' || extracted !== '19HKbZxzPmFWz0onno8YydY3uz4HJcUBv')) return extracted;
-      }
-      if (parsed[lower]) {
-        const extracted = extractDriveFolderId(parsed[lower]);
-        if (extracted && (canonicalKey !== 'figures' || extracted !== '19HKbZxzPmFWz0onno8YydY3uz4HJcUBv')) return extracted;
-      }
-    }
-    if (canonicalKey === 'wiki') {
-      const wikiCache = localStorage.getItem('huntrr_wiki_folder_id');
-      if (wikiCache) {
-        const extracted = extractDriveFolderId(wikiCache);
-        if (extracted) return extracted;
-      }
-    }
-  } catch {}
-
   // 4. Default fallback matching
   const matched = DEFAULT_PRINT_TYPES.find(
     t => t.id.toLowerCase() === canonicalKey.toLowerCase() || t.name.toLowerCase() === lower
@@ -261,7 +234,7 @@ export async function testDriveFolderAccess(folderId: string): Promise<{ success
 
   const token = getAccessToken();
   if (!token) {
-    return { success: true, name: 'Folder ID configured (Sign in to test Drive API)' };
+    return { success: false, error: 'Authorize Drive access to verify this folder.' };
   }
 
   try {
@@ -482,13 +455,6 @@ export function getModelsFolderId(userSettings?: any): string {
     const extracted = extractDriveFolderId(userSettings.driveFolders.modelsFolderId);
     if (extracted) return extracted;
   }
-  try {
-    const cached = localStorage.getItem('huntrr_models_folder_id');
-    if (cached) {
-      const extracted = extractDriveFolderId(cached);
-      if (extracted) return extracted;
-    }
-  } catch {}
   return DEFAULT_DRIVE_FOLDERS.modelsFolderId;
 }
 
@@ -513,9 +479,6 @@ export async function getOrCreateModelsFolder(mainFolderId?: string): Promise<st
   }
 
   const folderId = await getOrCreateFolder(headers, 'models', parentId);
-  try {
-    localStorage.setItem('huntrr_models_folder_id', folderId);
-  } catch {}
   return folderId;
 }
 
@@ -536,16 +499,6 @@ export async function getOrResolveModelCategoryFolder(category: ModelCategoryTyp
   const token = getAccessToken();
   if (!token) throw new Error('Not authenticated with Google Drive.');
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
-
-  // Check category cache
-  const cacheKey = `huntrr_models_category_${category}`;
-  try {
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) {
-      const cleanCached = extractDriveFolderId(cached);
-      if (cleanCached) return cleanCached;
-    }
-  } catch {}
 
   const modelsRootId = await getOrCreateModelsFolder();
 
@@ -568,7 +521,6 @@ export async function getOrResolveModelCategoryFolder(category: ModelCategoryTyp
         const data = await res.json();
         if (data.files && data.files.length > 0) {
           const foundId = data.files[0].id;
-          try { localStorage.setItem(cacheKey, foundId); } catch {}
           return foundId;
         }
       }
@@ -586,7 +538,6 @@ export async function getOrResolveModelCategoryFolder(category: ModelCategoryTyp
         const data = await res.json();
         if (data.files && data.files.length > 0) {
           const foundId = data.files[0].id;
-          try { localStorage.setItem(cacheKey, foundId); } catch {}
           return foundId;
         }
       }
@@ -595,10 +546,5 @@ export async function getOrResolveModelCategoryFolder(category: ModelCategoryTyp
     }
   }
 
-  // 3. If not found, create the folder inside the models root
-  const primaryName = MODEL_CATEGORY_NAMES[category];
-  const newFolderId = await getOrCreateFolder(headers, primaryName, modelsRootId);
-  try { localStorage.setItem(cacheKey, newFolderId); } catch {}
-  return newFolderId;
+  throw new Error(`No ${MODEL_CATEGORY_NAMES[category]} folder was found. Upload a local STL or check your Drive folders.`);
 }
-

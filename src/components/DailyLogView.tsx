@@ -4,7 +4,7 @@ import { Plus, Trash2, Pencil, Check, X, Calendar as CalendarIcon, Clock, Settin
 import { db } from '../lib/firebase';
 import { getGrayscalePalette } from '../lib/colors';
 import { doc, setDoc, collection, query, orderBy, limit, where, documentId } from '../lib/workspaceStore';
-import { useAuth } from '../lib/AuthContext';
+import { useProfile } from '../lib/ProfileContext';
 import { logActivity } from '../lib/activityLogger';
 import { SyncStatus } from './SyncStatus';
 import { TopBar } from './TopBar';
@@ -236,7 +236,7 @@ const defaultCategories: Category[] = [
 ];
 
 export function DailyLogView() {
-  const { user } = useAuth();
+  const { user } = useProfile();
   const [items, setItems] = useState<TaskItem[]>([]);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'saving' | 'saved' | 'error' | 'offline'>('idle');
 

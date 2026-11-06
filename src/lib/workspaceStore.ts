@@ -1,13 +1,21 @@
 import { sanitizeFirestorePayload } from './firestoreUtils';
 import * as cloud from 'firebase/firestore';
 import { openDB } from 'idb';
-import { isLocalPath } from './workspaceMode';
+import { isLocalPath, LOCAL_USER_ID } from './workspaceMode';
 
 // Keep cloud references, paths and all existing user data intact. Only the explicit
 // local workspace namespace is handled by IndexedDB; failures never fall back to cloud.
 export * from 'firebase/firestore';
-const database = () => openDB('huntrr.organizer.workspace', 1, {
+export const legacyWorkspaceDatabase = () => openDB('huntrr.organizer.workspace', 1, {
   upgrade(db) { db.createObjectStore('documents'); },
+});
+export const workspaceDatabase = () => openDB('huntrr.organizer.profiles', 1, {
+  upgrade(db) {
+    db.createObjectStore('documents');
+    db.createObjectStore('profiles');
+    db.createObjectStore('profileSettings');
+    db.createObjectStore('attachments');
+  },
 });
 const changes = new EventTarget();
 const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('huntrr.organizer.workspace') : null;
@@ -26,36 +34,39 @@ function report(error: unknown): never {
 }
 const pathOf = (ref: any): string => queries.get(ref)?.path || ref.path || '';
 const local = (ref: any) => isLocalPath(pathOf(ref));
-const revive = (value: any): any => {
+const namespace = (ref: any) => pathOf(ref).split('/')[1];
+const database = (ref: any) => namespace(ref) === LOCAL_USER_ID ? legacyWorkspaceDatabase() : workspaceDatabase();
+export const reviveWorkspaceValue = (value: any): any => {
   if (value?.__workspaceTimestamp) return new cloud.Timestamp(value.seconds, value.nanoseconds);
-  if (Array.isArray(value)) return value.map(revive);
-  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, revive(v)]));
+  if (Array.isArray(value)) return value.map(reviveWorkspaceValue);
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, reviveWorkspaceValue(v)]));
   return value;
 };
-function encode(value: any, previous?: any): any {
+export function encodeWorkspaceValue(value: any, previous?: any): any {
   const transform = value && typeof value === 'object' ? fields.get(value) : undefined;
-  if (transform?.kind === 'timestamp') return encode(cloud.Timestamp.now());
-  if (transform?.kind === 'union') return [...(previous || []), ...transform.args.filter(v => !(previous || []).some((p: any) => JSON.stringify(p) === JSON.stringify(v)))].map(v => encode(v));
-  if (transform?.kind === 'remove') return (previous || []).filter((p: any) => !transform.args.some(v => JSON.stringify(p) === JSON.stringify(v))).map((v: any) => encode(v));
+  if (transform?.kind === 'timestamp') return encodeWorkspaceValue(cloud.Timestamp.now());
+  if (transform?.kind === 'union') return [...(previous || []), ...transform.args.filter(v => !(previous || []).some((p: any) => JSON.stringify(p) === JSON.stringify(v)))].map(v => encodeWorkspaceValue(v));
+  if (transform?.kind === 'remove') return (previous || []).filter((p: any) => !transform.args.some(v => JSON.stringify(p) === JSON.stringify(v))).map((v: any) => encodeWorkspaceValue(v));
   if (value instanceof cloud.Timestamp) return { __workspaceTimestamp: true, seconds: value.seconds, nanoseconds: value.nanoseconds };
-  if (value instanceof Date) return encode(cloud.Timestamp.fromDate(value));
-  if (Array.isArray(value)) return value.map((v, i) => encode(v, previous?.[i]));
-  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined).map(([k, v]) => [k, encode(v, previous?.[k])]));
+  if (value instanceof Date) return encodeWorkspaceValue(cloud.Timestamp.fromDate(value));
+  if (Array.isArray(value)) return value.map((v, i) => encodeWorkspaceValue(v, previous?.[i]));
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined).map(([k, v]) => [k, encodeWorkspaceValue(v, previous?.[k])]));
   return value;
 }
 const snapshot = (ref: any, value: any) => ({
-  id: ref.id, ref, exists: () => value !== undefined, data: () => revive(value),
-  get: (field: string) => field.split('.').reduce((v, key) => v?.[key], revive(value)),
+  id: ref.id, ref, exists: () => value !== undefined, data: () => reviveWorkspaceValue(value),
+  get: (field: string) => field.split('.').reduce((v, key) => v?.[key], reviveWorkspaceValue(value)),
   metadata: { fromCache: true, hasPendingWrites: false },
 });
 async function readDocument(ref: any) {
-  return snapshot(ref, await (await database()).get('documents', ref.path));
+  return snapshot(ref, await (await database(ref)).get('documents', ref.path));
 }
 async function readQuery(ref: any) {
-  const db = await database();
+  const db = await database(ref);
   const tx = db.transaction('documents');
-  const [keys, values] = await Promise.all([tx.store.getAllKeys(), tx.store.getAll()]);
   const path = pathOf(ref);
+  const range = IDBKeyRange.bound(path + '/', path + '0', false, true);
+  const [keys, values] = await Promise.all([tx.store.getAllKeys(range), tx.store.getAll(range)]);
   let docs = keys.flatMap((key, i) => typeof key === 'string' && key.startsWith(path + '/') && !key.slice(path.length + 1).includes('/') ? [snapshot(cloud.doc(ref.firestore, key), values[i])] : []);
   for (const rule of queries.get(ref)?.constraints || []) {
     const [field, op, value] = rule.args;
@@ -101,7 +112,12 @@ export const onSnapshot: typeof cloud.onSnapshot = ((ref: any, ...args: any[]) =
 }) as any;
 type Operation = { kind: 'set' | 'update' | 'delete'; ref: any; data?: any; options?: any };
 async function commit(operations: Operation[]) {
-  const db = await database();
+  if (!operations.length) return;
+  const first = operations[0].ref;
+  if (operations.some(op => !local(op.ref) || namespace(op.ref) !== namespace(first))) {
+    throw new Error('A local batch must belong to one profile.');
+  }
+  const db = await database(first);
   const tx = db.transaction('documents', 'readwrite');
   try {
     for (const op of operations) {
@@ -109,7 +125,7 @@ async function commit(operations: Operation[]) {
       if (op.kind === 'delete') { await tx.store.delete(op.ref.path); continue; }
       const previous = await tx.store.get(op.ref.path);
       if (op.kind === 'update' && previous === undefined) throw new Error('This record no longer exists. Refresh and try again.');
-      const data = encode(op.data, previous);
+      const data = encodeWorkspaceValue(op.data, previous);
       const result = op.kind === 'update' || op.options?.merge ? merge(previous || {}, data) : data;
       await tx.store.put(result, op.ref.path);
     }
@@ -130,12 +146,12 @@ function merge(previous: any, next: any): any {
 }
 // The photo queue uses a single IndexedDB read/write transaction for its read-
 // modify-write step, so concurrent uploads cannot overwrite each other's metadata.
-export async function runLocalTransaction<T>(_db: any, callback: (transaction: cloud.Transaction) => Promise<T>): Promise<T> {
-  const db = await database();
+export async function runLocalTransaction<T>(_db: any, callback: (transaction: cloud.Transaction) => Promise<T>, uid = LOCAL_USER_ID): Promise<T> {
+  const db = uid === LOCAL_USER_ID ? await legacyWorkspaceDatabase() : await workspaceDatabase();
   const tx = db.transaction('documents', 'readwrite');
   const operations: Operation[] = [];
   const transaction: any = {
-    async get(ref: any) { if (!local(ref)) throw new Error('Local transactions cannot access cloud records.'); return snapshot(ref, await tx.store.get(ref.path)); },
+    async get(ref: any) { if (!local(ref) || namespace(ref) !== uid) throw new Error('Local transactions must belong to one profile.'); return snapshot(ref, await tx.store.get(ref.path)); },
     set(ref: any, data: any, options: any) { operations.push({ kind: 'set', ref, data, options }); return transaction; },
     update(ref: any, data: any) { operations.push({ kind: 'update', ref, data }); return transaction; },
     delete(ref: any) { operations.push({ kind: 'delete', ref }); return transaction; },
@@ -143,12 +159,12 @@ export async function runLocalTransaction<T>(_db: any, callback: (transaction: c
   try {
     const result = await callback(transaction);
     for (const op of operations) {
-      if (!local(op.ref)) throw new Error('Local transactions cannot access cloud records.');
+      if (!local(op.ref) || namespace(op.ref) !== uid) throw new Error('Local transactions must belong to one profile.');
       if (op.kind === 'delete') await tx.store.delete(op.ref.path);
       else {
         const previous = await tx.store.get(op.ref.path);
         if (op.kind === 'update' && previous === undefined) throw new Error('The record no longer exists.');
-        const data = encode(op.data, previous);
+        const data = encodeWorkspaceValue(op.data, previous);
         await tx.store.put(op.kind === 'update' || op.options?.merge ? merge(previous || {}, data) : data, op.ref.path);
       }
     }

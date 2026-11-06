@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Image as ImageIcon, Upload, X, Check, Droplet } from 'lucide-react';
-import { useAuth } from '../lib/AuthContext';
+import { useProfile } from '../lib/ProfileContext';
 import { uploadFileToStorage } from '../lib/storage';
 
 export function ColorSampler({ initialImageUrl, onSave, onCancel }: { initialImageUrl?: string, onSave: (color: any) => void, onCancel: () => void }) {
-  const { user } = useAuth();
+  const { user } = useProfile();
   const [photoUrl, setPhotoUrl] = useState<string | null>(initialImageUrl || null);
   const [photoStoragePath, setPhotoStoragePath] = useState<string | null>(null);
   const [point, setPoint] = useState<{ x: number, y: number } | null>(null);

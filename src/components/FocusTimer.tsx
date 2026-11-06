@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { Play, Pause, Square, X, Clock, Volume2, VolumeX, Bell, BellOff, Check } from 'lucide-react';
 import { doc, setDoc, onSnapshot } from '../lib/workspaceStore';
 import { db } from '../lib/firebase';
-import { useAuth } from '../lib/AuthContext';
+import { useProfile } from '../lib/ProfileContext';
 import { Habit } from './HabitsView';
 
 export type FocusSession = {
@@ -19,7 +19,7 @@ export type FocusSession = {
 };
 
 export function FocusTimer() {
-  const { user } = useAuth();
+  const { user } = useProfile();
   
   const [isOpen, setIsOpen] = useState(false);
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -38,6 +38,7 @@ export function FocusTimer() {
   const [isPaused, setIsPaused] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(25 * 60);
   
+  const [timerReady, setTimerReady] = useState(false);
   const endTimeRef = useRef<number | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
@@ -70,57 +71,48 @@ export function FocusTimer() {
     return () => unsub();
   }, [user]);
 
-  // Load state from local storage on mount
+  // Hydrate before saving so a refresh cannot overwrite a running timer with defaults.
   useEffect(() => {
-    const saved = localStorage.getItem('focus_timer_state');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setDuration(parsed.duration);
-        setTaskTitle(parsed.taskTitle || '');
-        setSelectedHabitId(parsed.selectedHabitId || '');
-        setSoundsEnabled(parsed.soundsEnabled ?? true);
-        if (parsed.volume !== undefined) setVolume(parsed.volume);
-        setNotificationsEnabled(parsed.notificationsEnabled ?? true);
-        
-        if (parsed.isActive) {
-          setIsActive(true);
-          setIsPaused(parsed.isPaused);
-          if (parsed.isPaused) {
-            setTimeRemaining(parsed.timeRemaining);
-          } else {
-            endTimeRef.current = parsed.endTime;
-            const remaining = Math.max(0, Math.floor((parsed.endTime - Date.now()) / 1000));
-            setTimeRemaining(remaining);
-            if (remaining === 0) {
-              handleTimerComplete();
-            }
-          }
-        } else {
-          setTimeRemaining(parsed.duration * 60);
-        }
-      } catch (e) {
-        console.error(e);
+    if (!user) return;
+    let mounted = true;
+    getDoc(doc(db, `users/${user.uid}/preferences`, 'focusTimer')).then(snapshot => {
+      if (!mounted) return;
+      const saved = snapshot.data();
+      if (saved) {
+        const minutes = Number.isFinite(saved.duration) ? Math.max(1, Math.min(120, saved.duration)) : 25;
+        const end = typeof saved.endTime === 'number' ? saved.endTime : null;
+        const paused = Boolean(saved.isPaused);
+        const remaining = paused ? Number(saved.timeRemaining) : end === null ? 0 : Math.ceil((end - Date.now()) / 1000);
+        const active = Boolean(saved.isActive) && Number.isFinite(remaining) && (paused ? remaining > 0 : end !== null);
+        setDuration(minutes);
+        setTaskTitle(saved.taskTitle || '');
+        setSelectedHabitId(saved.selectedHabitId || '');
+        setSoundsEnabled(saved.soundsEnabled ?? true);
+        setVolume(saved.volume ?? 0.5);
+        setNotificationsEnabled(saved.notificationsEnabled ?? true);
+        endTimeRef.current = active && !paused ? end : null;
+        setIsActive(active);
+        setIsPaused(active && paused);
+        setTimeRemaining(active ? Math.max(0, remaining) : minutes * 60);
       }
-    }
-  }, []);
+      setTimerReady(true);
+    }).catch(error => {
+      if (mounted) window.dispatchEvent(new CustomEvent('workspace-storage-error', { detail: String(error.message || error) }));
+    });
+    return () => { mounted = false; };
+  }, [user]);
 
-  // Save state to local storage whenever it changes
   useEffect(() => {
-    const stateToSave = {
-      isActive,
-      isPaused,
-      timeRemaining,
-      endTime: endTimeRef.current,
-      duration,
-      taskTitle,
-      selectedHabitId,
-      soundsEnabled,
-      volume,
-      notificationsEnabled
+    if (!user || !timerReady) return;
+    const state = {
+      isActive, isPaused, endTime: endTimeRef.current, duration, taskTitle,
+      selectedHabitId, soundsEnabled, volume, notificationsEnabled,
+      timeRemaining: isPaused ? timeRemaining : null,
     };
-    localStorage.setItem('focus_timer_state', JSON.stringify(stateToSave));
-  }, [isActive, isPaused, timeRemaining, duration, taskTitle, selectedHabitId, soundsEnabled, volume, notificationsEnabled]);
+    // The saved end time carries a running countdown across browser restarts.
+    void setDoc(doc(db, `users/${user.uid}/preferences`, 'focusTimer'), state).catch(() => {});
+  }, [user, timerReady, isActive, isPaused, isPaused ? timeRemaining : null, duration,
+    taskTitle, selectedHabitId, soundsEnabled, volume, notificationsEnabled]);
 
   const playSound = () => {
     if (!soundsEnabled) return;
@@ -283,7 +275,7 @@ export function FocusTimer() {
   const strokeDashoffset = circumference - (progress / 100) * circumference;
 
   return <>
-      <button type="button" aria-label="Open focus timer" aria-haspopup="dialog" aria-expanded={isOpen}
+      <button type="button" aria-label="Open focus timer" aria-haspopup="dialog" aria-expanded={isOpen} disabled={!timerReady}
         onClick={() => setIsOpen(true)}
         className="device-timer"
       >

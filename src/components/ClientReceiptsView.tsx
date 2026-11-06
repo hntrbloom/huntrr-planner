@@ -39,7 +39,7 @@ import { jsPDF } from 'jspdf';
 import { saveAs } from 'file-saver';
 import { db } from '../lib/firebase';
 import { doc, setDoc, onSnapshot } from '../lib/workspaceStore';
-import { useAuth } from '../lib/AuthContext';
+import { useProfile } from '../lib/ProfileContext';
 import { SyncStatus } from './SyncStatus';
 import { GUEST_SAMPLE_RECEIPTS } from '../lib/guestSampleData';
 import { convertPdfToImageDataUrl, createPostagePreview } from '../lib/pdfUtils';
@@ -127,7 +127,7 @@ function getTodayString(): string {
 }
 
 export function ClientReceiptsView() {
-  const { user } = useAuth();
+  const { user } = useProfile();
   const [syncStatus, setSyncStatus] = useState<'idle' | 'saving' | 'saved' | 'error' | 'offline'>('idle');
   const [savedReceipts, setSavedReceipts] = useState<ClientReceipt[]>([]);
   const [activeReceiptId, setActiveReceiptId] = useState<string | null>(null);
@@ -220,18 +220,6 @@ export function ClientReceiptsView() {
           if (!activeReceiptId && loaded.length > 0) {
             loadReceiptIntoForm(loaded[0]);
           }
-        } else {
-          // If empty in cloud, check localStorage cache
-          try {
-            const cached = localStorage.getItem(`huntrr_receipts_${user.uid}`);
-            if (cached) {
-              const parsed = JSON.parse(cached);
-              setSavedReceipts(parsed);
-              if (parsed.length > 0) loadReceiptIntoForm(parsed[0]);
-            }
-          } catch (e) {
-            console.error('Error reading receipt cache:', e);
-          }
         }
       },
       (err) => {
@@ -246,13 +234,6 @@ export function ClientReceiptsView() {
   const persistReceipts = async (receiptsList: ClientReceipt[]) => {
     setSavedReceipts(receiptsList);
     if (!user) return;
-
-    // Cache locally
-    try {
-      localStorage.setItem(`huntrr_receipts_${user.uid}`, JSON.stringify(receiptsList));
-    } catch (e) {
-      console.warn('LocalStorage error:', e);
-    }
 
     if (user.isAnonymous) {
       setSyncStatus('saved');

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Bell, Plus, Trash2, Clock, Smartphone, Monitor, AlertCircle, RefreshCw } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { doc, setDoc } from '../lib/workspaceStore';
-import { useAuth } from '../lib/AuthContext';
+import { useProfile } from '../lib/ProfileContext';
 import { SyncStatus } from './SyncStatus';
 
 interface Reminder {
@@ -14,7 +14,7 @@ interface Reminder {
 }
 
 export function RemindersView() {
-  const { user } = useAuth();
+  const { user } = useProfile();
   const [loading, setLoading] = useState(true);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'saving' | 'saved' | 'error' | 'offline'>('idle');
   const [reminders, setReminders] = useState<Reminder[]>([]);

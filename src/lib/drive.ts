@@ -1,4 +1,4 @@
-import { getAccessToken } from './AuthContext';
+import { getAccessToken } from './driveAccess';
 import { blobToBase64 } from './imageService';
 
 export async function uploadToDrive(file: File, sectionName = 'Other'): Promise<string> {

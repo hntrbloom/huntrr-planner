@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { db, storage } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, arrayUnion, arrayRemove } from '../lib/workspaceStore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { useAuth } from '../lib/AuthContext';
+import { useProfile } from '../lib/ProfileContext';
 import { Plus, Search, Image as ImageIcon, Download, Trash2, Edit, X, Upload, Key, Eye, CheckCircle2 } from 'lucide-react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
@@ -47,7 +47,7 @@ interface LocalCharm extends Charm {
 }
 
 export function KeychainsView() {
-  const { user } = useAuth();
+  const { user } = useProfile();
   const [ideas, setIdeas] = useState<KeychainIdea[]>([]);
   const [loading, setLoading] = useState(true);
   

@@ -1,3 +1,4 @@
+import { useProfile } from '../lib/ProfileContext';
 import { useState, useEffect, useCallback } from 'react';
 import { getPhotoFromIDB } from '../lib/idb';
 import { storage } from '../lib/firebase';
@@ -8,17 +9,18 @@ import {
   getCachedBlobUrl, 
   extractDriveFileId 
 } from '../lib/driveImageUtils';
-import { getAccessToken, setAccessToken } from '../lib/AuthContext';
+import { getAccessToken, setAccessToken } from '../lib/driveAccess';
 import { requestFreshDriveToken } from '../lib/driveAuth';
 
 // Global memory cache for resolved Firebase Storage / HTTP / IDB URLs
 const imageCache = new Map<string, string | Promise<string>>();
 
-export const getCachedImageUrl = async (path: string): Promise<string> => {
+export const getCachedImageUrl = async (path: string, uid?: string): Promise<string> => {
   if (!path) return '';
+  const cacheKey = `${uid ?? 'legacy'}:${path}`;
   
-  if (imageCache.has(path)) {
-    const cached = imageCache.get(path)!;
+  if (imageCache.has(cacheKey)) {
+    const cached = imageCache.get(cacheKey)!;
     if (typeof cached === 'string') return cached;
     return cached; // wait for in-progress resolution
   }
@@ -28,10 +30,10 @@ export const getCachedImageUrl = async (path: string): Promise<string> => {
       // 1. Handle IndexedDB Fallbacks (Guest Mode / Offline Cache)
       if (path.startsWith('idb://') || path.startsWith('photo_')) {
         const key = path.replace('idb://', '');
-        const blob = await getPhotoFromIDB(key);
+        const blob = await getPhotoFromIDB(key, uid);
         if (blob) {
           const objUrl = URL.createObjectURL(blob);
-          imageCache.set(path, objUrl);
+          imageCache.set(cacheKey, objUrl);
           return objUrl;
         }
         if (path.startsWith('idb://')) {
@@ -41,7 +43,7 @@ export const getCachedImageUrl = async (path: string): Promise<string> => {
 
       // 2. Handle Normal HTTP/Data URLs
       if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) {
-        imageCache.set(path, path);
+        imageCache.set(cacheKey, path);
         return path;
       }
 
@@ -52,22 +54,22 @@ export const getCachedImageUrl = async (path: string): Promise<string> => {
       
       const storageRef = ref(storage, cleanPath);
       const url = await getDownloadURL(storageRef);
-      imageCache.set(path, url);
+      imageCache.set(cacheKey, url);
       return url;
     } catch (error) {
-      imageCache.delete(path);
+      imageCache.delete(cacheKey);
       throw error;
     }
   })();
 
-  imageCache.set(path, resolvePromise);
+  imageCache.set(cacheKey, resolvePromise);
   return resolvePromise;
 };
 
-export const prefetchImages = (paths: string[]) => {
+export const prefetchImages = (paths: string[], uid?: string) => {
   paths.forEach(path => {
     if (path && !imageCache.has(path)) {
-      getCachedImageUrl(path).catch(err => {
+      getCachedImageUrl(path, uid).catch(err => {
         console.warn(`[Prefetch Error] Failed to prefetch ${path}:`, err);
       });
     }
@@ -85,13 +87,17 @@ export const useImageCache = (
   driveFileId?: string,
   fallbackDriveFileId?: string
 ) => {
-  const primaryDriveId = extractDriveFileId(driveFileId) || extractDriveFileId(fallbackDriveFileId) || extractDriveFileId(src) || extractDriveFileId(storagePath);
+  const { user } = useProfile();
+  const uid = user?.uid;
+  const cacheKey = (path: string) => `${uid ?? 'legacy'}:${path}`;
+  const isLocalAttachment = (value?: string) => /^(idb:\/\/|photo_)/.test(value ?? '');
+  const primaryDriveId = isLocalAttachment(storagePath) || isLocalAttachment(src) ? undefined : extractDriveFileId(driveFileId) || extractDriveFileId(fallbackDriveFileId) || extractDriveFileId(src) || extractDriveFileId(storagePath);
   const secondaryDriveId = (driveFileId && fallbackDriveFileId && extractDriveFileId(driveFileId) !== extractDriveFileId(fallbackDriveFileId))
     ? extractDriveFileId(fallbackDriveFileId)
     : undefined;
 
   const [displayUrl, setDisplayUrl] = useState<string | null>(() => {
-    const cleanStoragePath = (typeof storagePath === 'string' ? storagePath : '').trim();
+    const cleanStoragePath = (storagePath || (isLocalAttachment(src) ? src : '') || '').trim();
     const cleanSrc = (typeof src === 'string' ? src : '').trim();
 
     if (primaryDriveId) {
@@ -100,12 +106,12 @@ export const useImageCache = (
       return null;
     }
 
-    if (cleanStoragePath && imageCache.has(cleanStoragePath)) {
-      const cached = imageCache.get(cleanStoragePath);
+    if (cleanStoragePath && imageCache.has(cacheKey(cleanStoragePath))) {
+      const cached = imageCache.get(cacheKey(cleanStoragePath));
       if (typeof cached === 'string') return cached;
     }
-    if (cleanSrc && imageCache.has(cleanSrc)) {
-      const cached = imageCache.get(cleanSrc);
+    if (cleanSrc && imageCache.has(cacheKey(cleanSrc))) {
+      const cached = imageCache.get(cacheKey(cleanSrc));
       if (typeof cached === 'string') return cached;
     }
 
@@ -118,7 +124,7 @@ export const useImageCache = (
 
   const [isLoading, setIsLoading] = useState<boolean>(() => {
     if (displayUrl) return false;
-    const cleanStoragePath = (typeof storagePath === 'string' ? storagePath : '').trim();
+    const cleanStoragePath = (storagePath || (isLocalAttachment(src) ? src : '') || '').trim();
     const cleanSrc = (typeof src === 'string' ? src : '').trim();
     return !!(primaryDriveId || cleanStoragePath || (cleanSrc && (cleanSrc.startsWith('idb://') || cleanSrc.startsWith('photo_'))));
   });
@@ -129,7 +135,7 @@ export const useImageCache = (
   useEffect(() => {
     let active = true;
 
-    const cleanStoragePath = (typeof storagePath === 'string' ? storagePath : '').trim();
+    const cleanStoragePath = (storagePath || (isLocalAttachment(src) ? src : '') || '').trim();
     const cleanSrc = (typeof src === 'string' ? src : '').trim();
 
     if (primaryDriveId) {
@@ -190,7 +196,7 @@ export const useImageCache = (
     }
 
     if (cleanStoragePath) {
-      const cached = imageCache.get(cleanStoragePath);
+      const cached = imageCache.get(cacheKey(cleanStoragePath));
       if (typeof cached === 'string') {
         setDisplayUrl(cached);
         setIsLoading(false);
@@ -201,7 +207,7 @@ export const useImageCache = (
       setIsLoading(true);
       setHasError(false);
 
-      getCachedImageUrl(cleanStoragePath)
+      getCachedImageUrl(cleanStoragePath, uid)
         .then(url => {
           if (active) {
             setDisplayUrl(url);
@@ -240,7 +246,7 @@ export const useImageCache = (
     }
 
     return () => { active = false; };
-  }, [storagePath, src, driveFileId, fallbackDriveFileId]);
+  }, [storagePath, src, driveFileId, fallbackDriveFileId, uid]);
 
   const retry = useCallback(async (interactiveAuth: boolean = false) => {
     if (!primaryDriveId && !storagePath && !src) return;
@@ -279,11 +285,11 @@ export const useImageCache = (
       }
     }
 
-    const cleanStoragePath = (typeof storagePath === 'string' ? storagePath : '').trim();
+    const cleanStoragePath = (storagePath || (isLocalAttachment(src) ? src : '') || '').trim();
     if (cleanStoragePath) {
-      imageCache.delete(cleanStoragePath);
+      imageCache.delete(cacheKey(cleanStoragePath));
       try {
-        const url = await getCachedImageUrl(cleanStoragePath);
+        const url = await getCachedImageUrl(cleanStoragePath, uid);
         setDisplayUrl(url);
         setHasError(false);
       } catch (err: any) {
@@ -295,7 +301,7 @@ export const useImageCache = (
       }
       return;
     }
-  }, [primaryDriveId, secondaryDriveId, storagePath, src]);
+  }, [primaryDriveId, secondaryDriveId, storagePath, src, uid]);
 
   // Automatically retry when a fresh Google Drive token becomes available
   useEffect(() => {

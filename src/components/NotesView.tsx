@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { FileText, Plus, Trash2, ArrowLeft, PaintBucket } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { doc, setDoc } from '../lib/workspaceStore';
-import { useAuth } from '../lib/AuthContext';
+import { useProfile } from '../lib/ProfileContext';
 import { PocketFriend } from './PlannerDecor';
 import { SyncStatus } from './SyncStatus';
 import { GUEST_SAMPLE_NOTES } from '../lib/guestSampleData';
@@ -26,7 +26,7 @@ const NOTE_COLORS = [
 ];
 
 export function NotesView() {
-  const { user } = useAuth();
+  const { user } = useProfile();
   const [loading, setLoading] = useState(true);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'saving' | 'saved' | 'error' | 'offline'>('idle');
   const [notes, setNotes] = useState<Note[]>([]);

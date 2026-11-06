@@ -1,8 +1,9 @@
+import { useProfile } from '../../lib/ProfileContext';
 import { getFileFromIDB } from '../../lib/idb';
 import React, { useState } from 'react';
 import { Box, Eye, Edit3, Download, Trash2, Search, Calendar, Ruler, Layers, Loader2, HardDrive, AlertTriangle } from 'lucide-react';
 import { SavedModel3D } from '../../types';
-import { fetchDriveSTLArrayBuffer, downloadSTLBuffer, deleteSTLFromDrive } from '../../lib/stlDriveService';
+import { fetchDriveSTLArrayBuffer, downloadSTLBuffer } from '../../lib/stlDriveService';
 
 interface SavedModelsListProps {
   models: SavedModel3D[];
@@ -21,13 +22,13 @@ export function SavedModelsList({
   onDeleteModel,
   onUploadClick,
 }: SavedModelsListProps) {
+  const { user } = useProfile();
   const [searchQuery, setSearchQuery] = useState('');
   const [loadingModelId, setLoadingModelId] = useState<string | null>(null);
   const [downloadingModelId, setDownloadingModelId] = useState<string | null>(null);
   const [editingModel, setEditingModel] = useState<SavedModel3D | null>(null);
   const [renameText, setRenameText] = useState('');
   const [deletingModel, setDeletingModel] = useState<SavedModel3D | null>(null);
-  const [deleteDriveFileChecked, setDeleteDriveFileChecked] = useState(false);
   const [isProcessingDelete, setIsProcessingDelete] = useState(false);
   const [isProcessingRename, setIsProcessingRename] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -54,7 +55,7 @@ export function SavedModelsList({
     try {
       setLoadingModelId(model.id);
       setErrorMsg(null);
-      const file = model.localFileKey ? await getFileFromIDB(model.localFileKey) : undefined;
+      const file = model.localFileKey ? await getFileFromIDB(model.localFileKey, user?.uid) : undefined;
       const buffer = file ? await file.arrayBuffer() : model.driveFileId ? await fetchDriveSTLArrayBuffer(model.driveFileId) : null;
       if (!buffer) throw new Error('This local STL file is missing. Restore a backup or upload it again.');
       onOpenModel(model, buffer);
@@ -75,7 +76,7 @@ export function SavedModelsList({
     try {
       setDownloadingModelId(model.id);
       setErrorMsg(null);
-      const file = model.localFileKey ? await getFileFromIDB(model.localFileKey) : undefined;
+      const file = model.localFileKey ? await getFileFromIDB(model.localFileKey, user?.uid) : undefined;
       const buffer = file ? await file.arrayBuffer() : model.driveFileId ? await fetchDriveSTLArrayBuffer(model.driveFileId) : null;
       if (!buffer) throw new Error('This local STL file is missing. Restore a backup or upload it again.');
       downloadSTLBuffer(buffer, model.originalFilename || model.name);
@@ -105,14 +106,7 @@ export function SavedModelsList({
     if (!deletingModel) return;
     try {
       setIsProcessingDelete(true);
-      if (deleteDriveFileChecked && deletingModel.driveFileId) {
-        try {
-          await deleteSTLFromDrive(deletingModel.driveFileId);
-        } catch (e) {
-          console.warn('Failed to delete from Drive:', e);
-        }
-      }
-      await onDeleteModel(deletingModel.id, deletingModel.driveFileId, deleteDriveFileChecked);
+      await onDeleteModel(deletingModel.id);
       setDeletingModel(null);
     } catch (err: any) {
       setErrorMsg(err?.message || 'Failed to delete model record.');
@@ -335,7 +329,6 @@ export function SavedModelsList({
                       <button
                         onClick={() => {
                           setDeletingModel(model);
-                          setDeleteDriveFileChecked(false);
                         }}
                         title="Delete Model"
                         className="p-2 text-[#888888] hover:text-error hover:bg-error-container/30 rounded-lg transition-colors cursor-pointer"
@@ -402,23 +395,6 @@ export function SavedModelsList({
             <p className="text-[13px] text-[#555555] mb-4 leading-relaxed">
               Are you sure you want to remove <span className="font-bold text-[#111111]">"{deletingModel.name}"</span> from your saved models library?
             </p>
-
-            {deletingModel.driveFileId && (
-              <label className="flex items-start gap-2.5 p-3 rounded-xl bg-surface-container-low border border-outline-variant/30 cursor-pointer mb-5 text-[13px] text-[#333333]">
-                <input
-                  type="checkbox"
-                  checked={deleteDriveFileChecked}
-                  onChange={(e) => setDeleteDriveFileChecked(e.target.checked)}
-                  className="mt-0.5 rounded text-primary focus:ring-primary w-4 h-4 cursor-pointer"
-                />
-                <div>
-                  <span className="font-semibold block">Also delete file from Google Drive</span>
-                  <span className="text-[11px] text-[#777777]">
-                    Permanently removes the original .stl file from your Google Drive models folder.
-                  </span>
-                </div>
-              </label>
-            )}
 
             <div className="flex items-center justify-end gap-2">
               <button

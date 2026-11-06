@@ -1,8 +1,4 @@
-import { auth } from './firebase';
-import { LOCAL_SESSION_KEY } from './workspaceMode';
-
+// Organizer profiles are local and do not confer a cloud API identity.
 export async function apiHeaders(): Promise<Record<string, string>> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (auth.currentUser && localStorage.getItem(LOCAL_SESSION_KEY) !== 'true') headers.Authorization = `Bearer ${await auth.currentUser.getIdToken()}`;
-  return headers;
+  return { 'Content-Type': 'application/json' };
 }

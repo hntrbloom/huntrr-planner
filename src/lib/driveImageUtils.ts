@@ -1,6 +1,5 @@
-import { getAccessToken, setAccessToken } from './AuthContext';
+import { getAccessToken, setAccessToken } from './driveAccess';
 import { requestFreshDriveToken } from './driveAuth';
-import { getThumbnailFromIDB, saveThumbnailToIDB } from './idb';
 
 // In-memory cache for session Object URLs (keyed by Drive fileId)
 const memoryBlobCache = new Map<string, string>();
@@ -124,18 +123,6 @@ export async function fetchDriveFileWithAuth(fileId: string): Promise<string> {
   const cached = memoryBlobCache.get(cacheKey);
   if (cached) return cached;
 
-  // 2. Check IndexedDB cache
-  try {
-    const idbRecord = await getThumbnailFromIDB(cleanId);
-    if (idbRecord && idbRecord.blob && idbRecord.blob.size > 0) {
-      const objUrl = URL.createObjectURL(idbRecord.blob);
-      memoryBlobCache.set(cacheKey, objUrl);
-      return objUrl;
-    }
-  } catch (err) {
-    console.warn('[fetchDriveFileWithAuth] IDB read failed:', err);
-  }
-
   // 3. Check in-progress request deduplication
   if (pendingRequests.has(cacheKey)) {
     return pendingRequests.get(cacheKey)!;
@@ -182,9 +169,6 @@ export async function fetchDriveFileWithAuth(fileId: string): Promise<string> {
     const objectUrl = URL.createObjectURL(blob);
     memoryBlobCache.set(cacheKey, objectUrl);
 
-    try {
-      await saveThumbnailToIDB(cleanId, blob);
-    } catch (_) {}
 
     return objectUrl;
   })();
@@ -273,10 +257,6 @@ export async function listImagesInDriveFolder(folderId: string): Promise<any[]> 
 export async function fetchDriveBlobWithAuth(fileId: string): Promise<Blob> {
   const cleanId = extractDriveFileId(fileId) || fileId;
   
-  const cachedBlob = await getThumbnailFromIDB(cleanId);
-  if (cachedBlob && cachedBlob.blob) {
-    return cachedBlob.blob;
-  }
 
   let token = getAccessToken();
   if (!token) {
@@ -310,9 +290,6 @@ export async function fetchDriveBlobWithAuth(fileId: string): Promise<Blob> {
 
   const blob = await res.blob();
   if (blob.size > 0) {
-    try {
-      await saveThumbnailToIDB(cleanId, blob);
-    } catch (_) {}
   }
   return blob;
 }

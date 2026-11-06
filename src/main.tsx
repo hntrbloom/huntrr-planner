@@ -5,19 +5,20 @@ import './index.css';
 import './planner.css';
 import './cat-planner-header.css';
 import './tablet-frame.css';
-import { AuthProvider } from './lib/AuthContext';
+import './profiles.css';
+import { ProfileProvider } from './lib/ProfileContext';
 import { WorkShiftsProvider } from './lib/WorkShiftsContext';
 import { CalendarProvider } from './lib/CalendarContext';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AuthProvider>
+    <ProfileProvider>
       <WorkShiftsProvider>
         <CalendarProvider>
           <App />
         </CalendarProvider>
       </WorkShiftsProvider>
-    </AuthProvider>
+    </ProfileProvider>
   </StrictMode>,
 );
 

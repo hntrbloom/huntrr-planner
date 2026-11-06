@@ -1,5 +1,5 @@
 import React from 'react';
-import { Grid2X2, LogOut, Settings } from 'lucide-react';
+import { Grid2X2, Settings } from 'lucide-react';
 import { BottomNav } from './Navigation';
 import { ViewState } from '../types';
 
@@ -9,8 +9,6 @@ interface CatPlannerHeaderProps {
   menuOpen: boolean;
   onOpenMenu: () => void;
   workspaceLabel: string;
-  canSwitchWorkspace: boolean;
-  onSwitchWorkspace: () => void;
 }
 
 function CatEar({ side }: { side: 'left' | 'right' }) {
@@ -31,9 +29,9 @@ function MoldedBow() {
   </svg>;
 }
 
-export function CatPlannerHeader({ currentView, onChangeView, menuOpen, onOpenMenu, workspaceLabel, canSwitchWorkspace, onSwitchWorkspace }: CatPlannerHeaderProps) {
-  const workspaceAction = canSwitchWorkspace ? onSwitchWorkspace : () => onChangeView('settings');
-  const workspaceActionLabel = canSwitchWorkspace ? 'Switch workspace' : 'Workspace settings';
+export function CatPlannerHeader({ currentView, onChangeView, menuOpen, onOpenMenu, workspaceLabel }: CatPlannerHeaderProps) {
+  const workspaceAction = () => onChangeView('settings');
+  const workspaceActionLabel = 'Profile settings';
   return <header className="cat-planner-header">
     <div className="cat-header-surface" aria-hidden="true" />
     <div className="cat-header-inner">
@@ -43,7 +41,7 @@ export function CatPlannerHeader({ currentView, onChangeView, menuOpen, onOpenMe
         <div className="cat-header-account">
           <span className="cat-workspace-label">{workspaceLabel}</span>
           <button type="button" className="cat-workspace-button" onClick={workspaceAction} aria-label={workspaceActionLabel} title={workspaceActionLabel}>
-            {canSwitchWorkspace ? <LogOut size={17} aria-hidden="true" /> : <Settings size={17} aria-hidden="true" />}
+            <Settings size={17} aria-hidden="true" />
             <span>{workspaceActionLabel}</span>
           </button>
         </div>

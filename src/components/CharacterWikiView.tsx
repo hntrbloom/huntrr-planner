@@ -9,7 +9,7 @@ import { requestFreshDriveToken } from '../lib/driveAuth';
 import { searchOrResolveHuntrrSpaceFolders, getWikiFolderId } from '../lib/driveFolderUtils';
 import { db } from '../lib/firebase';
 import { doc, setDoc, onSnapshot } from '../lib/workspaceStore';
-import { useAuth } from '../lib/AuthContext';
+import { useProfile } from '../lib/ProfileContext';
 import { SyncStatus } from './SyncStatus';
 import { SmartImage } from './SmartImage';
 import { ImageViewerModal, ImageToView } from './ImageViewerModal';
@@ -557,7 +557,7 @@ export function WikiImage({ url, storagePath, alt, className, onRemove }: { url?
 
 export function CharacterWikiView() {
 
-  const { user } = useAuth();
+  const { user } = useProfile();
   const [characters, setCharacters] = useState<Character[]>([]);
   const [seriesList, setSeriesList] = useState<WikiEntity[]>([]);
   const [franchiseList, setFranchiseList] = useState<WikiEntity[]>([]);
@@ -1121,7 +1121,7 @@ function CharacterDetail({ character, onClose, onEdit, onDelete, onUpdate, user 
     const newDesigns = [...(character.myDesigns || [])];
     const removed = newDesigns.splice(index, 1)[0];
     if (typeof removed !== 'string' && removed.storagePath) {
-      await deleteFileFromStorage(removed.storagePath);
+      await deleteFileFromStorage(removed.storagePath, user?.uid);
     }
     onUpdate({ ...character, myDesigns: newDesigns });
   };
@@ -1379,7 +1379,7 @@ function CharacterForm({ initialData, existingCharacters, seriesList, franchiseL
 }) {
   const { openDrivePicker } = useGoogleDrivePicker();
   const [isSaving, setIsSaving] = useState(false);
-  const { user } = useAuth();
+  const { user } = useProfile();
   const [formData, setFormData] = useState<Omit<Character, 'id'>>(() => {
     if (initialData) {
       const main = initialData.mainColor || (initialData as any).additionalPalette?.mainColor || '';

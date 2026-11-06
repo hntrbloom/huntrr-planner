@@ -1,4 +1,4 @@
-import { getAccessToken } from './AuthContext';
+import { getAccessToken } from './driveAccess';
 import { requestFreshDriveToken } from './driveAuth';
 import { getOrCreateModelsFolder } from './driveFolderUtils';
 

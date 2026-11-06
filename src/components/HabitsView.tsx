@@ -4,7 +4,7 @@ import { Plus, Trash2, Pencil, Check, RefreshCw } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { getGrayscalePalette } from '../lib/colors';
 import { doc, setDoc, collection, query, orderBy } from '../lib/workspaceStore';
-import { useAuth } from '../lib/AuthContext';
+import { useProfile } from '../lib/ProfileContext';
 import { SyncStatus } from './SyncStatus';
 import { FocusSession } from './FocusTimer';
 import { Clock } from 'lucide-react';
@@ -385,7 +385,7 @@ function SortableHabitItem({ habit, todayStr, viewMode, last7Days, toggleHabit, 
 }
 
 export function HabitsView() {
-  const { user } = useAuth();
+  const { user } = useProfile();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');

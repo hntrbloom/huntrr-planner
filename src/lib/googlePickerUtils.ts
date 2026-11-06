@@ -1,4 +1,4 @@
-import { getAccessToken } from './AuthContext';
+import { getAccessToken } from './driveAccess';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 // Keep track of script load status
