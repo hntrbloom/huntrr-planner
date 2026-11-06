@@ -1,8 +1,3 @@
-import { storage, auth } from './firebase';
-import { ACCOUNT_FILE_PREFIX } from './accountFiles';
-import { getAccountOwner } from './accountStore';
-import { supabase } from './supabase';
-import { ref, deleteObject } from 'firebase/storage';
 import { savePhotoToIDB, deletePhotoFromIDB } from './idb';
 import { uploadImageToService } from './imageService';
 import { v4 as uuidv4 } from 'uuid';
@@ -144,12 +139,11 @@ export const uploadFileToStorage = async (
       log(`Primary storage upload complete: ${result.downloadURL}`);
       return { url: result.downloadURL, path: result.storagePath, driveFileId: result.driveFileId };
     } catch (err: any) {
-      if (getAccountOwner() === userId) throw err;
       log(`Primary storage warning: ${err?.message || err}. Checking fallback...`);
-      if (auth.currentUser?.isAnonymous || String(err).includes('storage/unauthorized') || String(err).includes('timed out')) {
+      if (userId === 'guest') {
         log(`Falling back to local IndexedDB...`);
         const idbKey = `photo_${Date.now()}_${uuidv4().substring(0, 8)}_${file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
-        await savePhotoToIDB(idbKey, file);
+        await savePhotoToIDB(idbKey, file, userId);
         if (onProgress) onProgress(100);
         return { url: `idb://${idbKey}`, path: idbKey, driveFileId: null };
       }
@@ -162,7 +156,7 @@ export const uploadFileToStorage = async (
   const idbKey = `photo_${Date.now()}_${uuidv4().substring(0, 8)}_${file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
   try {
     await withTimeout(
-      savePhotoToIDB(idbKey, file),
+      savePhotoToIDB(idbKey, file, userId),
       10000,
       "IndexedDB storage timed out"
     );
@@ -213,21 +207,8 @@ export const uploadDataUrlToStorage = async (
   }
 };
 
-export const deleteFileFromStorage = async (path: string): Promise<void> => {
-  if (!path) return;
-  // Other records or an unsynced edit may still refer to the object.
-  if (path.startsWith(ACCOUNT_FILE_PREFIX)) return;
-  if (path.startsWith('idb://') || path.startsWith('photo_')) {
-    if (getAccountOwner()) return;
-    const key = path.replace('idb://', '');
-    await deletePhotoFromIDB(key).catch(() => {});
-    return;
-  }
-  if (supabase) return;
-  try {
-    const storageRef = ref(storage, path);
-    await deleteObject(storageRef);
-  } catch (error) {
-    console.warn("Ignoring error deleting file from storage:", error);
+export const deleteFileFromStorage = async (path: string, uid?: string): Promise<void> => {
+  if (path?.startsWith('idb://') || path?.startsWith('photo_')) {
+    await deletePhotoFromIDB(path.replace('idb://', ''), uid);
   }
 };

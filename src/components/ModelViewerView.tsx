@@ -1,7 +1,5 @@
 import { isLocalUser } from '../lib/workspaceMode';
 import { saveFileToIDB, deleteFileFromIDB } from '../lib/idb';
-import { ACCOUNT_FILE_PREFIX, uploadAccountFile } from '../lib/accountFiles';
-import { getAccountOwner } from '../lib/accountStore';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
@@ -36,7 +34,7 @@ import { STL3DCanvas, STL3DCanvasHandle, CameraPreset, CameraProjection } from '
 import { DriveSTLPickerModal } from './ModelViewer/DriveSTLPickerModal';
 import { SavedModelsList } from './ModelViewer/SavedModelsList';
 import { SavedModel3D, Model3DDimensions } from '../types';
-import { useAuth } from '../lib/AuthContext';
+import { useProfile } from '../lib/ProfileContext';
 import { db } from '../lib/firebase';
 import { collection, doc, onSnapshot, setDoc, deleteDoc, updateDoc } from '../lib/workspaceStore';
 import { sanitizeFirestorePayload } from '../lib/firestoreUtils';
@@ -62,12 +60,12 @@ const BACKGROUND_COLORS = [
   { name: 'Rose Blush', hex: '#FFE4E6', isDark: false },
   { name: 'Clean White', hex: '#FFFFFF', isDark: false },
   { name: 'Warm Cream', hex: '#FFF7ED', isDark: false },
-  { name: 'Petal Pink', hex: '#FCE4EF', isDark: false },
-  { name: 'Soft Ivory', hex: '#FFFDF8', isDark: false },
+  { name: 'Studio Slate', hex: '#18181B', isDark: true },
+  { name: 'Deep Navy', hex: '#0F172A', isDark: true },
 ];
 
 export function ModelViewerView() {
-  const { user } = useAuth();
+  const { user } = useProfile();
   const canvasRef = useRef<STL3DCanvasHandle>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -265,8 +263,7 @@ export function ModelViewerView() {
       let driveId = currentDriveFileId;
 
       // 1. If not already on Google Drive, upload original STL to Drive dedicated models folder
-      const cloudAccount = getAccountOwner() === user.uid;
-      if (!driveId && !isLocalUser(user) && !cloudAccount) {
+      if (!driveId && !isLocalUser(user)) {
         const blob = new Blob([currentSTLBuffer], { type: 'model/stl' });
         const uploadRes = await uploadSTLToDrive(blob, currentFilename, (percent) => {
           setUploadProgress(percent);
@@ -283,11 +280,8 @@ export function ModelViewerView() {
 
       // 3. Create document record
       const modelRecordId = currentActiveModelId || uuidv4();
-      const modelFile = new Blob([currentSTLBuffer], { type: 'model/stl' });
-      const localFileKey = cloudAccount
-        ? await uploadAccountFile(user.uid, modelFile)
-        : isLocalUser(user) ? `huntrr_local_stl_${modelRecordId}` : undefined;
-      if (localFileKey && !cloudAccount) await saveFileToIDB(localFileKey, modelFile);
+      const localFileKey = isLocalUser(user) ? `huntrr_local_stl_${modelRecordId}` : undefined;
+      if (localFileKey) await saveFileToIDB(localFileKey, new Blob([currentSTLBuffer], { type: 'model/stl' }), user.uid);
       const modelRecord: SavedModel3D = {
         localFileKey,
         id: modelRecordId,
@@ -358,7 +352,7 @@ export function ModelViewerView() {
     if (user && !user.isAnonymous) {
       await deleteDoc(doc(db, `users/${user.uid}/saved_models`, modelId));
       const deleted = savedModels.find(m => m.id === modelId);
-      if (deleted?.localFileKey && !deleted.localFileKey.startsWith(ACCOUNT_FILE_PREFIX)) await deleteFileFromIDB(deleted.localFileKey);
+      if (deleted?.localFileKey) await deleteFileFromIDB(deleted.localFileKey, user?.uid);
     } else {
       const updated = savedModels.filter((m) => m.id !== modelId);
       setSavedModels(updated);
@@ -817,7 +811,7 @@ export function ModelViewerView() {
 
       {/* Large File Warning Modal */}
       {pendingLargeFile && (
-        <div role="dialog" aria-modal="true" aria-label="Modeler dialog" tabIndex={-1} className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-pink-100/90 backdrop-blur-xs">
+        <div role="dialog" aria-modal="true" aria-label="Modeler dialog" tabIndex={-1} className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl border border-black/10 animate-in fade-in zoom-in-95 duration-150 text-left">
             <div className="flex items-center gap-3 text-amber-600 mb-3">
               <div className="p-2.5 bg-amber-100 rounded-xl">
@@ -861,7 +855,7 @@ export function ModelViewerView() {
 
       {/* Save Model Modal */}
       {showSaveModal && (
-        <div role="dialog" aria-modal="true" aria-label="Modeler dialog" tabIndex={-1} className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-pink-100/90 backdrop-blur-xs">
+        <div role="dialog" aria-modal="true" aria-label="Modeler dialog" tabIndex={-1} className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl border border-black/10 animate-in fade-in zoom-in-95 duration-150 text-left">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2.5">

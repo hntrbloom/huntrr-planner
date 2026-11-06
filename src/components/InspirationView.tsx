@@ -1,9 +1,8 @@
+import { isLocalUser } from '../lib/workspaceMode';
 import React, { useState, useEffect, useRef } from 'react';
-import { db, auth, storage } from '../lib/firebase';
+import { db } from '../lib/firebase';
 import { collection, onSnapshot, addDoc, deleteDoc, updateDoc, doc, writeBatch } from '../lib/workspaceStore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import firebaseConfig from '../../firebase-applet-config.json';
-import { useAuth } from '../lib/AuthContext';
+import { useProfile } from '../lib/ProfileContext';
 import { 
   Plus, Trash2, X, Upload, Image as ImageIcon, CheckCircle2, ChevronDown, 
   FolderOpen, ArrowRightLeft, Link as LinkIcon, RefreshCw, ExternalLink, 
@@ -17,7 +16,7 @@ import { getPhotoFromIDB } from '../lib/idb';
 import { useGoogleDrivePicker, DriveImage } from '../hooks/useGoogleDrivePicker';
 import { SmartImage } from './SmartImage';
 import { listImagesInDriveFolder } from '../lib/driveImageUtils';
-import { getAccessToken, setAccessToken } from '../lib/AuthContext';
+import { getAccessToken, setAccessToken } from '../lib/driveAccess';
 import { requestFreshDriveToken } from '../lib/driveAuth';
 
 export interface InspirationBoard {
@@ -107,7 +106,7 @@ const ImageWithFallback = ({ src, alt, className, style }: { src: string, alt: s
 };
 
 export function InspirationView() {
-  const { user, signIn } = useAuth();
+  const { user } = useProfile();
   const [boards, setBoards] = useState<InspirationBoard[]>([]);
   const [photos, setPhotos] = useState<InspirationPhoto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -435,86 +434,8 @@ export function InspirationView() {
   const [resolvedUrls, setResolvedUrls] = useState<Record<string, string>>({});
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const testFileInputRef = useRef<HTMLInputElement>(null);
-
-  const [testLogs, setTestLogs] = useState<string[]>([]);
-  const [testUploadedUrl, setTestUploadedUrl] = useState<string | null>(null);
-  const [isTestRunning, setIsTestRunning] = useState(false);
-
-  const runStorageTest = async (file: File) => {
-    setIsTestRunning(true);
-    setTestUploadedUrl(null);
-    const logs: string[] = [];
-    const addLog = (msg: string) => {
-      logs.push(msg);
-      setTestLogs([...logs]);
-      console.log(`[StorageTest] ${msg}`);
-    };
-
-    addLog("TEST STARTED");
-    addLog(`Selected File: ${file.name} (Type: ${file.type || 'unknown'}, Size: ${(file.size / 1024).toFixed(1)} KB)`);
-
-    const currentUser = auth.currentUser;
-    const authStatus = currentUser
-      ? `UID: ${currentUser.uid} | Email: ${currentUser.email || 'none'} | Anonymous: ${currentUser.isAnonymous}`
-      : 'NONE (User not authenticated)';
-    addLog(`Authenticated user: ${authStatus}`);
-
-    const bucketName = (firebaseConfig as any)?.storageBucket || storage.app.options.storageBucket || 'spiritual-craft-501119-n4.firebasestorage.app';
-    addLog(`Storage provider: Firebase Storage`);
-    addLog(`Bucket: ${bucketName}`);
-
-    const userId = currentUser && !currentUser.isAnonymous ? currentUser.uid : 'guest';
-    const uniqueName = `test_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
-    const destPath = `test_uploads/${userId}/${uniqueName}`;
-    addLog(`Destination path: ${destPath}`);
-
-    try {
-      const storageRef = ref(storage, destPath);
-      addLog("Upload request sent (calling uploadBytes)...");
-
-      const uploadTask = (async () => {
-        const snapshot = await uploadBytes(storageRef, file, {
-          contentType: file.type || 'image/png'
-        });
-        addLog(`Upload response: HTTP 200 OK | size: ${snapshot.metadata.size} | fullPath: ${snapshot.ref.fullPath}`);
-        addLog("Requesting permanent download URL...");
-        const url = await getDownloadURL(snapshot.ref);
-        return url;
-      })();
-
-      const timeoutPromise = new Promise<string>((_, reject) => {
-        setTimeout(() => {
-          reject(new Error("Storage upload timed out after 25 seconds (network connection, bucket block, or CORS issue)"));
-        }, 25000);
-      });
-
-      const permanentUrl = await Promise.race([uploadTask, timeoutPromise]);
-
-      addLog(`Permanent URL/path: ${permanentUrl}`);
-      setTestUploadedUrl(permanentUrl);
-      addLog("TEST SUCCESS");
-    } catch (err: any) {
-      addLog("TEST FAILED");
-      const errObj = {
-        name: err?.name || 'Error',
-        code: err?.code || 'UNKNOWN',
-        message: err?.message || String(err),
-        serverResponse: err?.serverResponse || null,
-        customData: err?.customData || null,
-        stack: err?.stack || null
-      };
-      addLog(`Error code: ${errObj.code}`);
-      addLog(`Error message: ${errObj.message}`);
-      addLog(`Full error details: ${JSON.stringify(errObj, null, 2)}`);
-      console.error("Storage Test Error:", err);
-    } finally {
-      setIsTestRunning(false);
-    }
-  };
-
   useEffect(() => {
-    if (!user || boards.length === 0) return;
+    if (!user || isLocalUser(user) || boards.length === 0) return;
     const willyBoard = boards.find(b => b.title === 'willy<3');
     if (!willyBoard) {
       if (!syncedBoardsRef.current.has('creating_willy')) {
@@ -560,7 +481,7 @@ export function InspirationView() {
       for (const photo of idbPhotos) {
         const key = photo.url.replace('idb://', '');
         try {
-          const blob = await getPhotoFromIDB(key);
+          const blob = await getPhotoFromIDB(key, user?.uid);
           if (blob) {
             newResolved[photo.url] = URL.createObjectURL(blob);
           } else {
@@ -848,7 +769,7 @@ export function InspirationView() {
         boardPhotos.forEach(p => {
           batch.delete(doc(db, `users/${user.uid}/photos`, p.id));
           if (p.storagePath) {
-            deleteFileFromStorage(p.storagePath).catch(console.error);
+            deleteFileFromStorage(p.storagePath, user?.uid).catch(console.error);
           }
         });
         batch.delete(doc(db, `users/${user.uid}/boards`, boardId));
@@ -1128,7 +1049,7 @@ export function InspirationView() {
           if (photo) {
             batch.delete(doc(db, `users/${user.uid}/photos`, id));
             if (photo.storagePath) {
-              deleteFileFromStorage(photo.storagePath).catch(console.error);
+              deleteFileFromStorage(photo.storagePath, user?.uid).catch(console.error);
             }
           }
         }
@@ -1368,33 +1289,6 @@ export function InspirationView() {
                 </button>
 
                 <button 
-                  onClick={() => testFileInputRef.current?.click()}
-                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-full text-xs font-bold text-white shadow-sm flex items-center gap-1.5 transition-colors disabled:opacity-50"
-                  disabled={isTestRunning}
-                  title="Minimal Cloud Storage Test"
-                >
-                  {isTestRunning ? (
-                    <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Testing Storage...</>
-                  ) : (
-                    <><TestTube className="w-3.5 h-3.5" /> Test Storage Upload</>
-                  )}
-                </button>
-
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  ref={testFileInputRef} 
-                  className="hidden" 
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files.length > 0) {
-                      const file = e.target.files[0];
-                      e.target.value = '';
-                      runStorageTest(file);
-                    }
-                  }} 
-                />
-
-                <button 
                   onClick={() => {
                     const board = selectedBoardId === 'all' ? undefined : boards.find(b => b.id === selectedBoardId);
                     showPicker((images) => {
@@ -1502,51 +1396,6 @@ export function InspirationView() {
       {/* Main Content Area */}
       <div className="p-4 md:p-8 flex-1">
         
-        {testLogs.length > 0 && (
-          <div className="planner-dark-panel mb-6 p-4 bg-pink-100 text-emerald-400 rounded-2xl text-xs font-mono border border-indigo-500/50 shadow-xl animate-in fade-in">
-            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
-              <span className="font-bold text-indigo-300 flex items-center gap-2 text-sm">
-                <TestTube className="w-4 h-4 text-indigo-400" />
-                Storage Upload Test Diagnostics
-              </span>
-              <button 
-                onClick={() => { setTestLogs([]); setTestUploadedUrl(null); }}
-                className="text-slate-400 hover:text-white px-2.5 py-1 rounded bg-pink-100 text-[11px] font-sans font-medium transition-colors"
-              >
-                Clear Test Logs
-              </button>
-            </div>
-            <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
-              {testLogs.map((log, idx) => (
-                <div 
-                  key={idx} 
-                  className={`leading-relaxed whitespace-pre-wrap break-all ${
-                    log.startsWith('TEST SUCCESS') ? 'text-emerald-300 font-bold text-sm py-1' :
-                    log.startsWith('TEST FAILED') ? 'text-red-400 font-bold text-sm py-1' :
-                    log.startsWith('TEST STARTED') ? 'text-indigo-300 font-bold' :
-                    log.startsWith('Error') || log.includes('FAILED') ? 'text-red-400' :
-                    log.startsWith('Permanent URL') ? 'text-cyan-300 font-bold' :
-                    'text-slate-200'
-                  }`}
-                >
-                  {log}
-                </div>
-              ))}
-            </div>
-            {testUploadedUrl && (
-              <div className="mt-4 pt-3 border-t border-slate-800 flex flex-col sm:flex-row items-center gap-4">
-                <img src={testUploadedUrl} alt="Uploaded test result" className="h-28 w-28 object-cover rounded-xl border-2 border-emerald-500 shadow-md" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-emerald-400 font-bold text-xs mb-1">Uploaded Image Verification:</div>
-                  <a href={testUploadedUrl} target="_blank" rel="noreferrer" className="text-cyan-400 underline text-[11px] break-all hover:text-cyan-300">
-                    {testUploadedUrl}
-                  </a>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
         {debugLogs.length > 0 && (
           <div className="planner-dark-panel mb-6 p-4 bg-pink-100 text-slate-100 rounded-2xl text-xs font-mono border border-slate-700 shadow-lg animate-in fade-in">
             <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-700">
@@ -1887,7 +1736,7 @@ export function InspirationView() {
                       } else {
                         await deleteDoc(doc(db, `users/${user.uid}/photos`, activePhoto.id));
                         if (activePhoto.storagePath) {
-                          deleteFileFromStorage(activePhoto.storagePath).catch(console.error);
+                          deleteFileFromStorage(activePhoto.storagePath, user?.uid).catch(console.error);
                         }
                       }
                       setActivePhoto(null);

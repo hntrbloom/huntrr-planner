@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, RefreshCw, AlertCircle, Box, Loader2, LogIn, Search, HardDrive } from 'lucide-react';
-import { getAccessToken } from '../../lib/AuthContext';
+import { getAccessToken } from '../../lib/driveAccess';
 import { requestFreshDriveToken } from '../../lib/driveAuth';
 import { listDriveSTLFiles, fetchDriveSTLArrayBuffer, DriveSTLFileItem } from '../../lib/stlDriveService';
 import { 

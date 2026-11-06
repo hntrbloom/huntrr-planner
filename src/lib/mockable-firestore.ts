@@ -1,4 +1,3 @@
-import { auth } from './firebase';
 import * as firestore from 'firebase/firestore';
 
 // In-memory store

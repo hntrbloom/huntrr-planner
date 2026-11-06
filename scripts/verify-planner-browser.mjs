@@ -6,7 +6,7 @@ const results=[];
 try{
  const p=await browser.newPage();await p.setViewport({width:1440,height:1000});
  await p.setRequestInterception(true);p.on('request',r=>r.url().startsWith('http://127.0.0.1')||r.url().startsWith('data:')||r.url().startsWith('blob:')?r.continue():r.abort());
- await p.goto('http://127.0.0.1:3000/');await p.waitForSelector('.email-account-primary');await p.click('.email-account-primary');await p.waitForSelector('.planner-welcome');
+ await p.goto('http://127.0.0.1:3000/');await p.waitForSelector('#welcome-nickname');await p.type('#welcome-nickname','Planner QA');await p.click('.profile-welcome .profile-primary');await p.waitForSelector('.planner-welcome');
  const go=async route=>{await p.evaluate(route=>location.hash=route,route);await p.waitForFunction(route=>document.querySelector('.planner-page')?.dataset.page===route,{},route);};
  const click=async text=>{const el=await p.waitForFunction(text=>[...document.querySelectorAll('button')].find(e=>e.textContent.trim()===text),{},text);await el.asElement().click();};
  await click('Add event');await p.waitForSelector('[aria-label="Event title"]');await p.type('[aria-label="Event title"]','Organizer sample event');await click('Add to Calendar');await p.waitForFunction(()=>!document.querySelector('[aria-label="Event title"]'));await p.waitForFunction(()=>document.querySelector('.planner-page').textContent.includes('Organizer sample event'));

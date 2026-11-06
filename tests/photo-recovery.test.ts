@@ -8,7 +8,7 @@ test('failed photo repair preserves original image references and private attach
     { url: 'supabase://aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/private', caption: 'Private photo' },
   ] };
   mock.module('../src/lib/firebase.ts', { namedExports: { db: {}, storage: {} } });
-  mock.module('../src/lib/AuthContext.tsx', { namedExports: { getAccessToken: () => null } });
+  mock.module('../src/lib/driveAccess.ts', { namedExports: { getAccessToken: () => null } });
   mock.module('../src/lib/driveAuth.ts', { namedExports: { requestFreshDriveToken: async () => null } });
   mock.module('../src/lib/accountStore.ts', { namedExports: { getAccountOwner: () => 'owner' } });
   mock.module('../src/lib/accountFiles.ts', { namedExports: {
@@ -18,6 +18,7 @@ test('failed photo repair preserves original image references and private attach
     ref: () => ({}), getDownloadURL: async () => { throw new Error('Offline'); }, uploadBytes: async () => {},
   } });
   mock.module('../src/lib/workspaceStore.ts', { namedExports: {
+    workspaceDatabase: () => { throw new Error('Legacy photo repair must not open a profile database.'); },
     collection: (_db: unknown, path: string) => path, doc: () => ({}),
     getDocs: async (path: string) => ({ docs: path.endsWith('/prints') ? [{ id: 'original', data: () => structuredClone(source) }] : [] }),
     getDoc: async () => ({}), setDoc: async () => {}, updateDoc: async (_ref: unknown, data: unknown) => writes.push(data),

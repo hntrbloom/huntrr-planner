@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
 import { doc, onSnapshot, setDoc } from '../lib/workspaceStore';
-import { useAuth } from '../lib/AuthContext';
+import { useProfile } from '../lib/ProfileContext';
 import { GUEST_SAMPLE_SHOPPING_LISTS } from '../lib/guestSampleData';
 import { ShoppingCart, Plus, Trash2, ChevronLeft, CheckCircle2, Circle } from 'lucide-react';
 import { TopBar } from './TopBar';
@@ -23,7 +23,7 @@ export interface ShoppingList {
 }
 
 export function ShoppingListsView() {
-  const { user } = useAuth();
+  const { user } = useProfile();
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [isRenaming, setIsRenaming] = useState(false);
   const [listName, setListName] = useState('');

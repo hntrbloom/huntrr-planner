@@ -51,45 +51,6 @@ export async function createApp() {
     res.json({ status: "ok", product: "huntrr.organizer", integrations: { gemini: Boolean(process.env.GEMINI_API_KEY) } });
   });
 
-  app.delete('/api/account', async (req, res) => {
-    res.setHeader('Cache-Control', 'no-store');
-    const url = process.env.VITE_SUPABASE_URL;
-    const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-    const secret = process.env.SUPABASE_SECRET_KEY;
-    if (!url || !key || !secret) return res.status(503).json({ error: 'Account deletion is not configured.' });
-    const token = req.headers.authorization?.match(/^Bearer (\S+)$/i)?.[1];
-    const password = req.body?.password;
-    if (!token || typeof password !== 'string' || !password || password.length > 1024) {
-      return res.status(401).json({ error: 'Sign in again and confirm your current password.' });
-    }
-    const authOptions = { auth: { persistSession: false, autoRefreshToken: false } };
-    try {
-      const client = createClient(url, key, authOptions);
-      const { data } = await client.auth.getUser(token);
-      const user = data.user;
-      if (!user?.email || !user.email_confirmed_at) return res.status(401).json({ error: 'Sign in again.' });
-      const verified = await client.auth.signInWithPassword({ email: user.email, password });
-      if (verified.error || verified.data.user?.id !== user.id) {
-        return res.status(401).json({ error: 'The current password could not be verified.' });
-      }
-      const admin = createClient(url, secret, authOptions);
-      const bucket = admin.storage.from('planner-files');
-      // Remove private objects before Auth deletes the owner and cascades database records.
-      for (;;) {
-        const files = await bucket.list(user.id, { limit: 100 });
-        if (files.error) throw files.error;
-        if (!files.data.length) break;
-        const removed = await bucket.remove(files.data.map(file => user.id + '/' + file.name));
-        if (removed.error || !removed.data?.length) throw new Error('Attachment cleanup failed.');
-      }
-      const deleted = await admin.auth.admin.deleteUser(user.id);
-      if (deleted.error) throw deleted.error;
-      return res.status(204).end();
-    } catch {
-      return res.status(502).json({ error: 'Deletion could not be completed. Retry to finish removing the account.' });
-    }
-  });
-
   // Extract job details from Indeed, LinkedIn, or career listing links
   app.post("/api/extract-job-url", async (req, res) => {
     try {
@@ -128,7 +89,7 @@ export async function createApp() {
 
       if (!process.env.GEMINI_API_KEY) return res.status(503).json({ success: false, error: 'AI import is not configured. Enter the job details manually, or configure GEMINI_API_KEY on the server.' });
       if (!process.env.GEMINI_MODEL) return res.status(503).json({ success: false, error: 'Configure GEMINI_MODEL on the server to enable AI import.' });
-      if (!await verifyAccount(req)) return res.status(401).json({ success: false, error: 'Sign in with Google to use AI import. Manual job entry is available in the local workspace.' });
+      if (!await verifyAccount(req)) return res.status(401).json({ success: false, error: 'AI text import requires a legacy cloud identity. You can enter job details manually in your profile.' });
       const extracted = await extractJobDataFromText(text, originalUrl);
       return res.json(extracted);
     } catch (err: any) {

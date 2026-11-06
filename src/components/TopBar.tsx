@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { PaintBucket, Search, X, Pill } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { doc, setDoc } from '../lib/workspaceStore';
-import { useAuth } from '../lib/AuthContext';
+import { useProfile } from '../lib/ProfileContext';
 import { MedicationFormModal, MedicationLog } from './MedicationPopup';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -13,7 +13,7 @@ interface TopBarProps {
 }
 
 export function TopBar({ title = "My Planner", showSearch = false }: TopBarProps) {
-  const { user } = useAuth();
+  const { user } = useProfile();
   const [isBgModalOpen, setIsBgModalOpen] = useState(false);
   const [isMedModalOpen, setIsMedModalOpen] = useState(false);
   const [hexColor, setHexColor] = useState('#FFF5F9');

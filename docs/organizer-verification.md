@@ -1,6 +1,6 @@
-# Organizer verification results
+# Historical verification of the email-account branch
 
-Date: November 5, 2026. Branch: `codex/huntrr-organizer-supabase-light`.
+Date: November 5, 2026. Branch: `codex/huntrr-organizer-supabase-light`. For the nickname profile release, use the [current Preview guide](organizer-preview.md).
 
 ## Passed locally
 

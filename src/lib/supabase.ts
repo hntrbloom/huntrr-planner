@@ -1,9 +1,14 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-const url = typeof import.meta.env === 'undefined' ? undefined : import.meta.env.VITE_SUPABASE_URL;
-const key = typeof import.meta.env === 'undefined' ? undefined : import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+export let supabase: SupabaseClient | null = null;
 
-// Configuring both values opts this build into email accounts.
-export const supabase = url && key ? createClient(url, key, {
-  auth: { flowType: 'pkce', persistSession: true, autoRefreshToken: true },
-}) : null;
+// Only a deliberate legacy export opens the old session. Planner profiles never use it.
+export function openLegacySupabase() {
+  const url = import.meta.env?.VITE_SUPABASE_URL;
+  const key = import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) return null;
+  supabase ??= createClient(url, key, {
+    auth: { flowType: 'pkce', persistSession: true, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+  return supabase;
+}

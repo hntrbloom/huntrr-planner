@@ -384,3 +384,16 @@ if (typeof window !== 'undefined') {
   window.addEventListener('online', () => { if (owner) { scheduleFlush(owner, 0); scheduleRefresh(owner); } });
   window.addEventListener('focus', () => { if (owner) scheduleRefresh(owner); });
 }
+
+// Exporting cached records and pending file bytes does not activate sync or consume the outbox.
+export async function readLegacyAccountCache(account: string) {
+  const db = await database();
+  const tx = db.transaction(['documents', 'files']);
+  const range = IDBKeyRange.bound([account], [account, []], false, true);
+  const [documents, files] = await Promise.all([
+    tx.objectStore('documents').getAll(range),
+    tx.objectStore('files').index('owner').getAll(account),
+  ]);
+  await tx.done;
+  return { documents, files };
+}

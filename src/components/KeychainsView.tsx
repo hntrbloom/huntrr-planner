@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { db, storage } from '../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, arrayUnion, arrayRemove } from '../lib/workspaceStore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { useAuth } from '../lib/AuthContext';
+import { useProfile } from '../lib/ProfileContext';
 import { Plus, Search, Image as ImageIcon, Download, Trash2, Edit, X, Upload, Key, Eye, CheckCircle2 } from 'lucide-react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
@@ -13,6 +13,7 @@ import { ImageUploaderArea } from './ui/ImageUploaderArea';
 import { ImageViewerModal } from './ImageViewerModal';
 import { SmartImage } from './SmartImage';
 import { ACCOUNT_FILE_PREFIX, readAccountFile } from '../lib/accountFiles';
+import { getPhotoFromIDB } from '../lib/idb';
 import { GUEST_SAMPLE_KEYCHAINS } from '../lib/guestSampleData';
 
 interface Charm {
@@ -48,7 +49,7 @@ interface LocalCharm extends Charm {
 }
 
 export function KeychainsView() {
-  const { user } = useAuth();
+  const { user } = useProfile();
   const [ideas, setIdeas] = useState<KeychainIdea[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -390,7 +391,10 @@ export function KeychainsView() {
         const addImage = async (url: string | undefined, suffix: string) => {
             if (!url) return;
             try {
-              const blob = url.startsWith(ACCOUNT_FILE_PREFIX) ? await readAccountFile(url) : await (await fetch(url)).blob();
+              const blob = /^(idb:\/\/|photo_)/.test(url)
+                ? await getPhotoFromIDB(url.replace(/^idb:\/\//, ''), user?.uid)
+                : url.startsWith(ACCOUNT_FILE_PREFIX) ? await readAccountFile(url) : await (await fetch(url)).blob();
+              if (!blob) throw new Error('The saved image could not be read.');
               const ext = blob.type.split('/')[1] || 'png';
               const filename = charm.name ? `${charm.name}-${suffix}.${ext}` : `charm-${index + 1}-${suffix}.${ext}`;
               folder.file(filename, blob);

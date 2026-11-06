@@ -1,9 +1,7 @@
 import { isLocalPath } from './workspaceMode';
-import { supabase } from './supabase';
 import { getDoc as localGetDoc, getDocs as localGetDocs } from './workspaceStore';
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { initializeFirestore, getFirestore, persistentLocalCache, DocumentReference, Query, getDoc as fGetDoc, getDocFromCache as fGetDocFromCache, getDocs as fGetDocs, getDocsFromCache as fGetDocsFromCache, Firestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import config from '../../firebase-applet-config.json';
 
@@ -31,24 +29,10 @@ try {
 }
 
 export const db = firestoreInstance;
-export const auth = getAuth(app);
-
-// Explicitly set browser-local persistence
-import { setPersistence, browserLocalPersistence, inMemoryPersistence } from 'firebase/auth';
-setPersistence(auth, browserLocalPersistence).catch((error) => {
-  console.warn('[FirebaseAuth] Failed to set persistence (often expected in iframes/safari), falling back to inMemory:', error);
-  setPersistence(auth, inMemoryPersistence).catch(() => {});
-});
-
 export const storage = getStorage(app);
 
-let localGuestMode = false;
-export function setLocalGuest(val: boolean) {
-  localGuestMode = val;
-}
-
 export async function safeGetDoc(ref: DocumentReference) {
-  if (isLocalPath(ref.path) || supabase) return localGetDoc(ref);
+  if (isLocalPath(ref.path)) return localGetDoc(ref);
   try { return await fGetDoc(ref); }
   catch (error: any) {
     if (error.code === 'unavailable') return fGetDocFromCache(ref);

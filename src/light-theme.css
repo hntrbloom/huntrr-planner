@@ -2,10 +2,6 @@
 :root { color-scheme: only light; --color-inverse-surface: #fce4ef; --color-inverse-on-surface: #302830; }
 html, body { color-scheme: only light; background-color: #fff5f9 !important; color: #302830; }
 input, textarea, select { color-scheme: only light; }
-.email-account-card input, .account-settings input { background: #fff8fb; color: #302830; }
-.email-account-card input:focus-visible, .account-settings input:focus-visible { outline: 2px solid #ad1457; outline-offset: 2px; }
-.email-account-card button:focus-visible, .account-settings button:focus-visible { outline: 2px solid #ad1457; outline-offset: 3px; }
-.email-account-card [role='alert'] { color: #971746; }
 [class*='bg-pink-100'][class*='text-white'],
 [class*='bg-pink-100'] [class*='text-white'],
 [class*='bg-pink-100'][class*='text-inverse-on-surface'] { color: #302830; }
@@ -33,8 +29,6 @@ button[class*='bg-[#FFB8CD]'], button[class*='bg-[#FF6B9E]'],
 }
 button.bg-primary:hover, button.bg-secondary:hover, button.bg-error:hover,
 button[class*='bg-[#FFB8CD]']:hover, button[class*='bg-[#FF6B9E]']:hover { background: #f8bed6; color: #302830; }
-.account-sync-indicator { max-width: 100%; }
 @media (max-width: 767px) {
   .cat-header-title { font-size: clamp(16px, 4.8vw, 20px); }
-  .account-settings, .email-account-card { overflow-wrap: anywhere; }
 }

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowUpRight, Check, Heart, ListTodo, Star } from 'lucide-react';
-import { useAuth } from '../lib/AuthContext';
+import { useProfile } from '../lib/ProfileContext';
 import { db } from '../lib/firebase';
 import { doc, onSnapshot } from '../lib/workspaceStore';
 import { ViewState } from '../types';
@@ -18,7 +18,7 @@ interface TodaySummaryProps {
 // Presentation-only subscriptions to existing records. Editing and check-ins stay
 // in their original screens; opening Home never saves or changes user data.
 export function TodaySummary({ onNavigate, eventTotal, eventDone, eventsReady, date }: TodaySummaryProps) {
-  const { user } = useAuth();
+  const { user } = useProfile();
   const [tasks, setTasks] = useState<SummaryTask[]>([]);
   const [habitDoc, setHabitDoc] = useState<Habit[] | null>(null);
   const [legacyHabits, setLegacyHabits] = useState<Habit[]>([]);

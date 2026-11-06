@@ -4,13 +4,15 @@ import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { ImageUploaderArea } from './ui/ImageUploaderArea';
 import { SetGalleryModal } from './SetGalleryModal';
-import { useAuth, getAccessToken } from '../lib/AuthContext';
+import { useProfile } from '../lib/ProfileContext';
+import { getAccessToken } from '../lib/driveAccess';
 import { requestFreshDriveToken } from '../lib/driveAuth';
 import { db, safeGetDoc } from '../lib/firebase';
 import { collection, doc, onSnapshot, setDoc, deleteDoc } from '../lib/workspaceStore';
 import { uploadFileToStorage, uploadDataUrlToStorage, deleteFileFromStorage } from '../lib/storage';
 import { uploadImageToService } from '../lib/imageService';
 import { ACCOUNT_FILE_PREFIX, readAccountFile } from '../lib/accountFiles';
+import { getPhotoFromIDB } from '../lib/idb';
 import { processAndCompressImage } from '../lib/imageProcessor';
 import { printUploadQueue, PhotoTask } from '../lib/printUploadQueue';
 import { SmartImage } from './SmartImage';
@@ -558,7 +560,12 @@ const DEFAULT_CATEGORIES = [
 const STATUSES = ['Reference Photo', '3D Mock-Up', '3MF/STL File', 'Ready to Print', 'Printing', 'Completed'];
 const MADE_FOR_OPTIONS = ['Adult Critter', 'Child Critter', 'Baby Critter', 'Twin Babies', 'Whole Family', 'House', 'Custom'];
 
-async function fetchImageBlob(url: string): Promise<Blob> {
+async function fetchImageBlob(url: string, uid?: string): Promise<Blob> {
+  if (/^(idb:\/\/|photo_)/.test(url)) {
+    const blob = await getPhotoFromIDB(url.replace(/^idb:\/\//, ''), uid);
+    if (!blob) throw new Error('The saved image could not be read.');
+    return blob;
+  }
   if (url.startsWith(ACCOUNT_FILE_PREFIX)) return readAccountFile(url);
   if (url.startsWith('data:')) {
     const res = await fetch(url);
@@ -730,7 +737,7 @@ const PrintUploadStatusBadge = ({
 };
 
 export const MiniFurnitureView = () => {
-  const { user } = useAuth();
+  const { user } = useProfile();
   
   const [items, setItems] = useState<MiniFurniture[]>([]);
   const [loading, setLoading] = useState(true);
@@ -760,19 +767,19 @@ export const MiniFurnitureView = () => {
         }
         if (!resolvedUrl && mockup.storagePath) {
           try {
-            resolvedUrl = await getCachedImageUrl(mockup.storagePath);
+            resolvedUrl = await getCachedImageUrl(mockup.storagePath, user?.uid);
           } catch (e) {
             console.warn('Failed to resolve storagePath for export:', e);
           }
         }
         if (!resolvedUrl && mockup.url) {
           try {
-            resolvedUrl = await getCachedImageUrl(mockup.url);
+            resolvedUrl = await getCachedImageUrl(mockup.url, user?.uid);
           } catch (e) {
             console.warn('Failed to resolve url for export:', e);
           }
         }
-        return await fetchImageBlob(resolvedUrl || mockup.url);
+        return await fetchImageBlob(resolvedUrl || mockup.url, user?.uid);
       };
 
       if (mockups.length === 1) {
@@ -948,7 +955,7 @@ export const MiniFurnitureView = () => {
         }
       }
       if (pathsToPrefetch.length > 0) {
-        import('../hooks/useImageCache').then(({ prefetchImages }) => prefetchImages(pathsToPrefetch));
+        import('../hooks/useImageCache').then(({ prefetchImages }) => prefetchImages(pathsToPrefetch, user?.uid));
       }
     };
 
@@ -1093,7 +1100,7 @@ export const MiniFurnitureView = () => {
       if (itemToDelete && itemToDelete.images && itemToDelete.images.length > 0) {
         for (const img of itemToDelete.images) {
           if (img.storagePath) {
-            await deleteFileFromStorage(img.storagePath).catch(() => {});
+            await deleteFileFromStorage(img.storagePath, user?.uid).catch(() => {});
           }
         }
       }
@@ -2197,7 +2204,7 @@ interface PendingUpload {
 }
 
 const FurnitureFormModal = ({ item, draftItem, initialType, onChangeType, categories, printSets, items, onClose, onSave }: { item: MiniFurniture | null, draftItem?: MiniFurniture | null, initialType?: string, onChangeType?: (currentData: MiniFurniture) => void, categories: string[], printSets: {id: string, name: string}[], items: MiniFurniture[], onClose: () => void, onSave: (item: MiniFurniture) => Promise<any> }) => {
-  const { user } = useAuth();
+  const { user } = useProfile();
   const [cropEditingPhoto, setCropEditingPhoto] = useState<{
     id: string;
     url: string;
@@ -2725,7 +2732,7 @@ const FurnitureFormModal = ({ item, draftItem, initialType, onChangeType, catego
         const newImageIds = new Set(finalExisting.map(img => img.id));
         for (const oldImg of item.images) {
           if (!newImageIds.has(oldImg.id) && oldImg.storagePath) {
-            deleteFileFromStorage(oldImg.storagePath).catch(err => {
+            deleteFileFromStorage(oldImg.storagePath, user?.uid).catch(err => {
               console.warn("Failed to clean up orphaned image from storage:", err);
             });
           }

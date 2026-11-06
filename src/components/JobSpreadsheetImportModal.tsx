@@ -39,7 +39,7 @@ import {
   mergeSpreadsheetData,
   downloadCompleteJobTrackerExcel
 } from '../lib/jobSpreadsheetSync';
-import { getAccessToken } from '../lib/AuthContext';
+import { getAccessToken } from '../lib/driveAccess';
 import { requestFreshDriveToken } from '../lib/driveAuth';
 
 interface JobSpreadsheetImportModalProps {

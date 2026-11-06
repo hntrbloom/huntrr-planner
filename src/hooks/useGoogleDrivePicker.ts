@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { getAccessToken, setAccessToken } from '../lib/AuthContext';
+import { getAccessToken, setAccessToken } from '../lib/driveAccess';
 import { requestFreshDriveToken } from '../lib/driveAuth';
 import firebaseConfig from '../../firebase-applet-config.json';
 

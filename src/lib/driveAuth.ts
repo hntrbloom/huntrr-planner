@@ -1,5 +1,4 @@
-import { LOCAL_SESSION_KEY } from './workspaceMode';
-import { setAccessToken } from './AuthContext';
+import { getAccessToken, setAccessToken } from './driveAccess';
 
 export interface OAuthDiagnosticInfo {
   timestamp: string;
@@ -12,7 +11,7 @@ export interface OAuthDiagnosticInfo {
   lastErrorMessage: string | null;
 }
 
-const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/spreadsheets.readonly';
+const SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/spreadsheets.readonly';
 
 let activeTokenPromise: Promise<string | null> | null = null;
 let isPromptingUser = false;
@@ -45,7 +44,7 @@ export function getLastOAuthDiagnostic(): OAuthDiagnosticInfo {
  *                   If false, attempts silent token request ('prompt: none').
  */
 export function requestFreshDriveToken(promptUser: boolean = false): Promise<string | null> {
-  if (localStorage.getItem(LOCAL_SESSION_KEY) === 'true') return Promise.resolve(null);
+  if (!promptUser) return Promise.resolve(getAccessToken());
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 

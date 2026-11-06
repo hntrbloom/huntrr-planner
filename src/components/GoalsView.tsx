@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Target, Plus, Trash2, Edit2, X, Check, CheckCircle2, Circle } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { doc, setDoc, onSnapshot } from '../lib/workspaceStore';
-import { useAuth } from '../lib/AuthContext';
+import { useProfile } from '../lib/ProfileContext';
 import { SyncStatus } from './SyncStatus';
 import { GUEST_SAMPLE_GOALS } from '../lib/guestSampleData';
 
@@ -125,7 +125,7 @@ function normalizeGoal(raw: any): Goal {
 }
 
 export function GoalsView({ embedded = false }: { embedded?: boolean } = {}) {
-  const { user } = useAuth();
+  const { user } = useProfile();
   const [loading, setLoading] = useState(true);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'saving' | 'saved' | 'error' | 'offline'>('idle');
   const [goals, setGoals] = useState<Goal[]>([]);

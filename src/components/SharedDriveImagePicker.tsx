@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, RefreshCw, AlertCircle, Image as ImageIcon, Loader2, LogIn, Check, Upload } from 'lucide-react';
-import { getAccessToken, useAuth } from '../lib/AuthContext';
+import { useProfile } from '../lib/ProfileContext';
+import { getAccessToken } from '../lib/driveAccess';
 import { uploadImageToService } from '../lib/imageService';
 import { searchOrResolveHuntrrSpaceFolders } from '../lib/driveFolderUtils';
 import { requestFreshDriveToken } from '../lib/driveAuth';
@@ -21,7 +22,7 @@ interface SharedDriveImagePickerProps {
 }
 
 export function SharedDriveImagePicker({ onClose, onSelect, folderId, title = 'Select Photo', uploadSection = 'general' }: SharedDriveImagePickerProps & { folderId: string, title?: string, uploadSection?: string }) {
-  const { user } = useAuth();
+  const { user } = useProfile();
   const [isUploading, setIsUploading] = useState(false);
   const [images, setImages] = useState<DriveImage[]>([]);
   const [loading, setLoading] = useState(true);

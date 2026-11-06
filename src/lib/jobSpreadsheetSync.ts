@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import { v4 as uuidv4 } from 'uuid';
 import { format } from 'date-fns';
 import { cleanRawUrl } from './jobUrlUtils';
-import { getAccessToken } from './AuthContext';
+import { getAccessToken } from './driveAccess';
 
 export interface JobApplication {
   id: string;
@@ -776,7 +776,7 @@ export async function fetchGoogleSpreadsheetAllSheets(
 }> {
   const token = customToken || getAccessToken();
   if (!token) {
-    throw new Error('Google OAuth token is unavailable. Please click "Sign in with Google" or grant spreadsheet permissions.');
+    throw new Error('Google OAuth token is unavailable. Authorize spreadsheet access to import this sheet.');
   }
 
   // 1. Fetch metadata to discover sheet titles

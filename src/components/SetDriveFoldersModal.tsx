@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Folder, FolderCheck, Loader2, X, Check, Search, ShieldCheck } from 'lucide-react';
-import { useAuth } from '../lib/AuthContext';
+import { useProfile } from '../lib/ProfileContext';
 import { updateUserSettings, getUserSettings } from '../lib/settingsUtils';
 import { searchOrResolveHuntrrSpaceFolders } from '../lib/driveFolderUtils';
 import { useGoogleDrivePicker } from '../hooks/useGoogleDrivePicker';
@@ -16,7 +16,7 @@ export const SetDriveFoldersModal: React.FC<SetDriveFoldersModalProps> = ({
   onClose,
   onSaved
 }) => {
-  const { user } = useAuth();
+  const { user } = useProfile();
   const [isSearching, setIsSearching] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

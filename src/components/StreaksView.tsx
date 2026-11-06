@@ -3,7 +3,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Bell, Check, Plus, Activity, Clock, ChevronLeft, ChevronRight, BarChart2 } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { collection, query, orderBy, doc, setDoc, deleteDoc, onSnapshot } from '../lib/workspaceStore';
-import { useAuth } from '../lib/AuthContext';
+import { useProfile } from '../lib/ProfileContext';
 import { useWorkShifts } from '../lib/WorkShiftsContext';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, ReferenceArea, ReferenceLine, BarChart, Bar } from 'recharts';
 import { startOfWeek, endOfWeek, addWeeks, subWeeks, format, parseISO, isSameDay, startOfDay, getDay, isAfter, isBefore } from 'date-fns';
@@ -14,7 +14,7 @@ import { calculateTotalHours } from './MonthlyView';
 const MED_COLORS = ['var(--pink-deep)', 'var(--pink-medium)', 'var(--black-charcoal)', 'var(--pink-berry)', 'var(--black-near)', 'var(--black-dark-gray)'];
 
 export function StreaksView({ embedded = false }: { embedded?: boolean } = {}) {
-  const { user } = useAuth();
+  const { user } = useProfile();
   
   const [habits, setHabits] = useState<Habit[]>([]);
   const [focusSessions, setFocusSessions] = useState<any[]>([]);

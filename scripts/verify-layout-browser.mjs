@@ -16,10 +16,11 @@ try {
   page.on('pageerror', error => errors.push(error.message));
   await page.setViewport({ width: 1440, height: 1000 });
   await page.goto('http://127.0.0.1:3000/', { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('.email-account-card');
+  await page.waitForSelector('.profile-welcome');
   assert.match(await page.$eval('h1', e=>e.textContent), /Huntrr Organizer/);
   await page.screenshot({path:dir+'/login.png'});
-  await page.click('.email-account-primary');
+  await page.type('#welcome-nickname', 'Layout QA');
+  await page.click('.profile-welcome .profile-primary');
   await page.waitForSelector('.planner-welcome');
   for (const [name,width,height] of [['desktop',1440,1000],['iphone',390,844],['ipad',820,1180]]) {
     await page.setViewport({ width, height });

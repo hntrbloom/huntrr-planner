@@ -1,9 +1,9 @@
+import { useProfile } from '../../lib/ProfileContext';
 import { getFileFromIDB } from '../../lib/idb';
-import { ACCOUNT_FILE_PREFIX, readAccountFile } from '../../lib/accountFiles';
 import React, { useState } from 'react';
 import { Box, Eye, Edit3, Download, Trash2, Search, Calendar, Ruler, Layers, Loader2, HardDrive, AlertTriangle } from 'lucide-react';
 import { SavedModel3D } from '../../types';
-import { fetchDriveSTLArrayBuffer, downloadSTLBuffer, deleteSTLFromDrive } from '../../lib/stlDriveService';
+import { fetchDriveSTLArrayBuffer, downloadSTLBuffer } from '../../lib/stlDriveService';
 
 interface SavedModelsListProps {
   models: SavedModel3D[];
@@ -22,13 +22,13 @@ export function SavedModelsList({
   onDeleteModel,
   onUploadClick,
 }: SavedModelsListProps) {
+  const { user } = useProfile();
   const [searchQuery, setSearchQuery] = useState('');
   const [loadingModelId, setLoadingModelId] = useState<string | null>(null);
   const [downloadingModelId, setDownloadingModelId] = useState<string | null>(null);
   const [editingModel, setEditingModel] = useState<SavedModel3D | null>(null);
   const [renameText, setRenameText] = useState('');
   const [deletingModel, setDeletingModel] = useState<SavedModel3D | null>(null);
-  const [deleteDriveFileChecked, setDeleteDriveFileChecked] = useState(false);
   const [isProcessingDelete, setIsProcessingDelete] = useState(false);
   const [isProcessingRename, setIsProcessingRename] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -55,9 +55,7 @@ export function SavedModelsList({
     try {
       setLoadingModelId(model.id);
       setErrorMsg(null);
-      const file = model.localFileKey?.startsWith(ACCOUNT_FILE_PREFIX)
-        ? await readAccountFile(model.localFileKey)
-        : model.localFileKey ? await getFileFromIDB(model.localFileKey) : undefined;
+      const file = model.localFileKey ? await getFileFromIDB(model.localFileKey, user?.uid) : undefined;
       const buffer = file ? await file.arrayBuffer() : model.driveFileId ? await fetchDriveSTLArrayBuffer(model.driveFileId) : null;
       if (!buffer) throw new Error('This local STL file is missing. Restore a backup or upload it again.');
       onOpenModel(model, buffer);
@@ -78,9 +76,7 @@ export function SavedModelsList({
     try {
       setDownloadingModelId(model.id);
       setErrorMsg(null);
-      const file = model.localFileKey?.startsWith(ACCOUNT_FILE_PREFIX)
-        ? await readAccountFile(model.localFileKey)
-        : model.localFileKey ? await getFileFromIDB(model.localFileKey) : undefined;
+      const file = model.localFileKey ? await getFileFromIDB(model.localFileKey, user?.uid) : undefined;
       const buffer = file ? await file.arrayBuffer() : model.driveFileId ? await fetchDriveSTLArrayBuffer(model.driveFileId) : null;
       if (!buffer) throw new Error('This local STL file is missing. Restore a backup or upload it again.');
       downloadSTLBuffer(buffer, model.originalFilename || model.name);
@@ -110,14 +106,7 @@ export function SavedModelsList({
     if (!deletingModel) return;
     try {
       setIsProcessingDelete(true);
-      if (deleteDriveFileChecked && deletingModel.driveFileId) {
-        try {
-          await deleteSTLFromDrive(deletingModel.driveFileId);
-        } catch (e) {
-          console.warn('Failed to delete from Drive:', e);
-        }
-      }
-      await onDeleteModel(deletingModel.id, deletingModel.driveFileId, deleteDriveFileChecked);
+      await onDeleteModel(deletingModel.id);
       setDeletingModel(null);
     } catch (err: any) {
       setErrorMsg(err?.message || 'Failed to delete model record.');
@@ -236,20 +225,20 @@ export function SavedModelsList({
 
                     {/* Drive Badge */}
                     {model.driveFileId && (
-                      <div className="absolute top-2.5 right-2.5 bg-pink-100/90 backdrop-blur-xs text-white p-1 rounded-md text-[10px] flex items-center gap-1">
+                      <div className="absolute top-2.5 right-2.5 bg-black/60 backdrop-blur-xs text-white p-1 rounded-md text-[10px] flex items-center gap-1">
                         <HardDrive className="w-3 h-3" />
                       </div>
                     )}
 
                     {/* Hover Overlay */}
-                    <div className="absolute inset-0 bg-pink-100/90 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
                       {isLoading ? (
-                        <div className="flex items-center gap-2 bg-pink-100/90 px-3 py-1.5 rounded-full text-[12px] font-medium">
+                        <div className="flex items-center gap-2 bg-black/70 px-3 py-1.5 rounded-full text-[12px] font-medium">
                           <Loader2 className="w-4 h-4 animate-spin text-primary" />
                           Loading 3D...
                         </div>
                       ) : (
-                        <div className="flex items-center gap-1.5 bg-pink-100/90 px-3.5 py-1.5 rounded-full text-[12px] font-semibold">
+                        <div className="flex items-center gap-1.5 bg-black/70 px-3.5 py-1.5 rounded-full text-[12px] font-semibold">
                           <Eye className="w-4 h-4" />
                           Open in 3D Viewer
                         </div>
@@ -340,7 +329,6 @@ export function SavedModelsList({
                       <button
                         onClick={() => {
                           setDeletingModel(model);
-                          setDeleteDriveFileChecked(false);
                         }}
                         title="Delete Model"
                         className="p-2 text-[#888888] hover:text-error hover:bg-error-container/30 rounded-lg transition-colors cursor-pointer"
@@ -358,7 +346,7 @@ export function SavedModelsList({
 
       {/* Rename Modal */}
       {editingModel && (
-        <div role="dialog" aria-modal="true" aria-label="SavedModelsList dialog" tabIndex={-1} className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-pink-100/90 backdrop-blur-xs">
+        <div role="dialog" aria-modal="true" aria-label="SavedModelsList dialog" tabIndex={-1} className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl border border-black/10 animate-in fade-in zoom-in-95 duration-150">
             <h3 className="text-[17px] font-bold text-[#111111] mb-2">Rename 3D Model</h3>
             <p className="text-[13px] text-[#666666] mb-4">
@@ -395,7 +383,7 @@ export function SavedModelsList({
 
       {/* Delete Confirmation Modal */}
       {deletingModel && (
-        <div role="dialog" aria-modal="true" aria-label="SavedModelsList dialog" tabIndex={-1} className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-pink-100/90 backdrop-blur-xs">
+        <div role="dialog" aria-modal="true" aria-label="SavedModelsList dialog" tabIndex={-1} className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl border border-black/10 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center gap-3 text-error mb-3">
               <div className="p-2.5 bg-error-container/40 rounded-xl">
@@ -407,23 +395,6 @@ export function SavedModelsList({
             <p className="text-[13px] text-[#555555] mb-4 leading-relaxed">
               Are you sure you want to remove <span className="font-bold text-[#111111]">"{deletingModel.name}"</span> from your saved models library?
             </p>
-
-            {deletingModel.driveFileId && (
-              <label className="flex items-start gap-2.5 p-3 rounded-xl bg-surface-container-low border border-outline-variant/30 cursor-pointer mb-5 text-[13px] text-[#333333]">
-                <input
-                  type="checkbox"
-                  checked={deleteDriveFileChecked}
-                  onChange={(e) => setDeleteDriveFileChecked(e.target.checked)}
-                  className="mt-0.5 rounded text-primary focus:ring-primary w-4 h-4 cursor-pointer"
-                />
-                <div>
-                  <span className="font-semibold block">Also delete file from Google Drive</span>
-                  <span className="text-[11px] text-[#777777]">
-                    Permanently removes the original .stl file from your Google Drive models folder.
-                  </span>
-                </div>
-              </label>
-            )}
 
             <div className="flex items-center justify-end gap-2">
               <button

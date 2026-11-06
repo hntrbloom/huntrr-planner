@@ -1,11 +1,11 @@
-import { LOCAL_USER_ID } from './workspaceMode';
 import { getAccountOwner } from './accountStore';
 import { ACCOUNT_FILE_PREFIX, readAccountFile, uploadAccountFile } from './accountFiles';
+import { isLocalId } from './workspaceMode';
 import { savePhotoToIDB } from './idb';
 import { storage, db } from './firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, doc, getDocs, getDoc, setDoc, updateDoc } from './workspaceStore';
-import { getAccessToken } from './AuthContext';
+import { getAccessToken } from './driveAccess';
 import { requestFreshDriveToken } from './driveAuth';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -213,17 +213,11 @@ export async function uploadImageToService({
     throw new Error('No valid image file provided for upload');
   }
 
-  if (getAccountOwner() === userId) {
-    const url = await uploadAccountFile(userId, targetBlob);
-    const thumb = thumbnailFile ? await uploadAccountFile(userId, thumbnailFile) : undefined;
-    onProgress?.(100);
-    return { storagePath: url, downloadURL: url, thumbStoragePath: thumb, thumbDownloadURL: thumb, driveFileId: null, filename: targetFilename, mimeType: targetMimeType, status: 'ready', width, height };
-  }
-  if (userId === LOCAL_USER_ID) {
+  if (isLocalId(userId)) {
     const key = `photo_${uuidv4()}`;
-    await savePhotoToIDB(key, targetBlob);
+    await savePhotoToIDB(key, targetBlob, userId);
     let thumbnail: string | undefined;
-    if (thumbnailFile) { const thumbKey = `${key}_thumb`; await savePhotoToIDB(thumbKey, thumbnailFile); thumbnail = `idb://${thumbKey}`; }
+    if (thumbnailFile) { const thumbKey = `${key}_thumb`; await savePhotoToIDB(thumbKey, thumbnailFile, userId); thumbnail = `idb://${thumbKey}`; }
     onProgress?.(100);
     return { storagePath: `idb://${key}`, downloadURL: `idb://${key}`, thumbDownloadURL: thumbnail, thumbStoragePath: thumbnail, driveFileId: null, filename: targetFilename, mimeType: targetMimeType, status: 'ready', width, height };
   }

@@ -44,7 +44,7 @@ import {
 } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { doc, setDoc, onSnapshot } from '../lib/workspaceStore';
-import { useAuth } from '../lib/AuthContext';
+import { useProfile } from '../lib/ProfileContext';
 import { SyncStatus } from './SyncStatus';
 import { 
   format, 
@@ -138,7 +138,7 @@ const emptyRemoteForm: Partial<RemoteCompany> = {
 };
 
 export function JobApplicationsView() {
-  const { user } = useAuth();
+  const { user } = useProfile();
   const [loading, setLoading] = useState(true);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'saving' | 'saved' | 'error' | 'offline'>('idle');
 

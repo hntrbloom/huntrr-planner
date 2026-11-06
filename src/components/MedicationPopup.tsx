@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
 import { collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy } from '../lib/workspaceStore';
-import { useAuth } from '../lib/AuthContext';
+import { useProfile } from '../lib/ProfileContext';
 import { Pill, Check, X, AlertTriangle, Plus, Edit2, Trash2, CheckCircle2, Clock } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -16,7 +16,7 @@ export interface MedicationLog {
 }
 
 export function MedicationPopup() {
-  const { user } = useAuth();
+  const { user } = useProfile();
   const [logs, setLogs] = useState<MedicationLog[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingLog, setEditingLog] = useState<MedicationLog | null>(null);

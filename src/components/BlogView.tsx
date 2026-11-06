@@ -2,7 +2,7 @@ import { safeGetDoc as getDoc, safeGetDocs as getDocs, safeGetDocs } from '../li
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
 import { collection, addDoc, doc, deleteDoc, updateDoc, query, orderBy, Timestamp } from '../lib/workspaceStore';
-import { useAuth } from '../lib/AuthContext';
+import { useProfile } from '../lib/ProfileContext';
 import { Edit2, Trash2, Save } from 'lucide-react';
 import { GUEST_SAMPLE_BLOG_POSTS } from '../lib/guestSampleData';
 
@@ -14,7 +14,7 @@ interface BlogPost {
 }
 
 export function BlogView() {
-  const { user } = useAuth();
+  const { user } = useProfile();
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [newEntry, setNewEntry] = useState('');

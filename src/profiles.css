@@ -1,0 +1,66 @@
+.profile-welcome-world { grid-template-columns: minmax(0, 1fr); }
+.profile-welcome {
+  width: min(560px, 100%);
+  min-width: 0;
+  box-sizing: border-box;
+  color: var(--black-near);
+  overflow-wrap: anywhere;
+}
+.profile-welcome h1 {
+  font-size: clamp(1.45rem, 5vw, 2rem);
+  line-height: 1.2;
+  margin: 0 0 .75rem;
+}
+.profile-welcome > form { margin: 1.25rem 0; text-align: left; }
+.profile-panel {
+  background: var(--white);
+  border: 1px solid var(--pink-soft);
+  border-radius: 1rem;
+  padding: clamp(.75rem, 3vw, 1.25rem);
+  margin-bottom: 1rem;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.profile-panel h2 { font-size: 1.2rem; font-weight: 800; }
+.profile-panel p { margin-block: .5rem; color: var(--black-dark-gray); font-size: .875rem; }
+.profile-panel details { margin-top: .75rem; }
+.profile-panel summary { cursor: pointer; color: var(--pink-berry); padding-block: .5rem; }
+.profile-panel form { margin-top: .75rem; }
+.profile-panel form + form, .profile-import { border-top: 1px solid var(--pink-pale); padding-top: .75rem; }
+.profile-panel label, .profile-welcome form label { display: grid; gap: .35rem; font-size: .875rem; font-weight: 700; }
+.profile-panel input, .profile-panel select, .profile-welcome form input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px !important;
+  border: 1px solid var(--pink-soft);
+  background: var(--white);
+  color: var(--black-near);
+  border-radius: .65rem;
+  padding: .45rem .65rem;
+  font-size: 16px;
+}
+.profile-panel button, .profile-welcome button {
+  min-height: 44px !important;
+  background: var(--pink-pale);
+  color: var(--pink-berry);
+  padding: .55rem .75rem;
+  border: 1px solid var(--pink-soft);
+  border-radius: .75rem;
+  font-size: .875rem;
+  font-weight: 800;
+  padding-block: .72rem;
+}
+.profile-panel button:hover, .profile-welcome button:hover { background: var(--pink-soft); }
+.profile-panel .profile-primary, .profile-welcome .profile-primary {
+  background: var(--pink-soft);
+  color: var(--black-near);
+}
+.profile-welcome > form button, .profile-panel form > button { margin-top: .55rem; }
+.profile-actions { display: flex; gap: .5rem; flex-wrap: wrap; align-items: flex-end; }
+.profile-file { min-width: 0; flex: 1 1 14rem; }
+.profile-list { display: grid; gap: .5rem; margin-top: .6rem; }
+.profile-list button { width: 100%; text-align: left; }
+.profile-list small { display: block; color: var(--black-dark-gray); }
+.profile-panel fieldset { display: grid; gap: .65rem; }
+.profile-panel [role="alert"], .profile-welcome [role="alert"] { color: var(--pink-berry); }
+.cat-workspace-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

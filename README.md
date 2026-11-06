@@ -1,7 +1,3 @@
-# Organizer Preview update
-
-Use the existing **huntrr-organizer** Vercel project and existing Supabase project. Email/password is the primary login; Google authorization is optional for Drive/Sheets. See [the safe Preview and migration guide](docs/organizer-preview.md) for current setup, preservation steps and outstanding live tests. Historical Firebase instructions below describe the retained legacy integrations.
-
 # huntrr.organizer
 
 A pink stationery workspace for everyday planning and creative work. Built on the existing React 19, TypeScript, Vite, Express and Firebase application. The product name is **huntrr.organizer**; it is not a registered domain or a service address.
@@ -36,7 +32,7 @@ npm run dev
 
 On PowerShell use `Copy-Item .env.example .env.local`. Open `http://localhost:3000`. Environment files are optional for the local workspace. `npm run dev` loads `.env` and `.env.local` and serves the frontend through Express/Vite.
 
-Choose **Continue on this device** for a real local workspace, or **Sign in with Google** for the existing private Firebase workspace. These are separate workspaces; switching never uploads local records into a Google account.
+Enter a nickname and choose **Create Profile**. The last selected profile opens automatically in the same browser and site address. Open **Settings → Profile** to rename it, switch, or create another.
 
 ```sh
 npm test       # isolated IndexedDB CRUD, queries, subscriptions, transactions, URL safety
@@ -67,7 +63,7 @@ All existing tools are available in the navigation. Heavy screens load when open
 | Inspiration | Boards and reference photos; optional Pinterest import | `boards`, `photos` |
 | Job Applications | Manual entries, statuses, spreadsheet import and optional URL/AI import | `preferences/jobApplicationsData`, history/config documents |
 | 3D Models | Local STL viewer, dimensions, thumbnails, save, reopen, rename, download and delete | `saved_models`; local binary files or Google Drive |
-| Settings | Workspace switching, folder settings, full JSON export and validated restore | `settings/general`, `preferences` |
+| Settings | Profile creation, renaming, switching, folder settings, backup and import as a new profile | `settings/general`, `preferences` |
 
 ## Storage and preservation
 
@@ -77,11 +73,17 @@ Cloud documents retain their original `users/{uid}/...` paths, project and **nam
 
 Series and Franchise use separate lists. Matching ignores capitalization, typed values can be saved as new options, and saved suggestions are immediately reusable. The suggestion panel is portaled outside the scrollable character dialog and supports arrows, Enter and Escape.
 
-The explicit local workspace uses IndexedDB `huntrr.organizer.workspace`, with documents under a dedicated local namespace; photos and STL binaries use the existing `SereneStationeryIDB` stores. It does not create a Firebase identity, send records to Firestore, or claim cloud sync. It survives page refresh, browser reopening and workspace switching on the **same origin and browser profile**. It is not available in another browser or at a new deployment URL. Clearing site data removes it. Export before clearing data or moving origins. Private browsing/storage restrictions may prevent persistence; save failures are surfaced.
+Nickname profiles use the separate IndexedDB database `huntrr.organizer.profiles`. Each has a permanent random ID, a nickname, and a creation date. Records, local photos, STL binaries, and the current timer are scoped to that ID. Selecting a different profile reloads the planner to release the previous profile's state and temporary file grants.
 
-Settings → **Export Everything** produces a versioned JSON backup of all known collections and the legacy user document. Local exports also include referenced local image/STL attachments. Cloud exports contain file metadata/URLs; keep original Firebase/Drive files as well. Exports fail rather than silently skipping unreadable collections.
+The selected profile and its data persist through normal refreshes, tab and browser closures, and restarts at the **same origin and browser profile**. Preview and production URLs have separate browser storage. Clearing site data, private browsing, storage limits, or browser eviction can remove local data. Keep a downloaded backup. Nicknames separate local workspaces within the app, but anyone with access to this browser can switch profiles.
 
-**Restore Backup** validates JSON and asks before merging records into the current workspace. Matching IDs receive backup values; unrelated records are retained. Large restores commit in batches of 400; if interrupted, retry the same backup. Local backups with attachments must be restored into the local workspace. A restore never clears the database first.
+### Transfer a workspace
+
+1. In the current Organizer, use **Settings → Export Everything**. For a profile in this branch, choose **Settings → Export profile data → Download profile backup**. Keep the original download.
+2. Open the Preview and choose **Import profile data**. Review the record and file counts, name the copy, and choose **Import as new profile**. The entire copy commits in one IndexedDB transaction. Imports accept the old JSON export and the new versioned backup. Existing profiles and source records remain intact.
+3. On the original site address, **Bring over an older workspace** can review and export the old IndexedDB workspace, older browser records, an existing Firebase session, or an existing Supabase account separately. The legacy account exporters require an existing session at that site address. Legacy stores and their schemas stay available to the previous app.
+4. For an existing Supabase account, **Review existing Supabase workspace** reads the cloud records and bundles the private files. **Review Supabase device copy** separately reads the cached device records and pending file bytes. Keep these separate to review conflicts or pending edits. The previous email build also offers **Export planner backup** under its account settings.
+5. Old cloud backups may contain file links rather than bytes. **Copy available cloud files** bundles accessible photos and STL files, keeping original links for any unavailable file. Private Drive originals require a separate read-only authorization. Verify the imported images and models before relying on the copy.
 
 ## Environment and integrations
 
@@ -91,27 +93,28 @@ See `.env.example`; never commit `.env`, `.env.local`, service-account files, OA
 | --- | --- |
 | `PORT`, `NODE_ENV` | Express port and development/production mode |
 | `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_APP_ID`, `VITE_FIRESTORE_DATABASE_ID` | Optional complete replacement for the bundled public Firebase configuration. Leave blank to preserve the original project/database. |
+| `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` | Optional public configuration for read-only export from an existing Supabase session. |
 | `FIREBASE_PROJECT_ID` | Server-side ID token verification project; default is the original project. Must match a replacement client project. No service-account private key is needed for ID token verification. |
 | `VITE_GOOGLE_CLIENT_ID` | Google Web OAuth client for Drive/Sheets consent |
 | `VITE_GOOGLE_API_KEY`, `VITE_GOOGLE_APP_ID` | Google Picker API key and Cloud project number; existing config is used where supported |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | Optional server-only AI extraction key and model ID enabled for that account. There is no invented/default model. |
 
-For cloud sign-in, enable the Google provider in Firebase Authentication and add the actual localhost/preview/production host to **Authentication → Settings → Authorized domains**. Use the original project to retain saved data. In Google Cloud, enable Drive API, Sheets API and Picker API as needed; configure the OAuth consent screen, permitted users/scopes and the site's exact JavaScript origin. The client requests `drive.file`, `drive.readonly` and `spreadsheets.readonly`. Authorize only an account with access to the chosen folders/files. Drive access tokens are held in memory/session storage and expire; reconnect through Settings when needed.
+Google Drive and Sheets access is optional and uses separate, explicit read-only file authorization. In Google Cloud, enable the applicable Drive, Sheets and Picker APIs and add the exact site's JavaScript origin to the OAuth client. Drive grants are held in memory for the current tab. Imported cloud attachments require authorized access to the original files or an export that already bundles their bytes.
 
-Google Drive uploads, folder access, Sheets imports and OAuth require real user authorization. Local/manual planning and STL storage do not. AI text import returns HTTP 503 when its configuration is missing, and requires a verified email account when enabled. Manual job entry stays available. URL import reads public metadata; private/loopback addresses, unsafe schemes and oversized pages are rejected. MakerWorld/Pinterest may block automated access. Pinterest failures return a clear error instead of fabricated pins; manual boards/images remain available.
+The existing AI text import endpoint still requires a verified Firebase identity when configured. Nickname profiles do not carry that identity. Manual job entry, local spreadsheet import, and public URL import remain available. URL imports reject unsafe addresses and may be blocked by the originating site.
 
 ## Deploy the complete Express website
 
-Static-only hosting is insufficient: imports and Drive/Sheets proxies use Express API routes. `vercel.json` deploys `api/index.ts` as the Express handler and `dist/public` assets on the same origin. `api/index.ts` loads the built `dist/app.cjs` Express backend and never starts a listening port. The build resolves internal TypeScript imports, bundles Firebase Admin and its ESM dependencies for Vercel cold starts, and embeds the original public Firebase configuration into that backend bundle; private credentials remain runtime environment variables. Existing Vite/React/Firebase architecture is retained.
+Static-only hosting is insufficient: imports and Drive/Sheets proxies use Express API routes. `vercel.json` deploys `api/index.ts` as the Express handler and `dist` assets on the same origin. `api/index.ts` loads the built `dist/app.cjs` Express backend and never starts a listening port. The build resolves internal TypeScript imports, bundles Firebase Admin and its ESM dependencies for Vercel cold starts, and embeds the original public Firebase configuration into that backend bundle; private credentials remain runtime environment variables. Existing Vite/React/Firebase architecture is retained.
 
 1. Push this working branch to the GitHub repository.
-2. In Vercel, open the existing **huntrr-organizer** project, linked to this repository, using the intended account/team and Node 24. Use Framework **Other**, install `npm ci`, build `npm run build`, output `dist/public` (also declared in `vercel.json`). Deploy the working branch as a **preview**, not a promotion to the live production domain.
+2. In Vercel, create/import **huntrr-organizer**, linked to this repository, using the intended account/team and Node 24. Use Framework **Other**, install `npm ci`, build `npm run build`, output `dist/public` (also declared in `vercel.json`). Deploy the working branch as a **preview**, not a promotion to the live production domain.
 3. Set optional server/client variables in that project's Preview environment before deployment. Keep private keys server-only. For local-only operation no secrets are required.
 4. Deploy. Check `/api/health`, `/`, `/favicon.svg`, a fingerprinted `/assets/` URL, and an unknown `/api/` URL (404 JSON). Test local CRUD and refresh on the resulting HTTPS origin.
-5. Follow docs/organizer-preview.md to configure the existing Supabase project and Preview redirects. Test email accounts using disposable sample data. Optional Drive/Sheets authorization uses its existing Google OAuth configuration.
-6. Keep the existing production domain and deployment unchanged until the Preview is tested and approved.
+5. Add the exact preview origin to the Google OAuth client only if testing optional Drive imports. Verify migration with disposable backup files. Keep the production site on its current deployment until the replacement is approved.
+6. Assign a custom domain only after confirming that it is available and configuring its DNS/TLS. The name `huntrr.organizer` is branding until then.
 
-For a conventional Node host, deploy the same source, run `npm ci && npm run build`, set `NODE_ENV=production`, and start `npm start` with the provider's `PORT`. `/api/health` is the health-check route. Firebase remains external durable cloud storage; do not rely on server-local files for user data.
+For a conventional Node host, deploy the same source, run `npm ci && npm run build`, set `NODE_ENV=production`, and start `npm start` with the provider's `PORT`. `/api/health` is the health-check route. Profile data stays in the browser, and legacy Firebase data remains in the original project.
 
 Rules are supplied for review and explicit Firebase deployment. If deploying them, target the original project **and named database**, compare existing deployed rules first, and deploy only rules/indexes intentionally reviewed for that project. This task does not grant access to Firebase Console or verify existing deployed rules through a live account.
 

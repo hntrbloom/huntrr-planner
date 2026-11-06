@@ -8,38 +8,33 @@ interface GoalsAndStreaksViewProps {
   onSectionChange?: (section: 'goals' | 'streaks') => void;
 }
 
-const SESSION_STORAGE_KEY = 'goals_streaks_active_section';
+import { useProfile } from '../lib/ProfileContext';
+import { db } from '../lib/firebase';
+import { doc, getDoc, setDoc } from '../lib/workspaceStore';
 
 export function GoalsAndStreaksView({ initialSection, onSectionChange }: GoalsAndStreaksViewProps) {
-  const [activeSection, setActiveSection] = useState<'goals' | 'streaks'>(() => {
-    try {
-      const saved = sessionStorage.getItem(SESSION_STORAGE_KEY);
-      if (saved === 'goals' || saved === 'streaks') {
-        return saved;
-      }
-    } catch (e) {
-      console.warn('Unable to access sessionStorage:', e);
-    }
-    return initialSection === 'streaks' ? 'streaks' : 'goals';
-  });
+  const { user } = useProfile();
+  const [activeSection, setActiveSection] = useState<'goals' | 'streaks'>(initialSection ?? 'goals');
+  const [selected, setSelected] = useState(false);
 
-  // Sync if external navigation requested a specific section
   useEffect(() => {
-    if (initialSection && (initialSection === 'goals' || initialSection === 'streaks')) {
+    if (initialSection) {
       setActiveSection(initialSection);
-      try {
-        sessionStorage.setItem(SESSION_STORAGE_KEY, initialSection);
-      } catch (e) {}
+      return;
     }
-  }, [initialSection]);
+    if (!user || selected) return;
+    let mounted = true;
+    getDoc(doc(db, `users/${user.uid}/preferences`, 'goalsView')).then(snapshot => {
+      const saved = snapshot.data()?.section;
+      if (mounted && (saved === 'goals' || saved === 'streaks')) setActiveSection(saved);
+    }).catch(console.error);
+    return () => { mounted = false; };
+  }, [initialSection, user, selected]);
 
   const handleSectionSelect = (section: 'goals' | 'streaks') => {
+    setSelected(true);
     setActiveSection(section);
-    try {
-      sessionStorage.setItem(SESSION_STORAGE_KEY, section);
-    } catch (e) {
-      console.warn('Unable to write to sessionStorage:', e);
-    }
+    if (user) void setDoc(doc(db, `users/${user.uid}/preferences`, 'goalsView'), { section }).catch(() => {});
     onSectionChange?.(section);
   };
 
