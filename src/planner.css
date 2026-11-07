@@ -1,6 +1,5 @@
 /* Pocket planner: presentation tokens only. Storage and record colours stay intact. */
 :root {
-  --planner-pink: var(--pink-soft);
   --planner-blush: var(--pink-blush);
   --planner-paper: var(--white);
   --planner-lavender: var(--pink-pale);
@@ -143,12 +142,6 @@ button { transition: background-color .15s, border-color .15s, box-shadow .15s, 
 input[type='checkbox'] { border-radius: 5px; border-color: var(--black-light-gray); flex-shrink: 0; }
 input[type='checkbox']:checked { background: var(--pink-deep); border-color: var(--black-light-gray); }
 /* Login retains its real Google/local-workspace actions. */
-.planner-login-world { min-height: 100dvh; display: grid; place-items: center; padding: 35px 20px; }
-.planner-login-device { width: 440px; max-width: 100%; position: relative; text-align: center; background: var(--pink-blush); padding: 34px; border: 14px solid var(--planner-pink); border-radius: 34px; outline: 1px solid var(--black-light-gray); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--black-near) 8%, transparent), 0 0 0 5px color-mix(in srgb, var(--black-near) 8%, transparent), 0 15px 50px color-mix(in srgb, color-mix(in srgb, var(--black-near) 8%, transparent) 18.8%, transparent); }
-.planner-login-device h1 { font-weight: 900; letter-spacing: -.7px; color: var(--black-dark-gray); margin-top: 6px; }
-.planner-login-device > p:not(.planner-eyebrow) { font-size: 13px; line-height: 1.8; }
-.planner-login-device .text-\[12px\] { line-height: 1.7; color: var(--black-dark-gray); }
-.planner-login-device .space-y-3 > button { border-radius: 12px; font-size: 13px; min-height: 47px; }
 @media (min-width: 768px) and (max-width: 1080px) {
   .planner-world { padding-left: 17px; padding-right: 17px; }
   .planner-tabs { padding-left: 14px; padding-right: 14px; gap: 4px; }
@@ -228,8 +221,6 @@ input[type='checkbox']:checked { background: var(--pink-deep); border-color: var
   .drawer-page-grid { grid-template-columns: 1fr 1fr; }
   .drawer-page-grid button { font-size: 11px; min-height: 49px; padding: 10px; }
   .drawer-footnote { font-size: 18px !important; }
-  .planner-login-device { padding: 30px 23px; border-width: 11px; }
-  .planner-login-device h1 { font-size: 27px !important; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
@@ -292,8 +283,6 @@ button[class*='bg-[#FFB8CD]'] :is(span,svg), button[class*='bg-[#FF6B9E]'] :is(s
 .planner-page .task-notepad, .goal-card-heading { border-color: var(--black-light-gray); }
 .goal-card-heading { background: var(--pink-pale); }
 .drawer-page-grid button[aria-current='page'] { background: var(--pink-pale); color: var(--black-near); border-color: var(--pink-deep); box-shadow: inset 3px 0 var(--pink-deep); }
-.planner-login-device { background: var(--white); }
-.planner-login-device h1 { color: var(--black-near); }
 @media (max-width: 767px) {
   .planner-tabs button { border-radius: 8px 8px 0 0; }
 }

@@ -14,13 +14,16 @@
 }
 .app-container.planner-world { padding: calc(var(--cat-header-height) + 20px) 30px 20px; }
 .planner-device, .planner-bezel, .planner-screen, .planner-page, .device-bottom { box-sizing: border-box; }
-.planner-world .planner-device {
-  width: 100%; max-width: 1420px; height: calc(100dvh - var(--cat-header-height) - 40px);
-  min-height: 420px; max-height: none; margin: 0 auto; padding: var(--tablet-rim);
+.planner-device {
+  width: 100%; max-width: 1420px; margin: 0 auto; padding: var(--tablet-rim);
   position: relative; display: flex; flex-direction: column; overflow: clip;
   background: var(--tablet-body); color: var(--tablet-ink);
   border: 1px solid var(--tablet-outline); border-radius: var(--tablet-radius);
   box-shadow: 0 12px 30px var(--tablet-shadow);
+}
+.planner-world .planner-device {
+  height: calc(100dvh - var(--cat-header-height) - 40px);
+  min-height: 420px; max-height: none;
 }
 .planner-bezel {
   flex: 1; min-height: 0; min-width: 0; display: flex; padding: var(--tablet-bezel-width);

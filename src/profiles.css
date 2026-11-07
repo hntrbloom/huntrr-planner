@@ -1,15 +1,30 @@
-.profile-welcome-world { grid-template-columns: minmax(0, 1fr); }
+.profile-welcome-world {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  padding: clamp(.75rem, 4vw, 2rem);
+}
+.profile-welcome-world > .planner-device { max-width: 720px; }
 .profile-welcome {
-  width: min(560px, 100%);
+  width: min(520px, 100%);
   min-width: 0;
+  margin: auto;
+  padding: clamp(.875rem, 3vw, 1.75rem);
   box-sizing: border-box;
-  color: var(--black-near);
+  text-align: center;
   overflow-wrap: anywhere;
 }
 .profile-welcome h1 {
   font-size: clamp(1.45rem, 5vw, 2rem);
+  font-weight: 900;
+  letter-spacing: -.7px;
   line-height: 1.2;
   margin: 0 0 .75rem;
+}
+.profile-welcome > p { font-size: 13px; line-height: 1.8; }
+@media (max-width: 767px) {
+  .profile-welcome h1 { font-size: 27px !important; }
 }
 .profile-welcome-paws {
   display: block;
@@ -27,7 +42,7 @@
   font-weight: 700;
   cursor: pointer;
 }
-.profile-welcome-import > .profile-panel { border: 0; padding: 0; margin: 0; }
+.profile-welcome-import > .profile-panel { background: transparent; border: 0; padding: 0; margin: 0; }
 .profile-welcome-import > .profile-panel > h2 { display: none; }
 .profile-panel {
   background: var(--white);

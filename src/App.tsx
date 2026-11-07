@@ -12,6 +12,7 @@ import { FocusTimer } from './components/FocusTimer';
 import { MedicationPopup } from './components/MedicationPopup';
 import { isLocalUser } from './lib/workspaceMode';
 import { StorageNotice } from './components/StorageNotice';
+import { TabletFrame } from './components/TabletFrame';
 const JobApplicationsView = lazy(() => import('./components/JobApplicationsView').then(m => ({ default: m.JobApplicationsView })));
 const RemindersView = lazy(() => import('./components/RemindersView').then(m => ({ default: m.RemindersView })));
 const InspirationView = lazy(() => import('./components/InspirationView').then(m => ({ default: m.InspirationView })));
@@ -160,28 +161,27 @@ export default function App() {
       />
       
       <a className="planner-skip-link" href="#planner-content" onClick={event => { event.preventDefault(); document.getElementById('planner-content')?.focus(); }}>Skip to planner page</a>
-      <div className="planner-device">
-        <div className="planner-bezel">
-          <div className="planner-screen">
-            <div id="planner-content" tabIndex={-1} data-page={currentView} className="planner-page">
-              <ErrorBoundary key={currentView}>
-                <Suspense fallback={<div role="status" className="p-10 text-on-surface-variant">Loading your space…</div>}>{renderView()}</Suspense>
-              </ErrorBoundary>
+      <TabletFrame
+        footer={
+          <footer className="device-bottom">
+            <div className="device-controls">
+              <button onClick={() => handleViewChange('agenda')} aria-label="Go home" title="Home"><House size={16} /></button>
+              <button onClick={() => handleViewChange('notes')} aria-label="Open notebook" title="Notebook"><NotebookPen size={16} /></button>
+              <button onClick={() => handleViewChange('settings')} aria-label="Open settings" title="Settings"><Settings size={16} /></button>
             </div>
-          </div>
+            <div className="device-meta">
+              <span className="device-model">little plans.</span>
+              <FocusTimer />
+            </div>
+          </footer>
+        }
+      >
+        <div id="planner-content" tabIndex={-1} data-page={currentView} className="planner-page">
+          <ErrorBoundary key={currentView}>
+            <Suspense fallback={<div role="status" className="p-10 text-on-surface-variant">Loading your space…</div>}>{renderView()}</Suspense>
+          </ErrorBoundary>
         </div>
-        <footer className="device-bottom">
-          <div className="device-controls">
-            <button onClick={() => handleViewChange('agenda')} aria-label="Go home" title="Home"><House size={16} /></button>
-            <button onClick={() => handleViewChange('notes')} aria-label="Open notebook" title="Notebook"><NotebookPen size={16} /></button>
-            <button onClick={() => handleViewChange('settings')} aria-label="Open settings" title="Settings"><Settings size={16} /></button>
-          </div>
-          <div className="device-meta">
-            <span className="device-model">little plans.</span>
-            <FocusTimer />
-          </div>
-        </footer>
-      </div>
+      </TabletFrame>
     </div>
   );
 }
