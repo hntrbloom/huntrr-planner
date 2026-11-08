@@ -23,20 +23,6 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 button { transition: background-color .15s, border-color .15s, box-shadow .15s, transform .15s; }
 :focus-visible { outline: 3px solid var(--black-light-gray); outline-offset: 3px; }
 ::selection { background: var(--pink-pale); color: var(--black-dark-gray); }
-.planner-world { padding: 54px 30px 24px; min-height: 100dvh; }
-.app-container.planner-world { --workspace-banner-height: 0px; }
-.workspace-ribbon { position: absolute; top: 13px; left: 0; width: 100%; display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 11px; color: var(--black-dark-gray); min-height: 24px; padding: 0 12px; }
-.workspace-ribbon button { color: var(--black-dark-gray); }
-.planner-tabs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)) 1.15fr; padding: 12px 24px 0; gap: 9px; background: var(--pink-pale); border-bottom: 1px solid var(--planner-border); flex-shrink: 0; }
-.planner-tabs button { min-height: 55px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 8px 13px; color: var(--black-dark-gray); font-size: 12px; font-weight: 700; border-radius: 13px 13px 0 0; border: 1px solid transparent; border-bottom: 0; position: relative; }
-.planner-tabs button:hover { background: var(--pink-pale); color: var(--black-dark-gray); }
-.planner-tabs [aria-current='page'] { color: var(--black-dark-gray); background: var(--planner-paper); border-color: var(--planner-border); box-shadow: 0 2px var(--planner-paper); }
-.planner-tabs [aria-current='page']::before { content: ''; position: absolute; top: -1px; height: 4px; width: 32px; background: var(--pink-soft); border-radius: 0 0 5px 5px; }
-.planner-tabs button:nth-child(2)[aria-current] { background: var(--pink-pale); }
-.planner-tabs button:nth-child(4)[aria-current] { background: var(--pink-pale); }
-.planner-tabs button:nth-child(5)[aria-current] { background: var(--pink-pale); }
-.planner-tabs button:nth-child(6)[aria-current] { background: var(--pink-pale); }
-.planner-tabs .all-pages-button { border-left: 1px dashed var(--black-light-gray); border-radius: 0; margin-left: 8px; }
 .planner-page > main, .planner-page > div { animation: page-in .18s ease-out; }
 @keyframes page-in { from { opacity: .65; } to { opacity: 1; } }
 .planner-page .pb-safe-nav { padding-bottom: 28px !important; }
@@ -141,11 +127,7 @@ button { transition: background-color .15s, border-color .15s, box-shadow .15s, 
 [role='dialog'] h2, [role='dialog'] h3 { font-family: 'Nunito', sans-serif; color: var(--black-dark-gray); }
 input[type='checkbox'] { border-radius: 5px; border-color: var(--black-light-gray); flex-shrink: 0; }
 input[type='checkbox']:checked { background: var(--pink-deep); border-color: var(--black-light-gray); }
-/* Login retains its real Google/local-workspace actions. */
 @media (min-width: 768px) and (max-width: 1080px) {
-  .planner-world { padding-left: 17px; padding-right: 17px; }
-  .planner-tabs { padding-left: 14px; padding-right: 14px; gap: 4px; }
-  .planner-tabs button { font-size: 11px; gap: 6px; }
   .agenda-scroll-container { padding: 22px; }
   .welcome-friend { margin: 0; width: 120px; }
   .home-actions { flex-wrap: wrap; }
@@ -155,13 +137,6 @@ input[type='checkbox']:checked { background: var(--pink-deep); border-color: var
   .planner-page[data-page='notes'] > div > section:first-child { width: 240px; }
 }
 @media (max-width: 767px) {
-  .app-container.planner-world { padding: 47px 10px 18px; overflow-x: clip; }
-  .workspace-ribbon { top: 9px; font-size: 9px; gap: 8px; }
-  .planner-tabs { position: sticky; top: 0; z-index: 40; border-radius: 12px 12px 0 0; padding: 7px 4px 0; gap: 1px; grid-template-columns: repeat(7,minmax(0,1fr)); }
-  .planner-tabs button { flex-direction: column; min-height: 58px; gap: 4px; padding: 9px 1px; font-size: 9px; border-radius: 8px 8px 0 0; }
-  .planner-tabs button > svg { width: 17px; height: 17px; }
-  .planner-tabs .all-pages-button { margin-left: 0; border-left: 0; }
-  .planner-tabs [aria-current='page']::before { width: 20px; height: 3px; }
   .planner-page > main, .planner-page > div { flex: none; }
   .agenda-scroll-container { padding: 18px 13px 22px; }
   .home-page-label { margin-bottom: 13px; font-size: 8px; }
@@ -225,10 +200,6 @@ input[type='checkbox']:checked { background: var(--pink-deep); border-color: var
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
 }
-@media print {
-  .device-top, .device-bottom, .planner-tabs, .screen-footer, .workspace-ribbon { display: none !important; }
-  .planner-world, .planner-device, .planner-screen, .planner-page { height: auto; max-height: none; padding: 0; border: 0; box-shadow: none; overflow: visible; }
-}
 .planner-topbar { border-bottom: 1px dashed var(--black-light-gray); min-height: 60px; padding-top: 10px; padding-bottom: 10px; }
 .planner-page .group:focus-within [class*='group-hover:opacity-100'], .planner-page button:focus-visible { opacity: 1; }
 @media (max-width: 767px), (hover: none) {
@@ -249,14 +220,6 @@ input[type='checkbox']:checked { background: var(--pink-deep); border-color: var
 /* Shared colors for planner controls and cards. */
 :focus-visible { outline-color: var(--pink-berry); }
 ::selection { background: var(--pink-soft); color: var(--black-near); }
-.planner-tabs { background: var(--pink-soft); border-bottom-color: var(--black-light-gray); }
-.planner-tabs button { color: var(--black-near); border-radius: 13px 13px 0 0; }
-.planner-tabs button:hover { background: var(--surface-soft); color: var(--black-near); }
-.planner-tabs button[aria-current='page'], .planner-tabs button[aria-expanded='true'] { background: var(--pink-deep); color: var(--white); border-color: var(--pink-deep); box-shadow: 0 2px var(--pink-deep); }
-.planner-tabs button[aria-current='page']:hover, .planner-tabs button:active { background: var(--pink-berry); color: var(--white); }
-.planner-tabs [aria-current='page']::before { background: var(--pink-soft); }
-.planner-tabs .all-pages-button { border-left-color: var(--black-light-gray); }
-.planner-tabs button:focus-visible { outline-color: var(--pink-soft); outline-offset: -4px; }
 .paper-insert, .habits-insert { background: var(--pink-pale); border-color: var(--black-light-gray); }
 .paper-insert::before, .habits-insert::before, .progress-insert::before { background: var(--pink-soft); }
 .progress-insert { background: var(--white); color: var(--black-near); border-color: var(--black-light-gray); }
@@ -267,8 +230,8 @@ input[type='checkbox']:checked { background: var(--pink-deep); border-color: var
 .progress-flower::before { background: var(--white); }
 .progress-flower span { color: var(--black-near); }
 .planner-page :is(h1,h2,h3,h4), .planner-drawer :is(h2,h3), [role='dialog'] :is(h1,h2,h3,h4) { color: var(--black-near); }
-.quick-actions button, .notes-empty button, .device-controls button { color: var(--pink-deep); }
-.quick-actions button:hover, .notes-empty button:hover, .device-controls button:hover { background: var(--pink-pale); color: var(--pink-berry); }
+.quick-actions button, .notes-empty button { color: var(--pink-deep); }
+.quick-actions button:hover, .notes-empty button:hover { background: var(--pink-pale); color: var(--pink-berry); }
 input[type='checkbox'] { border-color: var(--black-mid-gray); }
 input[type='checkbox']:checked { background: var(--pink-deep); border-color: var(--pink-deep); }
 /* Primary actions keep white labels; decorative pastels never carry white text. */
@@ -283,9 +246,6 @@ button[class*='bg-[#FFB8CD]'] :is(span,svg), button[class*='bg-[#FF6B9E]'] :is(s
 .planner-page .task-notepad, .goal-card-heading { border-color: var(--black-light-gray); }
 .goal-card-heading { background: var(--pink-pale); }
 .drawer-page-grid button[aria-current='page'] { background: var(--pink-pale); color: var(--black-near); border-color: var(--pink-deep); box-shadow: inset 3px 0 var(--pink-deep); }
-@media (max-width: 767px) {
-  .planner-tabs button { border-radius: 8px 8px 0 0; }
-}
 
 .insert-link, .welcome-date strong { color: var(--pink-deep); }
 .planner-category-tab[aria-pressed='true'] { background-color: var(--pink-deep) !important; color: var(--white); border-color: var(--pink-deep); }

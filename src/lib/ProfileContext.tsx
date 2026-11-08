@@ -2,7 +2,6 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { createProfile, readProfiles, renameProfile, selectProfile, type Profile } from './profileStore';
 import { importProfileBackup } from './backup';
 import { findBrowserWorkspaces } from './legacyBackup';
-import { ProfileWelcome } from '../components/ProfileWelcome';
 
 interface ProfileUser {
   uid: string;
@@ -15,6 +14,7 @@ interface ProfileContextValue {
   user: ProfileUser | null;
   profile: Profile | null;
   profiles: Profile[];
+  storageError: string;
   legacy: { local: boolean; browser: boolean };
   create: (nickname: string) => Promise<void>;
   select: (id: string) => Promise<void>;
@@ -64,7 +64,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
   if (!ready) return null;
   return <ProfileContext.Provider value={{
-    user, profile, profiles, legacy,
+    user, profile, profiles, legacy, storageError: error,
     create: async nickname => activate(await createProfile(nickname)),
     select: async id => activate(await selectProfile(id)),
     rename: async nickname => {
@@ -75,7 +75,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     },
     importBackup: async (nickname, backup) => activate(await importProfileBackup(nickname, backup)),
   }}>
-    {profile ? <div key={profile.id} className="profile-workspace">{children}</div> : <ProfileWelcome error={error} />}
+    {children}
   </ProfileContext.Provider>;
 }
 

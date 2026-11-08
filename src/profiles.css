@@ -1,11 +1,3 @@
-.profile-welcome-world {
-  min-height: 100dvh;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: center;
-  padding: clamp(.75rem, 4vw, 2rem);
-}
-.profile-welcome-world > .planner-device { max-width: 720px; }
 .profile-welcome {
   width: min(520px, 100%);
   min-width: 0;
@@ -97,4 +89,3 @@
 .profile-list small { display: block; color: var(--black-dark-gray); }
 .profile-panel fieldset { display: grid; gap: .65rem; }
 .profile-panel [role="alert"], .profile-welcome [role="alert"] { color: var(--pink-berry); }
-.cat-workspace-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

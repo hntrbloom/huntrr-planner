@@ -1,8 +1,7 @@
 import { DialogAccessibility } from './components/DialogAccessibility';
-import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { House, NotebookPen, Settings } from 'lucide-react';
-import { CatPlannerHeader } from './components/CatPlannerHeader';
-import { Sidebar } from './components/Navigation';
+import { useState, useEffect, lazy, Suspense } from 'react';
+import { ChevronLeft, ChevronRight, Grid2X2, House, Settings } from 'lucide-react';
+import { Sidebar, plannerPageOrder } from './components/Navigation';
 import { ViewState } from './types';
 import { db } from './lib/firebase';
 import { doc, onSnapshot } from './lib/workspaceStore';
@@ -12,7 +11,8 @@ import { FocusTimer } from './components/FocusTimer';
 import { MedicationPopup } from './components/MedicationPopup';
 import { isLocalUser } from './lib/workspaceMode';
 import { StorageNotice } from './components/StorageNotice';
-import { TabletFrame } from './components/TabletFrame';
+import { ProfileWelcome } from './components/ProfileWelcome';
+import { RetroPlannerShell } from './components/RetroPlannerShell';
 const JobApplicationsView = lazy(() => import('./components/JobApplicationsView').then(m => ({ default: m.JobApplicationsView })));
 const RemindersView = lazy(() => import('./components/RemindersView').then(m => ({ default: m.RemindersView })));
 const InspirationView = lazy(() => import('./components/InspirationView').then(m => ({ default: m.InspirationView })));
@@ -26,7 +26,6 @@ const StreaksView = lazy(() => import('./components/StreaksView').then(m => ({ d
 const CharacterWikiView = lazy(() => import('./components/CharacterWikiView').then(m => ({ default: m.CharacterWikiView })));
 const MiniFurnitureView = lazy(() => import('./components/MiniFurnitureView').then(m => ({ default: m.MiniFurnitureView })));
 const BlogView = lazy(() => import('./components/BlogView').then(m => ({ default: m.BlogView })));
-const GoalsView = lazy(() => import('./components/GoalsView').then(m => ({ default: m.GoalsView })));
 const GoalsAndStreaksView = lazy(() => import('./components/GoalsAndStreaksView').then(m => ({ default: m.GoalsAndStreaksView })));
 const KeychainsView = lazy(() => import('./components/KeychainsView').then(m => ({ default: m.KeychainsView })));
 const ClientReceiptsView = lazy(() => import('./components/ClientReceiptsView').then(m => ({ default: m.ClientReceiptsView })));
@@ -34,8 +33,13 @@ const ShoppingListsView = lazy(() => import('./components/ShoppingListsView').th
 const ModelViewerView = lazy(() => import('./components/ModelViewerView').then(m => ({ default: m.ModelViewerView })));
 const SettingsView = lazy(() => import('./components/SettingsView').then(m => ({ default: m.SettingsView })));
 
+function pageFromHash(): ViewState {
+  const page = window.location.hash.slice(1) as ViewState;
+  return plannerPageOrder.includes(page) || page === 'goals' || page === 'streaks' || page === 'charts' ? page : 'agenda';
+}
+
 export default function App() {
-  const { user, profile } = useProfile();
+  const { user, profile, storageError } = useProfile();
 
   useEffect(() => {
     if (!user || user.isAnonymous) return;
@@ -49,18 +53,25 @@ export default function App() {
     return () => unsub();
   }, [user]);
   
-  const [currentView, setCurrentView] = useState<ViewState>(() => { const view = window.location.hash.slice(1); return ['agenda','log','shopping','receipts','habits','minifurniture','models','wiki','goals_streaks','month','notes','blog','settings','jobs','reminders','pinterest','printing','keychains'].includes(view) ? view as ViewState : 'agenda'; });
+  const [currentView, setCurrentView] = useState(pageFromHash);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   useEffect(() => {
+    if (!profile) return;
     window.location.hash = currentView;
     document.title = `huntrr.organizer · ${currentView.replaceAll('_', ' ')}`;
-  }, [currentView]);
+  }, [currentView, profile]);
   useEffect(() => {
-    const change = () => { const view = window.location.hash.slice(1) as ViewState; if (view) setCurrentView(view); };
-    window.addEventListener('hashchange', change); return () => window.removeEventListener('hashchange', change);
+    const change = () => {
+      setCurrentView(pageFromHash());
+      setIsSidebarOpen(false);
+    };
+    window.addEventListener('hashchange', change);
+    return () => window.removeEventListener('hashchange', change);
   }, []);
   const [goalsStreaksSection, setGoalsStreaksSection] = useState<'goals' | 'streaks' | undefined>(undefined);
 
   const handleViewChange = (v: ViewState) => {
+    setIsSidebarOpen(false);
     if (v === 'goals') {
       setGoalsStreaksSection('goals');
       setCurrentView('goals_streaks');
@@ -72,14 +83,10 @@ export default function App() {
     }
   };
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-  useEffect(() => {
-    const media = window.matchMedia('(max-width: 767px)');
-    const closeMobileMenu = () => { if (media.matches) setIsSidebarOpen(false); };
-    media.addEventListener('change', closeMobileMenu);
-    return () => media.removeEventListener('change', closeMobileMenu);
-  }, []);
+  const orderedView = currentView === 'goals' || currentView === 'streaks' || currentView === 'charts' ? 'goals_streaks' : currentView;
+  const pageIndex = plannerPageOrder.indexOf(orderedView);
+  const previousPage = plannerPageOrder[pageIndex - 1];
+  const nextPage = plannerPageOrder[pageIndex + 1];
 
   const renderView = () => {
     switch (currentView) {
@@ -141,47 +148,46 @@ export default function App() {
   };
 
   return (
-    <div data-local-workspace={user?.isAnonymous || isLocalUser(user) ? 'true' : undefined} className="app-container planner-world text-on-surface font-body-md antialiased selection:bg-primary-container selection:text-on-primary-container">
-      <CatPlannerHeader
-        currentView={currentView}
-        onChangeView={handleViewChange}
-        menuOpen={isSidebarOpen}
-        onOpenMenu={() => setIsSidebarOpen(true)}
-        workspaceLabel={profile?.nickname ?? 'Local profile'}
-      />
-      <StorageNotice />
-      <DialogAccessibility />
-      <MedicationPopup />
-      
-      <Sidebar 
-        currentView={currentView} 
-        onChangeView={handleViewChange}
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-      />
-      
-      <a className="planner-skip-link" href="#planner-content" onClick={event => { event.preventDefault(); document.getElementById('planner-content')?.focus(); }}>Skip to planner page</a>
-      <TabletFrame
-        footer={
-          <footer className="device-bottom">
-            <div className="device-controls">
-              <button onClick={() => handleViewChange('agenda')} aria-label="Go home" title="Home"><House size={16} /></button>
-              <button onClick={() => handleViewChange('notes')} aria-label="Open notebook" title="Notebook"><NotebookPen size={16} /></button>
-              <button onClick={() => handleViewChange('settings')} aria-label="Open settings" title="Settings"><Settings size={16} /></button>
-            </div>
-            <div className="device-meta">
-              <span className="device-model">little plans.</span>
+    <div data-local-workspace={user?.isAnonymous || isLocalUser(user) ? 'true' : undefined} className="app-container retro-world text-on-surface font-body-md antialiased selection:bg-primary-container selection:text-on-primary-container">
+      <RetroPlannerShell controls={
+        <nav className="retro-controls" aria-label="Device controls">
+          <button type="button" className="retro-key retro-key-side" aria-label="Previous page" disabled={!profile || !previousPage} onClick={() => handleViewChange(previousPage)}>
+            <ChevronLeft aria-hidden="true" /><span>Prev</span>
+          </button>
+          <div className="retro-key-cluster">
+            <button type="button" className="retro-key" disabled={!profile} onClick={() => handleViewChange('agenda')}>
+              <House aria-hidden="true" /><span>Home</span>
+            </button>
+            <button type="button" className="retro-key" disabled={!profile} aria-haspopup="dialog" aria-expanded={isSidebarOpen} onClick={() => setIsSidebarOpen(open => !open)}>
+              <Grid2X2 aria-hidden="true" /><span>Menu</span>
+            </button>
+          </div>
+          <button type="button" className="retro-key retro-key-side" aria-label="Next page" disabled={!profile || !nextPage} onClick={() => handleViewChange(nextPage)}>
+            <span>Next</span><ChevronRight aria-hidden="true" />
+          </button>
+        </nav>
+      }>
+        {profile ? (
+          <>
+            <StorageNotice />
+            <DialogAccessibility />
+            <MedicationPopup />
+            <a className="planner-skip-link" href="#planner-content" onClick={event => { event.preventDefault(); document.getElementById('planner-content')?.focus(); }}>Skip to planner page</a>
+            <header className="retro-display-toolbar">
+              <button type="button" className="retro-profile" onClick={() => handleViewChange('settings')} aria-label="Profile settings">
+                <Settings size={15} aria-hidden="true" /><span>{profile.nickname}</span>
+              </button>
               <FocusTimer />
+            </header>
+            <div id="planner-content" key={currentView} tabIndex={-1} data-page={currentView} className="planner-page">
+              <ErrorBoundary>
+                <Suspense fallback={<div role="status" className="p-10 text-on-surface-variant">Loading your space…</div>}>{renderView()}</Suspense>
+              </ErrorBoundary>
             </div>
-          </footer>
-        }
-      >
-        <div id="planner-content" tabIndex={-1} data-page={currentView} className="planner-page">
-          <ErrorBoundary key={currentView}>
-            <Suspense fallback={<div role="status" className="p-10 text-on-surface-variant">Loading your space…</div>}>{renderView()}</Suspense>
-          </ErrorBoundary>
-        </div>
-      </TabletFrame>
+            <Sidebar currentView={currentView} onChangeView={handleViewChange} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+          </>
+        ) : <div className="retro-welcome-viewport"><ProfileWelcome error={storageError} /></div>}
+      </RetroPlannerShell>
     </div>
   );
 }
